@@ -312,9 +312,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            onPressed: () {
-              // TODO: Diálogo de confirmación para eliminar
-            },
+            onPressed: () {},
             icon: const Icon(Icons.delete_outline),
             label: const Text('Eliminar Usuario'),
             style: OutlinedButton.styleFrom(
