@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/admin/data/models/cliente_model.dart';
+import 'package:somnolence_app/features/admin/presentation/screens/gestion_servicios_screen.dart';
 
 class ClienteDetailScreen extends StatefulWidget {
   final ClienteModel cliente;
@@ -135,6 +136,7 @@ class _ClienteDetailScreenState extends State<ClienteDetailScreen> {
   }
 
   // --- BOTONES CON EL ESTILO SOLICITADO ---
+  // --- BOTONES CORREGIDOS ---
   Widget _buildActionButtons(BuildContext context) {
     return Column(
       children: [
@@ -146,7 +148,6 @@ class _ClienteDetailScreenState extends State<ClienteDetailScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text("Próximamente: Editar Cliente")),
               );
-              // Aquí abrirías el diálogo de edición
             },
             icon: const Icon(Icons.edit),
             label: const Text('Editar Cliente'),
@@ -159,22 +160,24 @@ class _ClienteDetailScreenState extends State<ClienteDetailScreen> {
         ),
         const SizedBox(height: 12),
 
-        // 2. Botón Gestionar Servicios (Verde - Acción Principal)
+        // 2. Botón Servicios Asociados (Verde - Acción Principal)
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: _isLoading
                 ? null
                 : () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Próximamente: Ir a Servicios"),
+                    // ✅ NAVEGACIÓN CORRECTA
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            GestionServiciosScreen(cliente: widget.cliente),
                       ),
                     );
-                    // Aquí navegarás a la pantalla de Servicios
                   },
             icon: const Icon(Icons.home_repair_service_rounded),
-            label: const Text('Habilitar o Deshabilitar'),
+            label: const Text('Gestionar Servicios'),
             style: OutlinedButton.styleFrom(
               backgroundColor: Colors.green[700],
               foregroundColor: Colors.white,
@@ -184,6 +187,8 @@ class _ClienteDetailScreenState extends State<ClienteDetailScreen> {
           ),
         ),
         const SizedBox(height: 12),
+
+        // 3. Botón Eliminar (Rojo - Zona de Peligro)
       ],
     );
   }
