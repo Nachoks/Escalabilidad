@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:somnolence_app/core/utils/roles_helper.dart';
+import 'package:somnolence_app/features/admin/presentation/screens/gestion_clientes_screen.dart';
 import 'package:somnolence_app/features/admin/presentation/screens/gestion_usuarios_screen.dart';
 import 'package:somnolence_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:somnolence_app/features/auth/presentation/screens/login_screen.dart';
@@ -155,6 +156,21 @@ class HomeDashboardScreen extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const GestionUsuariosScreen(),
+                        ),
+                      );
+                    },
+                  ),
+
+                if (esAdmin)
+                  _DashboardButton(
+                    title: "Gestión Clientes",
+                    icon: Icons.person_search,
+                    color: const Color.fromARGB(255, 221, 163, 27),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const GestionClientesScreen(),
                         ),
                       );
                     },

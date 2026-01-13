@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // ✅ Importante para acceder al Provider
+import 'package:provider/provider.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/core/utils/roles_helper.dart';
 import 'package:somnolence_app/features/admin/presentation/widgets/edit_user_dialog.dart';
 import 'package:somnolence_app/features/auth/data/models/user_model.dart';
-import 'package:somnolence_app/features/admin/presentation/providers/admin_users_provider.dart'; // ✅ Importamos el provider
+import 'package:somnolence_app/features/admin/presentation/providers/admin_users_provider.dart';
 
 class UserDetailsScreen extends StatefulWidget {
   final User user;
@@ -32,26 +32,52 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Detalle de Usuario', style: TextStyle()),
+        title: const Text('Detalle de Usuario'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // 1. Cabecera con Avatar y Nombre
-            _buildHeader(),
-            const SizedBox(height: 24),
+      // 🔥 CAMBIO ESTRUCTURAL AQUÍ
+      // Usamos Column para dividir la pantalla en: Contenido vs Botones Fijos
+      body: Column(
+        children: [
+          // 1. ZONA SCROLLABLE (Ocupa todo el espacio sobrante)
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 24),
+                  _buildInfoCard(),
+                  // Un pequeño espacio extra al final por si acaso
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ),
 
-            // 2. Tarjeta de Información Detallada
-            _buildInfoCard(),
-            const SizedBox(height: 30),
-
-            // 3. Botones de Acción
-            _buildActionButtons(context),
-          ],
-        ),
+          // 2. ZONA DE BOTONES (Fija abajo y Segura)
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -4),
+                ),
+              ],
+            ),
+            // SafeArea protege contra la barra de gestos/notch inferior
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: _buildActionButtons(context),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -101,7 +127,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
           }).toList(),
         ),
         const SizedBox(height: 8),
-        // Indicador de Estado (Badge extra opcional)
+        // Indicador de Estado
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
@@ -217,7 +243,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: _isLoading
-                ? null // Desactiva botón si está cargando
+                ? null
                 : () async {
                     // 1. Mostrar Diálogo de Confirmación
                     final confirmar = await showDialog<bool>(
@@ -250,16 +276,16 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                     if (confirmar == true) {
                       setState(() => _isLoading = true);
 
-                      // Llamada al Provider
                       final provider = context.read<AdminUsersProvider>();
                       final exito = await provider.cambiarEstadoUsuario(
                         widget.user.id,
                       );
 
+                      if (!mounted) return; // Chequeo de seguridad
+
                       setState(() => _isLoading = false);
 
                       if (exito) {
-                        // 3. Actualizar estado local para ver el cambio visual
                         setState(() {
                           _esHabilitado = !_esHabilitado;
                         });
@@ -298,8 +324,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                 : Icon(iconoBoton),
             label: Text(_isLoading ? 'Procesando...' : textoBoton),
             style: OutlinedButton.styleFrom(
-              backgroundColor:
-                  colorBoton, // Mantenemos tu estilo de fondo lleno
+              backgroundColor: colorBoton,
               foregroundColor: Colors.white,
               side: BorderSide(color: colorBoton),
               padding: const EdgeInsets.symmetric(vertical: 12),
@@ -307,22 +332,6 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
           ),
         ),
         const SizedBox(height: 12),
-
-        // Botón Eliminar
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('Eliminar Usuario'),
-            style: OutlinedButton.styleFrom(
-              backgroundColor: Colors.red[700],
-              foregroundColor: Colors.white,
-              side: BorderSide(color: Colors.red[700]!),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
-        ),
       ],
     );
   }
