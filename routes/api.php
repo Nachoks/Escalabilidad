@@ -6,7 +6,6 @@ use App\Http\Controllers\ViajeController;
 use App\Http\Controllers\VehiculoController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ClienteController;
-// 👇 AGREGAMOS ESTOS DOS CONTROLADORES NUEVOS
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\ServicioController;
 
@@ -19,30 +18,42 @@ Route::get('/ping', function () {
 
 // Rutas protegidas (Token Requerido)
 Route::middleware('auth:sanctum')->group(function () {
+    // --- AUTENTICACIÓN Y PERFIL ---
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
-    
-    Route::get('/vehiculos/patentes', [VehiculoController::class, 'obtenerPatentes']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
+    
+    // --- VEHÍCULOS ---
+    Route::get('/vehiculos/patentes', [VehiculoController::class, 'obtenerPatentes']);
 
-    // --- ZONA ADMIN (USUARIOS Y CLIENTES) ---
+    // --- ZONA ADMIN (USUARIOS) ---
     Route::get('/admin/users', [AdminController::class, 'listarUsuarios']);
     Route::get('/admin/empresas', [AdminController::class, 'listarEmpresas']); 
     Route::post('/admin/usuarios', [AdminController::class, 'crearUsuario']);  
     Route::put('/admin/usuarios/{id}/estado', [AdminController::class, 'cambiarEstadoUsuario']);
     Route::put('/admin/usuarios/{id}', [AdminController::class, 'actualizarUsuario']);
     
+    // --- CLIENTES ---
     Route::get('/clientes', [ClienteController::class, 'index']); 
     Route::post('/clientes', [ClienteController::class, 'store']); 
 
-    // --- GESTIÓN DE SERVICIOS (ADMIN) ---
-    // 1. Áreas: Para llenar el dropdown al crear servicio
+    // --- GESTIÓN DE SERVICIOS ---
+    
+    // 1. Áreas (Dropdown)
     Route::get('/admin/areas', [AreaController::class, 'index']);
 
-    // 2. Servicios: Creación y Listado
-    Route::post('/servicios', [ServicioController::class, 'store']); // Crear (genera centro costo)
-    Route::get('/servicios/cliente/{id}', [ServicioController::class, 'byCliente']); // Ver servicios de un cliente
-    
+    // 2. Operaciones de Servicios
+    Route::prefix('servicios')->group(function () {
+        // Rutas Base
+        Route::post('/', [ServicioController::class, 'store']);                  // Crear servicio simple
+        Route::get('/cliente/{id}', [ServicioController::class, 'byCliente']);  // Listar servicios de un cliente
+        Route::put('/{id}/info', [ServicioController::class, 'updateInfo']);      // Modificar Fechas/Facturación
+        Route::put('/{id}/finalizar', [ServicioController::class, 'finalizar']);    // Finalizar Servicio
+        Route::put('/{id}/reactivar', [ServicioController::class, 'reactivar']); // Reactivar Servicio
+        Route::post('/{id}/oc', [ServicioController::class, 'agregarOc']);        // Agregar una OC
+        Route::post('/{id}/has', [ServicioController::class, 'agregarHas']);      // Agregar una HAS
+    });
+
 });
 
 Route::get('/test-db', function () {
