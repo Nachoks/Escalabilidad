@@ -349,4 +349,118 @@ class ApiService {
       return {'success': false, 'message': 'Error de conexión: $e'};
     }
   }
+
+  static Future<bool> updateServiceInfo(
+    int id,
+    String? fechaInicio,
+    String facturacion,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/servicios/$id/info'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'fecha_inicio': fechaInicio,
+          'facturacion': facturacion,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print("Error updateServiceInfo: $e");
+      return false;
+    }
+  }
+
+  // 2. Finalizar Servicio
+  static Future<bool> finalizarServicio(int id, String fechaTermino) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/servicios/$id/finalizar'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'fecha_termino': fechaTermino}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print("Error finalizarServicio: $e");
+      return false;
+    }
+  }
+
+  // 3. Agregar OC
+  static Future<bool> agregarOc(int id, String codigoOc) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/servicios/$id/oc'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'cod_oc_cliente': codigoOc}),
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print("Error agregarOc: $e");
+      return false;
+    }
+  }
+
+  // 4. Agregar HAS
+  static Future<bool> agregarHas(int id, String codigoHas) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/servicios/$id/has'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'cod_has_guia': codigoHas}),
+      );
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print("Error agregarHas: $e");
+      return false;
+    }
+  }
+
+  static Future<bool> reactivarServicio(int id) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/servicios/$id/reactivar'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print("Error reactivarServicio: $e");
+      return false;
+    }
+  }
 }

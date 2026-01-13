@@ -2,11 +2,16 @@ class ServicioModel {
   final int? idServicio;
   final String nombreServicio;
   final int idCliente;
-  final int idArea; // 🔥 Este es el campo vital para tu nueva lógica
-  final String?
-  centroCosto; // Este lo recibimos generado del backend (XX-Y-ZZZ)
+  final int idArea;
+  final String? centroCosto;
   final String? fechaInicio;
   final String? fechaTermino;
+
+  // --- NUEVOS CAMPOS ---
+  final String? facturacion;
+  final String estadoServicio;
+  final List<dynamic> ordenesCompra; // Lista de OCs
+  final List<dynamic> guias; // Lista de HAS
 
   ServicioModel({
     this.idServicio,
@@ -16,23 +21,25 @@ class ServicioModel {
     this.centroCosto,
     this.fechaInicio,
     this.fechaTermino,
+    this.facturacion,
+    this.estadoServicio = 'Activo',
+    this.ordenesCompra = const [],
+    this.guias = const [],
   });
 
-  // Para enviar al Backend (POST)
   Map<String, dynamic> toJson() {
     return {
       'nombre_servicio': nombreServicio,
       'id_cliente': idCliente,
-      'id_area': idArea, // Enviamos el ID del área seleccionada (ej: 2)
+      'id_area': idArea,
       'fecha_inicio': fechaInicio,
       'fecha_termino': fechaTermino,
+      // No enviamos OC ni guias aquí porque se agregan por separado
     };
   }
 
-  // Para recibir del Backend (GET)
   factory ServicioModel.fromJson(Map<String, dynamic> json) {
     return ServicioModel(
-      // int.tryParse asegura que si viene "1" (String) lo pase a 1 (Int)
       idServicio: json['id_servicio'] is int
           ? json['id_servicio']
           : int.tryParse(json['id_servicio'].toString()),
@@ -47,9 +54,17 @@ class ServicioModel {
           ? json['id_area']
           : int.tryParse(json['id_area'].toString()) ?? 0,
 
-      centroCosto: json['centro_costo']?.toString(), // Puede ser null
+      centroCosto: json['centro_costo']?.toString(),
       fechaInicio: json['fecha_inicio']?.toString(),
       fechaTermino: json['fecha_termino']?.toString(),
+
+      // --- MAPPING NUEVOS CAMPOS ---
+      facturacion: json['facturacion']?.toString(),
+      estadoServicio: json['estado_servicio']?.toString() ?? 'Activo',
+
+      // Laravel suele devolver las relaciones como 'ordenes_compra' (snake_case)
+      ordenesCompra: json['ordenes_compra'] ?? [],
+      guias: json['guias'] ?? [],
     );
   }
 }

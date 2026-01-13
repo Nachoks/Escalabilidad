@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/admin/data/models/cliente_model.dart';
-import 'package:somnolence_app/features/admin/data/models/servicio_mode.dart';
+import 'package:somnolence_app/features/admin/data/models/servicio_model.dart';
 import 'package:somnolence_app/features/admin/data/models/area_model.dart'; // Asegúrate de crear este modelo
 import 'package:somnolence_app/features/admin/presentation/providers/servicio_provider.dart';
 

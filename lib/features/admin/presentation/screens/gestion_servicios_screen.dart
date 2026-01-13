@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/admin/data/models/cliente_model.dart';
 import 'package:somnolence_app/features/admin/presentation/providers/servicio_provider.dart';
+import 'package:somnolence_app/features/admin/presentation/screens/servicio_detalle_screen.dart';
 import 'package:somnolence_app/features/admin/presentation/widgets/add_servicio_dialog.dart';
 
 class GestionServiciosScreen extends StatefulWidget {
@@ -20,10 +21,25 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
     super.initState();
     // Cargar los servicios apenas entramos a la pantalla
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ServicioProvider>().cargarServiciosPorCliente(
-        widget.cliente.idCliente!,
-      );
+      if (widget.cliente.idCliente != null) {
+        context.read<ServicioProvider>().cargarServiciosPorCliente(
+          widget.cliente.idCliente!,
+        );
+      }
     });
+  }
+
+  // --- LÓGICA DE COLORES SEMÁFORO ---
+  Color _getColorByFacturacion(String? facturacion) {
+    switch (facturacion) {
+      case 'Totalmente facturado':
+        return Colors.green.shade100; // Verde
+      case 'Parcialmente facturado':
+        return Colors.amber.shade100; // Amarillo/Ambar
+      case 'No facturado':
+      default:
+        return Colors.red.shade100; // Rojo
+    }
   }
 
   @override
@@ -69,8 +85,13 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final servicio = provider.servicios[index];
+
+                // 1. Obtenemos el color según la facturación
+                final colorFondo = _getColorByFacturacion(servicio.facturacion);
+
                 return Card(
                   elevation: 2,
+                  color: colorFondo, // <--- APLICAMOS EL COLOR SEMÁFORO
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -80,34 +101,75 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
                       vertical: 8,
                     ),
                     leading: CircleAvatar(
-                      backgroundColor: Colors.blue.withOpacity(0.1),
-                      child: const Icon(Icons.work_outline, color: Colors.blue),
+                      backgroundColor: Colors.white.withOpacity(0.5),
+                      child: const Icon(
+                        Icons.work_outline,
+                        color: Colors.black54,
+                      ),
                     ),
                     title: Text(
                       servicio.nombreServicio,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        // QUITAMOS EL TACHADO Y DEJAMOS COLOR NEGRO
+                        color: Colors.black87,
+                      ),
                     ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 4),
-                        // Mostramos el Centro de Costo generado (XX-Y-ZZZ)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[200],
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            "CC: ${servicio.centroCosto ?? 'Pendiente'}",
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey[800],
+                        // Fila con Centro de Costo y Etiqueta de Finalizado
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.6),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                "${servicio.centroCosto ?? 'Pendiente'}",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[800],
+                                ),
+                              ),
                             ),
+                            const SizedBox(width: 8),
+                            // Etiqueta pequeña si está finalizado (para no perder esa info)
+                            if (servicio.estadoServicio == 'Finalizado')
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black87,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  "FINALIZADO",
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        // Texto explícito del estado de facturación
+                        Text(
+                          servicio.facturacion ?? "No facturado",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey[800],
                           ),
                         ),
                       ],
@@ -115,20 +177,26 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
                     trailing: const Icon(
                       Icons.arrow_forward_ios,
                       size: 16,
-                      color: Colors.grey,
+                      color: Colors.black45,
                     ),
                     onTap: () {
-                      // AQUÍ ES DONDE SE CUMPLE TU DESEO:
-                      // Al hacer click, iremos al "Dashboard del Servicio"
-                      // donde verás las OC y las HAS.
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            "Ir a Dashboard de: ${servicio.nombreServicio}",
-                          ),
+                      // NAVEGACIÓN A LA NUEVA PANTALLA
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              ServicioDetalleScreen(servicio: servicio),
                         ),
-                      );
-                      // Navigator.push(context, MaterialPageRoute(builder: (_) => DetalleServicioScreen(servicio: servicio)));
+                      ).then((_) {
+                        // AL VOLVER, RECARGAR LA LISTA
+                        if (mounted) {
+                          context
+                              .read<ServicioProvider>()
+                              .cargarServiciosPorCliente(
+                                widget.cliente.idCliente!,
+                              );
+                        }
+                      });
                     },
                   ),
                 );
