@@ -131,7 +131,7 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
                         ),
                         if (rendicion.centroCosto != null)
                           Text(
-                            "CC: ${rendicion.centroCosto}",
+                            "${rendicion.centroCosto}",
                             style: TextStyle(
                               color: Colors.grey[500],
                               fontStyle: FontStyle.italic,
