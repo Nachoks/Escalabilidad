@@ -51,6 +51,37 @@ class ClienteController extends Controller
             'data' => $cliente
         ], 201);
     }
+
+    // Actualizar cliente
+    public function update(Request $request, $id)
+    {
+        // 1. Buscar cliente
+        $cliente = Cliente::where('id_cliente', $id)->first();
+
+        if (!$cliente) {
+            return response()->json(['message' => 'Cliente no encontrado'], 404);
+        }
+
+        // 2. Validar (QUITAMOS cod_cliente de la validación porque no se toca)
+        $request->validate([
+            'nombre_cliente'       => 'required|string|max:255',
+            'correo_representante' => 'nullable|email|max:255',
+            'nombre_representante' => 'nullable|string|max:255',
+        ]);
+
+        // 3. Actualizar SOLO los campos permitidos
+        // No incluimos 'cod_cliente' aquí, por lo que se mantiene el original
+        $cliente->update([
+            'nombre_cliente'       => $request->nombre_cliente,
+            'correo_representante' => $request->correo_representante,
+            'nombre_representante' => $request->nombre_representante,
+        ]);
+
+        return response()->json([
+            'message' => 'Cliente actualizado correctamente',
+            'data' => $cliente
+        ], 200);
+    }
     
     // Listar clientes
     public function index()

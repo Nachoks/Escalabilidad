@@ -33,6 +33,10 @@ class DatabaseSeeder extends Seeder
         // 2. Crear Tipos de Usuario (Roles)
         $rolAdmin = TipoUsuario::create(['tipo_usuario' => 'Administrador']);
         $rolConductor = TipoUsuario::create(['tipo_usuario' => 'Conductor']);
+        $rolValidador = TipoUsuario::create(['tipo_usuario' => 'Validador']);
+        $rolRendidor = TipoUsuario::create(['tipo_usuario' => 'Rendidor']);
+
+
 
         // 3. Crear Personal y Usuarios (TODOS LOS CONDUCTORES)
         $conductores = [
