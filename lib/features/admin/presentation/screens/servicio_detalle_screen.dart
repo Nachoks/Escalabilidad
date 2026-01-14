@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+//import 'package:provider/provider.dart';
 import 'package:somnolence_app/core/api/api_service.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/admin/data/models/servicio_model.dart';
-import 'package:somnolence_app/features/admin/presentation/providers/servicio_provider.dart';
+//import 'package:somnolence_app/features/admin/presentation/providers/servicio_provider.dart';
 
 class ServicioDetalleScreen extends StatefulWidget {
   final ServicioModel servicio;

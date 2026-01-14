@@ -56,13 +56,19 @@ class ServicioProvider extends ChangeNotifier {
   }
 
   // --- 2. LISTAR SERVICIOS DE UN CLIENTE ---
-  Future<void> cargarServiciosPorCliente(int idCliente) async {
+  Future<void> cargarServiciosPorCliente(
+    int idCliente, {
+    int intento = 1,
+    int maxIntentos = 2,
+  }) async {
     _isLoading = true;
     _servicios = []; // Limpiamos visualmente
     _error = null; // Limpiamos errores viejos
     notifyListeners();
 
-    print("🔍 PROVIDER: Cargando servicios para Cliente ID: $idCliente...");
+    print(
+      "🔍 PROVIDER: Cargando servicios para Cliente ID: $idCliente (intento $intento)...",
+    );
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -80,28 +86,61 @@ class ServicioProvider extends ChangeNotifier {
       );
 
       print("📨 RESPUESTA CODE: ${response.statusCode}");
-      print("📦 RESPUESTA BODY: ${response.body}");
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
 
-        if (data.isEmpty) {
-          print("⚠️ La lista llegó vacía del Backend.");
-        } else {
-          print("✅ Se encontraron ${data.length} servicios. Procesando...");
-        }
+        print("📦 RESPUESTA BODY LENGTH: ${data.length}");
 
         _servicios = data.map((json) => ServicioModel.fromJson(json)).toList();
-        print("🎉 Lista procesada correctamente en Flutter.");
+        print(
+          "🎉 Lista procesada correctamente en Flutter. Total: ${_servicios.length}",
+        );
+
+        // Si la respuesta fue vacía y aún no llegamos al máximo de intentos, reintentamos
+        if (_servicios.isEmpty && intento < maxIntentos) {
+          print("⚠️ Respuesta vacía, reintentando en 600ms...");
+          await Future.delayed(const Duration(milliseconds: 600));
+          await cargarServiciosPorCliente(
+            idCliente,
+            intento: intento + 1,
+            maxIntentos: maxIntentos,
+          );
+        }
       } else {
         _error =
             "Error ${response.statusCode}: No se pudieron cargar servicios";
         print("❌ ERROR BACKEND: $_error");
+
+        // Si hubo error y podemos reintentar, lo hacemos
+        if (intento < maxIntentos) {
+          print(
+            "⚠️ Error al cargar, reintentando en 600ms (intento ${intento + 1})...",
+          );
+          await Future.delayed(const Duration(milliseconds: 600));
+          await cargarServiciosPorCliente(
+            idCliente,
+            intento: intento + 1,
+            maxIntentos: maxIntentos,
+          );
+        }
       }
     } catch (e, stackTrace) {
       _error = "Error interno: $e";
       print("🔥 EXCEPCIÓN FLUTTER: $e");
       print(stackTrace);
+
+      if (intento < maxIntentos) {
+        print(
+          "⚠️ Excepción, reintentando en 600ms (intento ${intento + 1})...",
+        );
+        await Future.delayed(const Duration(milliseconds: 600));
+        await cargarServiciosPorCliente(
+          idCliente,
+          intento: intento + 1,
+          maxIntentos: maxIntentos,
+        );
+      }
     } finally {
       _isLoading = false;
       notifyListeners();

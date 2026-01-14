@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/admin/data/models/cliente_model.dart';
+import 'package:somnolence_app/features/admin/presentation/providers/cliente_provider.dart';
 import 'package:somnolence_app/features/admin/presentation/screens/gestion_servicios_screen.dart';
+import 'package:somnolence_app/features/admin/presentation/widgets/edit_cliente_dialog.dart';
 
 class ClienteDetailScreen extends StatefulWidget {
   final ClienteModel cliente;
@@ -18,12 +21,20 @@ class _ClienteDetailScreenState extends State<ClienteDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cliente = widget.cliente;
+    // Escuchar provider para reaccionar a cambios y mostrar el cliente actualizado
+    final provider = context.watch<ClienteProvider>();
+    final cliente = provider.clientes.firstWhere(
+      (c) => c.idCliente == widget.cliente.idCliente,
+      orElse: () => widget.cliente,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text("Detalle del Cliente"),
+        title: const Text(
+          "Detalle del Cliente",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+        ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
@@ -126,7 +137,7 @@ class _ClienteDetailScreenState extends State<ClienteDetailScreen> {
               top: false,
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: _buildActionButtons(context),
+                child: _buildActionButtons(context, cliente),
               ),
             ),
           ),
@@ -135,9 +146,7 @@ class _ClienteDetailScreenState extends State<ClienteDetailScreen> {
     );
   }
 
-  // --- BOTONES CON EL ESTILO SOLICITADO ---
-  // --- BOTONES CORREGIDOS ---
-  Widget _buildActionButtons(BuildContext context) {
+  Widget _buildActionButtons(BuildContext context, ClienteModel cliente) {
     return Column(
       children: [
         // 1. Botón Editar (Azul)
@@ -145,8 +154,10 @@ class _ClienteDetailScreenState extends State<ClienteDetailScreen> {
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Próximamente: Editar Cliente")),
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => EditClienteDialog(cliente: cliente),
               );
             },
             icon: const Icon(Icons.edit),
@@ -172,7 +183,7 @@ class _ClienteDetailScreenState extends State<ClienteDetailScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (context) =>
-                            GestionServiciosScreen(cliente: widget.cliente),
+                            GestionServiciosScreen(cliente: cliente),
                       ),
                     );
                   },

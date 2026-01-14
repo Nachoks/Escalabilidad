@@ -10,11 +10,8 @@ class GestionClientesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Inyectamos el provider y cargamos los datos al inicio
-    return ChangeNotifierProvider(
-      create: (_) => ClienteProvider()..cargarClientes(),
-      child: const _ListaClientesContent(),
-    );
+    // Usamos el provider a nivel de app (main.dart) para evitar múltiples instancias
+    return const _ListaClientesContent();
   }
 }
 

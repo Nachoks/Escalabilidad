@@ -13,10 +13,10 @@ class GestionUsuariosScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AdminUsersProvider(),
-      child: const _ListaUsuariosContent(),
-    );
+    // Usamos el provider a nivel de app (main.dart). Evitamos crear
+    // una nueva instancia local para que las actualizaciones afecten
+    // a toda la app y no haya inconsistencias.
+    return const _ListaUsuariosContent();
   }
 }
 
@@ -182,16 +182,11 @@ class _ListaUsuariosContentState extends State<_ListaUsuariosContent> {
                               color: Colors.grey,
                             ),
                             onTap: () {
-                              final providerActual = context
-                                  .read<AdminUsersProvider>();
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) =>
-                                      ChangeNotifierProvider.value(
-                                        value: providerActual,
-                                        child: UserDetailsScreen(user: usuario),
-                                      ),
+                                      UserDetailsScreen(user: usuario),
                                 ),
                               );
                             },

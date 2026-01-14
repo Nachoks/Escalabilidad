@@ -4,6 +4,7 @@ import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/core/utils/roles_helper.dart';
 import 'package:somnolence_app/features/auth/data/models/user_model.dart';
 import 'package:somnolence_app/features/admin/presentation/providers/admin_users_provider.dart';
+import 'package:somnolence_app/features/auth/presentation/providers/auth_provider.dart';
 
 class EditUserDialog extends StatefulWidget {
   final User user;
@@ -321,6 +322,23 @@ class _EditUserDialogState extends State<EditUserDialog> {
     setState(() => _isSaving = false); // Desbloqueamos
 
     if (exito) {
+      // Si el usuario editado es el usuario en sesión, actualizamos el AuthProvider
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final providerActual = Provider.of<AdminUsersProvider>(
+        context,
+        listen: false,
+      );
+      try {
+        final updatedUser = providerActual.usuarios.firstWhere(
+          (u) => u.id == widget.user.id,
+        );
+        if (authProvider.currentUser?.id == updatedUser.id) {
+          authProvider.setUser(updatedUser);
+        }
+      } catch (e) {
+        // Si por alguna razón no está, ignoramos — no crítico
+      }
+
       Navigator.pop(context); // Cerramos diálogo
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

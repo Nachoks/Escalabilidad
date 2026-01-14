@@ -95,4 +95,14 @@ class ClienteProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<bool> actualizarCliente(int id, Map<String, dynamic> data) async {
+    _isLoading = true;
+    notifyListeners();
+    final success = await ApiService.editCliente(id, data);
+    if (success) await cargarClientes(); // Recargamos la lista
+    _isLoading = false;
+    notifyListeners();
+    return success;
+  }
 }

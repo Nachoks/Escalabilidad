@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:somnolence_app/features/admin/presentation/providers/admin_users_provider.dart';
+import 'package:somnolence_app/features/admin/presentation/providers/cliente_provider.dart';
 import 'package:somnolence_app/features/admin/presentation/providers/servicio_provider.dart';
 import 'package:somnolence_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:somnolence_app/features/auth/presentation/screens/login_screen.dart';
@@ -18,6 +19,9 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => AdminUsersProvider()),
         ChangeNotifierProvider(create: (_) => ServicioProvider()),
+        ChangeNotifierProvider(
+          create: (_) => ClienteProvider()..cargarClientes(),
+        ),
       ],
 
       child: const MyApp(),

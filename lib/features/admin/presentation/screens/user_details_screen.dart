@@ -16,23 +16,25 @@ class UserDetailsScreen extends StatefulWidget {
 }
 
 class _UserDetailsScreenState extends State<UserDetailsScreen> {
-  // Variable local para controlar el estado visualmente en esta pantalla
-  late bool _esHabilitado;
+  // Solo mantenemos un flag local para indicar carga mientras se ejecuta la acción
   bool _isLoading = false;
 
   @override
-  void initState() {
-    super.initState();
-    // Inicializamos con el valor que viene del usuario seleccionado
-    _esHabilitado = widget.user.estado;
-  }
-
-  @override
   Widget build(BuildContext context) {
+    // Escuchamos el provider para obtener el usuario actualizado
+    final provider = context.watch<AdminUsersProvider>();
+    final currentUser = provider.usuarios.firstWhere(
+      (u) => u.id == widget.user.id,
+      orElse: () => widget.user,
+    );
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Detalle de Usuario'),
+        title: const Text(
+          'Detalle de Usuario',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
@@ -46,9 +48,9 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  _buildHeader(),
+                  _buildHeader(currentUser),
                   const SizedBox(height: 24),
-                  _buildInfoCard(),
+                  _buildInfoCard(currentUser),
                   // Un pequeño espacio extra al final por si acaso
                   const SizedBox(height: 20),
                 ],
@@ -73,7 +75,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
               top: false,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: _buildActionButtons(context),
+                child: _buildActionButtons(context, currentUser),
               ),
             ),
           ),
@@ -82,15 +84,17 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(User currentUser) {
+    final esHabilitado = currentUser.estado;
+
     return Column(
       children: [
         CircleAvatar(
           radius: 50,
           backgroundColor: AppColors.primary.withOpacity(0.1),
           child: Text(
-            widget.user.nombreCompleto.isNotEmpty
-                ? widget.user.nombreCompleto[0].toUpperCase()
+            currentUser.nombreCompleto.isNotEmpty
+                ? currentUser.nombreCompleto[0].toUpperCase()
                 : '?',
             style: const TextStyle(
               fontSize: 40,
@@ -101,7 +105,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
         ),
         const SizedBox(height: 16),
         Text(
-          widget.user.nombreCompleto,
+          currentUser.nombreCompleto,
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
         ),
@@ -110,7 +114,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
         Wrap(
           spacing: 8,
           alignment: WrapAlignment.center,
-          children: widget.user.roles.map((rol) {
+          children: currentUser.roles.map((rol) {
             return Chip(
               avatar: Icon(
                 RoleHelper.getIconForRole(rol),
@@ -131,18 +135,16 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
-            color: _esHabilitado
+            color: esHabilitado
                 ? Colors.green.withOpacity(0.1)
                 : Colors.red.withOpacity(0.1),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: _esHabilitado ? Colors.green : Colors.red,
-            ),
+            border: Border.all(color: esHabilitado ? Colors.green : Colors.red),
           ),
           child: Text(
-            _esHabilitado ? "CUENTA ACTIVA" : "CUENTA DESHABILITADA",
+            esHabilitado ? "CUENTA ACTIVA" : "CUENTA DESHABILITADA",
             style: TextStyle(
-              color: _esHabilitado ? Colors.green[800] : Colors.red[800],
+              color: esHabilitado ? Colors.green[800] : Colors.red[800],
               fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
@@ -152,7 +154,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
     );
   }
 
-  Widget _buildInfoCard() {
+  Widget _buildInfoCard(User currentUser) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -160,16 +162,16 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            _buildInfoRow(Icons.business, 'Empresa', widget.user.empresa),
+            _buildInfoRow(Icons.business, 'Empresa', currentUser.empresa),
             const Divider(),
-            _buildInfoRow(Icons.fingerprint, 'RUT', widget.user.rut),
+            _buildInfoRow(Icons.fingerprint, 'RUT', currentUser.rut),
             const Divider(),
-            _buildInfoRow(Icons.email_outlined, 'Correo', widget.user.correo),
+            _buildInfoRow(Icons.email_outlined, 'Correo', currentUser.correo),
             const Divider(),
             _buildInfoRow(
               Icons.person_outline,
               'Nombre de Usuario',
-              widget.user.nombreUsuario,
+              currentUser.nombreUsuario,
             ),
           ],
         ),
@@ -207,13 +209,17 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
     );
   }
 
-  Widget _buildActionButtons(BuildContext context) {
-    // Definimos colores según estado
-    final colorBoton = _esHabilitado ? Colors.orange[800]! : Colors.green[700]!;
-    final textoBoton = _esHabilitado
+  Widget _buildActionButtons(BuildContext context, User currentUser) {
+    // Definimos colores según el estado del usuario actual
+    final colorBoton = currentUser.estado
+        ? Colors.orange[800]!
+        : Colors.green[700]!;
+    final textoBoton = currentUser.estado
         ? 'Deshabilitar Acceso'
         : 'Habilitar Acceso';
-    final iconoBoton = _esHabilitado ? Icons.block : Icons.check_circle_outline;
+    final iconoBoton = currentUser.estado
+        ? Icons.block
+        : Icons.check_circle_outline;
 
     return Column(
       children: [
@@ -224,7 +230,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
             onPressed: () {
               showDialog(
                 context: context,
-                builder: (context) => EditUserDialog(user: widget.user),
+                builder: (context) => EditUserDialog(user: currentUser),
               );
             },
             icon: const Icon(Icons.edit),
@@ -250,12 +256,12 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                       context: context,
                       builder: (ctx) => AlertDialog(
                         title: Text(
-                          _esHabilitado
+                          currentUser.estado
                               ? '¿Deshabilitar Usuario?'
                               : '¿Habilitar Usuario?',
                         ),
                         content: Text(
-                          _esHabilitado
+                          currentUser.estado
                               ? 'El usuario no podrá ingresar a la aplicación hasta que sea habilitado nuevamente.'
                               : 'El usuario recuperará el acceso a la aplicación inmediatamente.',
                         ),
@@ -278,7 +284,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
 
                       final provider = context.read<AdminUsersProvider>();
                       final exito = await provider.cambiarEstadoUsuario(
-                        widget.user.id,
+                        currentUser.id,
                       );
 
                       if (!mounted) return; // Chequeo de seguridad
@@ -286,18 +292,16 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                       setState(() => _isLoading = false);
 
                       if (exito) {
-                        setState(() {
-                          _esHabilitado = !_esHabilitado;
-                        });
-
+                        // No necesitamos cambiar estado localmente: el provider
+                        // ya actualizó la lista y notificará a los listeners.
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              _esHabilitado
+                              currentUser.estado
                                   ? 'Usuario Habilitado'
                                   : 'Usuario Deshabilitado',
                             ),
-                            backgroundColor: _esHabilitado
+                            backgroundColor: currentUser.estado
                                 ? Colors.green
                                 : Colors.orange,
                           ),

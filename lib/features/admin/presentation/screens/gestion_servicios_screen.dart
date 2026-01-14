@@ -52,7 +52,10 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Servicios Activos", style: TextStyle(fontSize: 18)),
+            const Text(
+              "Servicios Activos",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
             Text(
               widget.cliente.nombreCliente,
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w300),
@@ -199,6 +202,7 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
                       });
                     },
                   ),
+                  
                 );
               },
             ),
@@ -218,6 +222,18 @@ class _GestionServiciosScreenState extends State<GestionServiciosScreen> {
           ),
           const SizedBox(height: 8),
           const Text("Crea uno nuevo para comenzar"),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: () {
+              if (widget.cliente.idCliente != null) {
+                context.read<ServicioProvider>().cargarServiciosPorCliente(
+                      widget.cliente.idCliente!,
+                    );
+              }
+            },
+            icon: const Icon(Icons.refresh),
+            label: const Text('Reintentar'),
+          ),
         ],
       ),
     );
