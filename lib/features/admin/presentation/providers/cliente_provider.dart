@@ -49,6 +49,14 @@ class ClienteProvider extends ChangeNotifier {
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         _clientes = data.map((json) => ClienteModel.fromJson(json)).toList();
+
+        // Ordenamos por código de cliente para que la lista se muestre
+        // siempre en orden por `codCliente` (case-insensitive)
+        _clientes.sort((a, b) {
+          final ac = (a.codCliente ?? '').trim().toUpperCase();
+          final bc = (b.codCliente ?? '').trim().toUpperCase();
+          return ac.compareTo(bc);
+        });
       } else {
         _error = "Error al cargar clientes: ${response.statusCode}";
       }
