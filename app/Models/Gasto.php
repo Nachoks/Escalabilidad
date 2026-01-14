@@ -1,54 +1,44 @@
 <?php
 
-namespace App\Models;
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
-class Gasto extends Model
+return new class extends Migration
 {
-    use HasFactory;
-
-    protected $table = 'gasto';
-    protected $primaryKey = 'id_gasto';
-    public $timestamps = false;
-
-    protected $fillable = [
-        'fecha',
-        'num_documento',
-        'monto',
-        'estado_gasto',
-        'comentario_validador',
-        'id_validador',
-        'categoria_otro',
-        'id_rendicion',
-        'id_tipo_documento',
-        'id_categoria_gasto',
-    ];
-
-    // Relaciones
-    public function rendicion()
+    public function up(): void
     {
-        return $this->belongsTo(Rendicion::class, 'id_rendicion', 'id_rendicion');
+        Schema::create('gasto', function (Blueprint $table) {
+            $table->id('id_gasto');
+            $table->date('fecha')->nullable();
+            $table->string('num_documento', 255)->nullable();
+            $table->integer('monto')->nullable();
+            
+            $table->string('estado_gasto', 255)->default('Pendiente');
+            $table->string('comentario_validador', 255)->nullable();
+
+            // --- CAMPOS DE TEXTO (REEMPLAZAN LAS TABLAS MAESTRAS) ---
+            $table->string('tipo_documento', 255)->nullable(); // Ej: "Boleta"
+            $table->string('detalle', 255)->nullable();        // Ej: "Alimentación"
+
+            // --- RELACIONES (SOLO PADRE Y VALIDADOR) ---
+            $table->unsignedBigInteger('id_rendicion');
+            $table->unsignedBigInteger('id_validador')->nullable();
+
+            $table->foreign('id_rendicion')
+                ->references('id_rendicion')->on('rendicion')
+                ->onUpdate('cascade')
+                ->onDelete('cascade');
+
+            $table->foreign('id_validador')
+                ->references('id_usuario')->on('usuarios')
+                ->onUpdate('cascade')
+                ->onDelete('set null');
+        });
     }
 
-    public function tipoDocumento()
+    public function down(): void
     {
-        return $this->belongsTo(TipoDocumento::class, 'id_tipo_documento', 'id_tipo_documento');
+        Schema::dropIfExists('gasto');
     }
-
-    public function categoriaGasto()
-    {
-        return $this->belongsTo(CategoriaGasto::class, 'id_categoria_gasto', 'id_categoria_gasto');
-    }
-
-    public function validador()
-    {
-        return $this->belongsTo(User::class, 'id_validador', 'id_usuario');
-    }
-
-    public function archivos()
-    {
-        return $this->hasMany(GastoArchivo::class, 'id_gasto', 'id_gasto');
-    }
-}
+};

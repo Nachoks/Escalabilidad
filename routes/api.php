@@ -8,6 +8,8 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\ServicioController;
+use App\Http\Controllers\RendicionController; // <--- AGREGAR
+use App\Http\Controllers\GastoController;
 
 // Rutas públicas
 Route::post('/login', [AuthController::class, 'login']);
@@ -63,8 +65,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/rendiciones/{id}/enviar', [RendicionController::class, 'enviar']); 
 
     // --- GASTOS (Detalle + Fotos) ---
-    Route::post('/gastos', [GastoController::class, 'store']); // Agregar gasto con imagen
-    Route::delete('/gastos/{id}', [GastoController::class, 'destroy']); // Eliminar gasto
+    Route::post('/gastos', [GastoController::class, 'store']);           // 1. Crear Gasto (Texto)
+    Route::post('/gastos/archivo', [GastoController::class, 'subirArchivo']); // 2. Subir Archivo (Multipart)
+    Route::delete('/gastos/{id}', [GastoController::class, 'destroy']);
 
 });
 
