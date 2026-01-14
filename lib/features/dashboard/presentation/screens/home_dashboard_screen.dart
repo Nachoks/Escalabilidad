@@ -8,6 +8,7 @@ import 'package:somnolence_app/features/auth/presentation/screens/login_screen.d
 import 'package:somnolence_app/core/widgets/logo_appbar.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/dashboard/presentation/screens/perfil_screen.dart';
+import 'package:somnolence_app/features/rendiciones/presentation/screens/gestion_rendiciones_screen.dart';
 import 'control_salida_screen.dart';
 
 class HomeDashboardScreen extends StatelessWidget {
@@ -127,6 +128,20 @@ class HomeDashboardScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) => const PerfilScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _DashboardButton(
+                  title: "Rendiciones",
+                  icon: Icons.money,
+                  color: Colors.orange,
+                  onTap: () {
+                    // ✅ CONEXIÓN LISTA
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const GestionRendicionesScreen(),
                       ),
                     );
                   },

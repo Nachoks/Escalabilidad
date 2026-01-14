@@ -482,4 +482,101 @@ class ApiService {
       return false;
     }
   }
+
+  // =============================================================
+  // MÉTODOS GENÉRICOS HTTP (NUEVOS - PARA USAR EN INSTANCIAS)
+  // =============================================================
+
+  // GET Genérico: Maneja la URL y el Token automáticamente
+  Future<http.Response> get(String endpoint) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      // Accedemos a la variable estática baseUrl
+      final uri = Uri.parse('$baseUrl$endpoint');
+      print('📡 GET Genérico: $uri');
+
+      return await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+    } catch (e) {
+      print('❌ Error en GET Genérico: $e');
+      rethrow;
+    }
+  }
+
+  // POST Genérico: Maneja URL, Token y JSON Body
+  Future<http.Response> post(String endpoint, Map<String, dynamic> body) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      final uri = Uri.parse('$baseUrl$endpoint');
+      print('📡 POST Genérico: $uri');
+
+      return await http.post(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(body),
+      );
+    } catch (e) {
+      print('❌ Error en POST Genérico: $e');
+      rethrow;
+    }
+  }
+
+  // PUT Genérico (Lo necesitarás para "Enviar Rendición")
+  Future<http.Response> put(String endpoint, Map<String, dynamic> body) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      final uri = Uri.parse('$baseUrl$endpoint');
+      print('📡 PUT Genérico: $uri');
+
+      return await http.put(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(body),
+      );
+    } catch (e) {
+      print('❌ Error en PUT Genérico: $e');
+      rethrow;
+    }
+  }
+
+  // DELETE Genérico (Lo necesitarás para eliminar Gastos)
+  Future<http.Response> delete(String endpoint) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      final uri = Uri.parse('$baseUrl$endpoint');
+      print('📡 DELETE Genérico: $uri');
+
+      return await http.delete(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+    } catch (e) {
+      print('❌ Error en DELETE Genérico: $e');
+      rethrow;
+    }
+  }
 }
