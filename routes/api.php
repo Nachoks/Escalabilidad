@@ -55,6 +55,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/has', [ServicioController::class, 'agregarHas']);      // Agregar una HAS
     });
 
+    Route::get('/rendiciones', [RendicionController::class, 'misRendiciones']); // Listar historial
+    Route::post('/rendiciones', [RendicionController::class, 'store']); // Crear nueva (Borrador)
+    Route::get('/rendiciones/{id}', [RendicionController::class, 'show']); // Ver detalle
+    
+    // (Opcional) Ruta para cambiar estado a "Pendiente"
+    Route::put('/rendiciones/{id}/enviar', [RendicionController::class, 'enviar']); 
+
+    // --- GASTOS (Detalle + Fotos) ---
+    Route::post('/gastos', [GastoController::class, 'store']); // Agregar gasto con imagen
+    Route::delete('/gastos/{id}', [GastoController::class, 'destroy']); // Eliminar gasto
+
 });
 
 Route::get('/test-db', function () {

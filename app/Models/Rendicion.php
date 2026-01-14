@@ -44,4 +44,21 @@ class Rendicion extends Model
     {
         return $this->hasMany(Registro::class, 'id_rendicion', 'id_rendicion');
     }
+
+    public function getTotalGastadoAttribute()
+    {
+        return $this->gastos->where('estado_gasto', '!=', 'Rechazado')->sum('monto');
+    }
+
+    // 2. Saldo Final: (Lo que me dieron) - (Lo que gasté)
+    public function getSaldoAttribute()
+    {
+        $asignado = $this->monto_entregado ?? 0;
+        $gastado = $this->total_gastado; 
+
+        return $asignado - $gastado;
+    }
+
+    // IMPORTANTE: Esto hace que viajen en el JSON
+    protected $appends = ['total_gastado', 'saldo'];
 }
