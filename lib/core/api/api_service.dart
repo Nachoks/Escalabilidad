@@ -579,4 +579,44 @@ class ApiService {
       rethrow;
     }
   }
+
+  // POST Multipart (para subir archivos)
+  Future<http.StreamedResponse> postMultipart(
+    String endpoint,
+    Map<String, String> fields,
+    String? filePath,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      // Accedemos a la variable estática baseUrl
+      final uri = Uri.parse('$baseUrl$endpoint');
+
+      var request = http.MultipartRequest('POST', uri);
+
+      // Headers de autorización
+      request.headers.addAll({
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+
+      // Agregar los campos de texto (ej: id_gasto)
+      request.fields.addAll(fields);
+
+      // Agregar el archivo si existe
+      if (filePath != null && filePath.isNotEmpty) {
+        // 'archivo' es el nombre que espera tu GastoController en Laravel
+        request.files.add(
+          await http.MultipartFile.fromPath('archivo', filePath),
+        );
+      }
+
+      print('📡 UPLOADING a $uri con archivo: $filePath');
+      return await request.send();
+    } catch (e) {
+      print('❌ Error en Upload Multipart: $e');
+      rethrow;
+    }
+  }
 }
