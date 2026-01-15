@@ -29,7 +29,7 @@ class ClienteProvider extends ChangeNotifier {
   }
 
   // --- LISTAR CLIENTES (GET) ---
-  Future<void> cargarClientes() async {
+  Future<void> cargarClientes({int intento = 1, int maxIntentos = 2}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -59,9 +59,21 @@ class ClienteProvider extends ChangeNotifier {
         });
       } else {
         _error = "Error al cargar clientes: ${response.statusCode}";
+        // Reintentar si hay error y no es el último intento
+        if (intento < maxIntentos) {
+          await Future.delayed(const Duration(milliseconds: 600));
+          await cargarClientes(intento: intento + 1, maxIntentos: maxIntentos);
+          return; // Salir para no ejecutar finally aún
+        }
       }
     } catch (e) {
       _error = "Error de conexión: $e";
+      // Reintentar en caso de excepción
+      if (intento < maxIntentos) {
+        await Future.delayed(const Duration(milliseconds: 600));
+        await cargarClientes(intento: intento + 1, maxIntentos: maxIntentos);
+        return;
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -89,7 +101,13 @@ class ClienteProvider extends ChangeNotifier {
 
       if (response.statusCode == 201) {
         // Si se crea con éxito, recargamos la lista automáticamente
-        await cargarClientes();
+        try {
+          await cargarClientes();
+        } catch (e) {
+          // Si falla la recarga, al menos notificamos que se creó
+          _error = "Cliente creado, pero error al recargar lista: $e";
+          notifyListeners();
+        }
         return true;
       } else {
         _error = "Error al crear: ${response.body}";

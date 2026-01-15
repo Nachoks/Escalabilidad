@@ -44,9 +44,16 @@ class _ListaClientesContent extends StatelessWidget {
         ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Recargar lista',
+            onPressed: () {
+              context.read<ClienteProvider>().cargarClientes();
+            },
+          ),
+        ],
       ),
-
-      // Botón Flotante para Agregar
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
