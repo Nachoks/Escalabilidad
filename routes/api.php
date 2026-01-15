@@ -68,7 +68,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/gastos', [GastoController::class, 'store']);           // 1. Crear Gasto (Texto)
     Route::post('/gastos/archivo', [GastoController::class, 'subirArchivo']); // 2. Subir Archivo (Multipart)
     Route::delete('/gastos/{id}', [GastoController::class, 'destroy']);
-
+    Route::delete('/gastos/{idGasto}/archivo', [GastoController::class, 'eliminarArchivo']);
 });
 
 Route::get('/test-db', function () {

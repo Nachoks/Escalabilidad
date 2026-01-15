@@ -4,67 +4,118 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Rendicion;
 use App\Models\Servicio;
 
 class RendicionController extends Controller
 {
-    // 1. CREAR BORRADOR (Sin fecha todavía)
+    /**
+     * 1. CREAR BORRADOR
+     * - Fecha: NULL (Se asignará al enviar)
+     * - Carpetas: Se crean basadas en el ID con 3 dígitos (ej: 001)
+     */
     public function store(Request $request)
     {
         $request->validate([
-            'id_servicio' => 'required|exists:servicio,id_servicio',
-            'proposito'   => 'required|string|max:255',
-            // 'fecha' => YA NO SE PIDE AQUÍ
+            'id_servicio'     => 'required|exists:servicio,id_servicio',
+            'proposito'       => 'required|string|max:255',
             'monto_entregado' => 'nullable|integer',
         ]);
 
-        $servicio = Servicio::findOrFail($request->id_servicio);
+        try {
+            DB::beginTransaction();
 
-        $rendicion = Rendicion::create([
-            'id_usuario'      => Auth::id(),
-            'id_servicio'     => $request->id_servicio,
-            'fecha'           => null, // <-- Nace nula
-            'proposito'       => $request->proposito,
-            'monto_entregado' => $request->monto_entregado ?? 0,
-            'estado'          => 'Borrador',
-            'centro_costo'    => $servicio->centro_costo,
-        ]);
+            $servicio = Servicio::findOrFail($request->id_servicio);
+            
+            // 1. Crear en BD (Fecha NULL)
+            $rendicion = Rendicion::create([
+                'id_usuario'      => Auth::id(),
+                'id_servicio'     => $request->id_servicio,
+                'fecha'           => null, 
+                'proposito'       => $request->proposito,
+                'monto_entregado' => $request->monto_entregado ?? 0,
+                'estado'          => 'Borrador',
+                'centro_costo'    => $servicio->centro_costo,
+            ]);
 
-        return response()->json([
-            'success' => true, 
-            'data' => $rendicion
-        ], 201);
+            // 2. Crear Carpetas NAS: ID con 3 ceros (ej: ID 1 -> "001")
+            $nombreCarpeta = str_pad($rendicion->id_rendicion, 3, '0', STR_PAD_LEFT);
+
+            Storage::disk('nas_rendiciones')->makeDirectory($nombreCarpeta . '/gastos');
+            Storage::disk('nas_rendiciones')->makeDirectory($nombreCarpeta . '/pago');
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true, 
+                'message' => 'Rendición borrador creada',
+                'data' => $rendicion
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
     }
 
-    // 2. ENVIAR A REVISIÓN (Aquí se fija la fecha)
+    /**
+     * 2. ACTUALIZAR BORRADOR (Opcional)
+     * - Útil si el usuario se equivocó en el propósito o monto.
+     * - YA NO EDITA LA FECHA.
+     */
+    public function update(Request $request, $id)
+    {
+        $rendicion = Rendicion::findOrFail($id);
+
+        if ($rendicion->id_usuario != Auth::id()) return response()->json(['message' => 'No autorizado'], 403);
+        if ($rendicion->estado != 'Borrador') return response()->json(['message' => 'Solo se editan borradores'], 403);
+
+        $request->validate([
+            'proposito'       => 'nullable|string|max:255',
+            'monto_entregado' => 'nullable|integer',
+        ]);
+
+        $rendicion->update($request->only(['proposito', 'monto_entregado']));
+
+        return response()->json(['success' => true, 'message' => 'Rendición actualizada', 'data' => $rendicion]);
+    }
+
+    /**
+     * 3. ENVIAR A REVISIÓN
+     * - Aquí se asigna la FECHA REAL (now).
+     * - Cambia estado a 'Pendiente de Validación'.
+     */
     public function enviar($id)
     {
         $rendicion = Rendicion::findOrFail($id);
 
-        if ($rendicion->id_usuario != Auth::id()) {
-            return response()->json(['message' => 'No autorizado'], 403);
-        }
+        if ($rendicion->id_usuario != Auth::id()) return response()->json(['message' => 'No autorizado'], 403);
 
-        // Validar que tenga gastos (opcional, buena práctica)
+        // Validación: Debe tener gastos
         if ($rendicion->gastos()->count() == 0) {
-            return response()->json(['message' => 'La rendición no tiene gastos'], 400);
+            return response()->json(['message' => 'La rendición no tiene gastos, no se puede enviar'], 400);
         }
 
+        // Actualizamos Estado y TIMBRAMOS LA FECHA
         $rendicion->update([
             'estado' => 'Pendiente de Validación',
-            'fecha'  => now() // <-- AQUÍ SE GUARDA LA FECHA REAL
+            'fecha'  => now() 
         ]);
 
-        return response()->json(['success' => true, 'message' => 'Rendición enviada']);
+        return response()->json(['success' => true, 'message' => 'Rendición enviada exitosamente']);
     }
 
-    // ... (Mantén tus métodos misRendiciones y show iguales) ...
+    // --- Métodos de lectura (sin cambios) ---
     public function misRendiciones()
     {
         $rendiciones = Rendicion::where('id_usuario', Auth::id())
-                        ->with(['servicio:id_servicio,nombre_servicio,centro_costo'])
-                        ->orderByDesc('id_rendicion') // Ordenar por ID ya que fecha puede ser null
+                        ->with([
+                            'servicio:id_servicio,nombre_servicio,centro_costo', 
+                            'gastos' // <--- ESTO ES LO QUE FALTABA
+                        ])
+                        ->orderByDesc('id_rendicion')
                         ->get();
 
         return response()->json($rendiciones);
@@ -72,10 +123,8 @@ class RendicionController extends Controller
 
     public function show($id)
     {
-        $rendicion = Rendicion::with(['gastos', 'servicio'])->findOrFail($id);
-        if ($rendicion->id_usuario != Auth::id()) {
-            return response()->json(['message' => 'No autorizado'], 403);
-        }
+        $rendicion = Rendicion::with(['gastos.archivos', 'servicio'])->findOrFail($id);
+        if ($rendicion->id_usuario != Auth::id()) return response()->json(['message' => 'No autorizado'], 403);
         return response()->json($rendicion);
     }
 }

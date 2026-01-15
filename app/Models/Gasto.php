@@ -1,44 +1,48 @@
 <?php
 
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
+namespace App\Models;
 
-return new class extends Migration
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Gasto extends Model
 {
-    public function up(): void
+    use HasFactory;
+
+    protected $table = 'gasto';
+    protected $primaryKey = 'id_gasto';
+    public $timestamps = false; // La migración no tiene created_at/updated_at
+
+    protected $fillable = [
+        'fecha',
+        'num_documento',
+        'monto',
+        'estado_gasto',
+        'comentario_validador',
+        'tipo_documento', // Nuevo campo texto
+        'detalle',        // Nuevo campo texto
+        'id_rendicion',
+        'id_validador',
+        // 'categoria_otro' y 'proveedor' ya no están, así que no se agregan
+    ];
+
+    // --- RELACIONES ---
+
+    // Un Gasto pertenece a una Rendición
+    public function rendicion()
     {
-        Schema::create('gasto', function (Blueprint $table) {
-            $table->id('id_gasto');
-            $table->date('fecha')->nullable();
-            $table->string('num_documento', 255)->nullable();
-            $table->integer('monto')->nullable();
-            
-            $table->string('estado_gasto', 255)->default('Pendiente');
-            $table->string('comentario_validador', 255)->nullable();
-
-            // --- CAMPOS DE TEXTO (REEMPLAZAN LAS TABLAS MAESTRAS) ---
-            $table->string('tipo_documento', 255)->nullable(); // Ej: "Boleta"
-            $table->string('detalle', 255)->nullable();        // Ej: "Alimentación"
-
-            // --- RELACIONES (SOLO PADRE Y VALIDADOR) ---
-            $table->unsignedBigInteger('id_rendicion');
-            $table->unsignedBigInteger('id_validador')->nullable();
-
-            $table->foreign('id_rendicion')
-                ->references('id_rendicion')->on('rendicion')
-                ->onUpdate('cascade')
-                ->onDelete('cascade');
-
-            $table->foreign('id_validador')
-                ->references('id_usuario')->on('usuarios')
-                ->onUpdate('cascade')
-                ->onDelete('set null');
-        });
+        return $this->belongsTo(Rendicion::class, 'id_rendicion', 'id_rendicion');
     }
 
-    public function down(): void
+    // Un Gasto tiene muchos Archivos (Evidencia)
+    public function archivos()
     {
-        Schema::dropIfExists('gasto');
+        return $this->hasMany(GastoArchivo::class, 'id_gasto', 'id_gasto');
     }
-};
+
+    // Un Gasto puede ser validado por un Usuario (Opcional)
+    public function validador()
+    {
+        return $this->belongsTo(User::class, 'id_validador', 'id_usuario');
+    }
+}

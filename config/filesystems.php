@@ -63,6 +63,12 @@ return [
             'driver' => 'local',
             'root' => '\\\\Iaanas-01\\sig - registros\\009 PREVENCION DE RIESGOS\\Registros de Control de Conducción',
             'throw' => false,
+        ],
+        'nas_rendiciones' => [
+            'driver' => 'local',
+            'root'   => '\\\\Iaanas-01\\db-registros\\Sistema de Rendiciones 2', // Tu nueva ruta
+            'visibility' => 'public',
+            'throw'  => false,
         ]
 
     ],

@@ -4,8 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-// --- IMPORTACIONES QUE FALTABAN ---
-use App\Models\Gasto;     // <--- ESTA ES LA CLAVE DEL ERROR
+use App\Models\Gasto;
 use App\Models\Servicio;
 use App\Models\User;
 use App\Models\Registro;
@@ -16,7 +15,7 @@ class Rendicion extends Model
 
     protected $table = 'rendicion';
     protected $primaryKey = 'id_rendicion';
-    public $timestamps = false;
+    public $timestamps = false; // Asumo que no usas created_at/updated_at
 
     protected $fillable = [
         'fecha',
@@ -50,23 +49,28 @@ class Rendicion extends Model
         return $this->hasMany(Registro::class, 'id_rendicion', 'id_rendicion');
     }
 
-    // --- ATRIBUTOS CALCULADOS (CAUSANTES DEL ERROR 500 SI FALLAN) ---
+    // --- ATRIBUTOS CALCULADOS (CORREGIDOS) ---
+
+    // Le decimos a Laravel que siempre agregue estos campos al JSON
+    protected $appends = ['total_gastado', 'saldo'];
 
     public function getTotalGastadoAttribute()
     {
-        // Validación de seguridad por si no se cargó la relación
-        if (!$this->relationLoaded('gastos')) {
-            return 0;
-        }
+        // CORRECCIÓN IMPORTANTE:
+        // Quitamos el 'if relationLoaded'. Ahora accedemos directo a $this->gastos.
+        // Laravel es listo: si no están cargados, hará la consulta automáticamente para sumarlos.
+        // Además, filtramos para no sumar los rechazados (buena práctica).
+        
         return $this->gastos->where('estado_gasto', '!=', 'Rechazado')->sum('monto');
     }
 
     public function getSaldoAttribute()
     {
         $asignado = $this->monto_entregado ?? 0;
-        $gastado = $this->total_gastado; // Usa el atributo de arriba
+        
+        // Accedemos al atributo mágico que creamos arriba
+        $gastado = $this->total_gastado; 
+        
         return $asignado - $gastado;
     }
-
-    protected $appends = ['total_gastado', 'saldo'];
 }
