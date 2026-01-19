@@ -11,6 +11,10 @@ import 'package:somnolence_app/features/dashboard/presentation/screens/perfil_sc
 import 'package:somnolence_app/features/rendiciones/presentation/screens/gestion_rendiciones_screen.dart';
 import 'control_salida_screen.dart';
 
+// --- NUEVOS IMPORTS ---
+import 'package:somnolence_app/features/rendiciones/presentation/screens/validator_dashboard_screen.dart';
+import 'package:somnolence_app/features/rendiciones/presentation/screens/admin_history_screen.dart';
+
 class HomeDashboardScreen extends StatelessWidget {
   const HomeDashboardScreen({super.key});
 
@@ -18,14 +22,13 @@ class HomeDashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().currentUser;
 
-    // Ya no definimos colores aquí, usamos AppColors.primary
-
     if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final bool esConductor = user.esConductor;
     final bool esAdmin = user.esAdmin;
+    // Si tuvieras un rol separado para validar, podrías usar: final bool esValidador = user.roles.contains('validador');
 
     return Scaffold(
       appBar: AppBar(
@@ -33,7 +36,7 @@ class HomeDashboardScreen extends StatelessWidget {
           'Menú Principal',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: AppColors.primary, // ✅ USANDO CONSTANTE
+        backgroundColor: AppColors.primary,
         foregroundColor: AppColors.textWhite,
         leading: const LogoAppbar(),
         actions: [
@@ -52,7 +55,7 @@ class HomeDashboardScreen extends StatelessWidget {
           ),
         ],
       ),
-      backgroundColor: AppColors.background, // ✅ USANDO CONSTANTE
+      backgroundColor: AppColors.background,
       body: Column(
         children: [
           // --- HEADER USUARIO ---
@@ -60,8 +63,7 @@ class HomeDashboardScreen extends StatelessWidget {
             padding: const EdgeInsets.all(24),
             width: double.infinity,
             decoration: const BoxDecoration(
-              // const porque el color es constante
-              color: AppColors.primary, // ✅ USANDO CONSTANTE
+              color: AppColors.primary,
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
             ),
             child: Column(
@@ -99,7 +101,7 @@ class HomeDashboardScreen extends StatelessWidget {
                           message: rol.toUpperCase(),
                           triggerMode: TooltipTriggerMode.tap,
                           child: Icon(
-                            RoleHelper.getIconForRole(rol), // ✅ USANDO HELPER
+                            RoleHelper.getIconForRole(rol),
                             color: Colors.white,
                             size: 24,
                           ),
@@ -117,13 +119,15 @@ class HomeDashboardScreen extends StatelessWidget {
             child: GridView.count(
               padding: const EdgeInsets.all(20),
               crossAxisCount: 2,
+              mainAxisSpacing: 15, // Espacio vertical entre botones
+              crossAxisSpacing: 15, // Espacio horizontal entre botones
               children: [
+                // 1. MI PERFIL (Para todos)
                 _DashboardButton(
                   title: "Mi Perfil",
                   icon: Icons.person,
                   color: Colors.orange,
                   onTap: () {
-                    // ✅ CONEXIÓN LISTA
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -132,12 +136,13 @@ class HomeDashboardScreen extends StatelessWidget {
                     );
                   },
                 ),
+
+                // 2. MIS RENDICIONES (Para todos)
                 _DashboardButton(
-                  title: "Rendiciones",
-                  icon: Icons.money,
+                  title: "Mis Rendiciones",
+                  icon: Icons.receipt_long, // Icono más acorde
                   color: Colors.orange,
                   onTap: () {
-                    // ✅ CONEXIÓN LISTA
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -146,6 +151,8 @@ class HomeDashboardScreen extends StatelessWidget {
                     );
                   },
                 ),
+
+                // 3. CONTROL SALIDA (Solo conductores)
                 if (esConductor)
                   _DashboardButton(
                     title: "Control de Salida",
@@ -161,7 +168,9 @@ class HomeDashboardScreen extends StatelessWidget {
                     },
                   ),
 
-                if (esAdmin)
+                // --- ZONA ADMINISTRATIVA / VALIDACIÓN ---
+                if (esAdmin) ...[
+                  // 4. GESTIÓN USUARIOS
                   _DashboardButton(
                     title: "Gestión Usuarios",
                     icon: Icons.manage_accounts,
@@ -176,10 +185,10 @@ class HomeDashboardScreen extends StatelessWidget {
                     },
                   ),
 
-                if (esAdmin)
+                  // 5. CLIENTES Y SERVICIOS
                   _DashboardButton(
-                    title: "Clientes y Servicios",
-                    icon: Icons.person_search,
+                    title: "Clientes y Serv.",
+                    icon: Icons.business_center,
                     color: const Color.fromARGB(255, 221, 163, 27),
                     onTap: () {
                       Navigator.push(
@@ -190,6 +199,38 @@ class HomeDashboardScreen extends StatelessWidget {
                       );
                     },
                   ),
+
+                  // 6. VALIDAR RENDICIONES (NUEVO)
+                  _DashboardButton(
+                    title: "Validar Gastos",
+                    icon: Icons.fact_check, // Icono de checklist/validación
+                    color: Colors.purple, // Color distintivo
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const ValidatorDashboardScreen(),
+                        ),
+                      );
+                    },
+                  ),
+
+                  // 7. HISTORIAL GLOBAL (NUEVO)
+                  _DashboardButton(
+                    title: "Historial Global",
+                    icon: Icons.history_edu, // Icono de historial/archivo
+                    color: Colors.teal, // Color distintivo
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AdminHistoryScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ],
             ),
           ),
@@ -228,7 +269,14 @@ class _DashboardButton extends StatelessWidget {
               child: Icon(icon, size: 30, color: color),
             ),
             const SizedBox(height: 10),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
         ),
       ),
