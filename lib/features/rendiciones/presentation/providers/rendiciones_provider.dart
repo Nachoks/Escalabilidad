@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:somnolence_app/core/api/api_service.dart';
+import 'package:somnolence_app/core/constants/app_constants.dart';
+import 'package:somnolence_app/core/services/auth_services.dart';
 import 'package:somnolence_app/features/rendiciones/data/models/rendicion_model.dart';
 
 class RendicionesProvider extends ChangeNotifier {
@@ -67,6 +70,43 @@ class RendicionesProvider extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  // 3. BORRAR RENDICIÓN (DELETE)
+  Future<bool> borrarRendicion(int idRendicion) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final token = await AuthService.getToken();
+      final url = Uri.parse('${AppConstants.apiUrl}/rendiciones/$idRendicion');
+
+      final response = await http.delete(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        // Actualización Optimista: Quitamos de la lista local
+        _rendiciones.removeWhere((r) => r.idRendicion == idRendicion);
+
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      print("Error al borrar rendición: $e");
+      _isLoading = false;
+      notifyListeners();
+      return false;
     }
   }
 }

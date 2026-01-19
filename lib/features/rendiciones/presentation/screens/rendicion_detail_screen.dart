@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_slidable/flutter_slidable.dart'; // <--- IMPORTANTE
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/rendiciones/data/models/rendicion_model.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/gasto_provider.dart';
@@ -115,7 +116,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     }
   }
 
-  // --- 2. LÓGICA PARA BORRAR ARCHIVO (NUEVO) ---
+  // --- 2. LÓGICA PARA BORRAR ARCHIVO ---
   Future<void> _borrarArchivo(int idGasto) async {
     final bool? confirmar = await showDialog<bool>(
       context: context,
@@ -172,8 +173,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     }
   }
 
-  // ... dentro de _RendicionDetailScreenState ...
-
+  // --- 3. LÓGICA PARA BORRAR GASTO COMPLETO ---
   Future<void> _confirmarBorrarGasto(int idGasto) async {
     final bool? confirmar = await showDialog<bool>(
       context: context,
@@ -240,6 +240,12 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     int totalEnVivo = gastos.fold(0, (sum, item) => sum + item.monto);
     int montoEntregado = widget.rendicion.montoEntregado;
     int saldo = montoEntregado - totalEnVivo;
+
+    // Determinamos si es editable para habilitar/deshabilitar el slide
+    final bool esEditable = [
+      'Borrador',
+      'Observada',
+    ].contains(widget.rendicion.estado);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -377,163 +383,190 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                           ? Colors.white
                           : Colors.orange.shade50;
 
-                      return Card(
-                        elevation: tieneEvidencia ? 1 : 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(
-                            color: colorEstado.withOpacity(0.5),
-                            width: 1.5,
+                      // --- AQUI ESTA EL SLIDABLE INTEGRADO ---
+                      return Slidable(
+                        key: ValueKey(gasto.idGasto),
+
+                        // Solo permite deslizar si se puede editar la rendición
+                        enabled: esEditable,
+
+                        // Panel derecho (Deslizar a la izquierda) -> BORRAR
+                        endActionPane: ActionPane(
+                          motion: const ScrollMotion(),
+                          dismissible: DismissiblePane(
+                            onDismissed: () {
+                              _confirmarBorrarGasto(gasto.idGasto!);
+                            },
                           ),
+                          children: [
+                            SlidableAction(
+                              onPressed: (_) =>
+                                  _confirmarBorrarGasto(gasto.idGasto!),
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                              icon: Icons.delete,
+                              label: 'Borrar',
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ],
                         ),
-                        color: colorFondo,
-                        child: ListTile(
-                          // CORRECCIÓN 1: Permitir más altura
-                          isThreeLine: true,
-                          onLongPress: () {
-                            _confirmarBorrarGasto(gasto.idGasto!);
-                          },
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8, // Un poco menos de padding vertical
-                          ),
 
-                          leading: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: colorEstado.withOpacity(0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.receipt_long,
-                              color: colorEstado,
-                              size: 24,
+                        child: Card(
+                          margin:
+                              EdgeInsets.zero, // El margen lo pone el ListView
+                          elevation: tieneEvidencia ? 1 : 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(
+                              color: colorEstado.withOpacity(0.5),
+                              width: 1.5,
                             ),
                           ),
-
-                          title: Text(
-                            gasto.detalle,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
+                          color: colorFondo,
+                          child: ListTile(
+                            isThreeLine: true,
+                            // Mantenemos el onLongPress como alternativa
+                            onLongPress: () {
+                              _confirmarBorrarGasto(gasto.idGasto!);
+                            },
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
                             ),
-                          ),
 
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 4),
-                              Text("${gasto.fecha} • ${gasto.tipoDocumento}"),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 3,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: colorEstado,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      tieneEvidencia
-                                          ? "EVIDENCIA OK"
-                                          : "FALTA FOTO",
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                  ),
-                                  if (tieneEvidencia &&
-                                      gasto.fotos.isNotEmpty) ...[
-                                    const SizedBox(width: 6),
+                            leading: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: colorEstado.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.receipt_long,
+                                color: colorEstado,
+                                size: 24,
+                              ),
+                            ),
+
+                            title: Text(
+                              gasto.detalle,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 4),
+                                Text("${gasto.fecha} • ${gasto.tipoDocumento}"),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 8,
                                         vertical: 3,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: gasto.fotos[0].extension == 'pdf'
-                                            ? Colors.red.shade700
-                                            : Colors.blue.shade600,
+                                        color: colorEstado,
                                         borderRadius: BorderRadius.circular(6),
                                       ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            gasto.fotos[0].extension == 'pdf'
-                                                ? Icons.picture_as_pdf
-                                                : Icons.image,
-                                            color: Colors.white,
-                                            size: 10,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            gasto.fotos[0].extension
-                                                .toUpperCase(),
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: 0.5,
-                                            ),
-                                          ),
-                                        ],
+                                      child: Text(
+                                        tieneEvidencia
+                                            ? "EVIDENCIA OK"
+                                            : "FALTA FOTO",
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.5,
+                                        ),
                                       ),
                                     ),
+                                    if (tieneEvidencia &&
+                                        gasto.fotos.isNotEmpty) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color:
+                                              gasto.fotos[0].extension == 'pdf'
+                                              ? Colors.red.shade700
+                                              : Colors.blue.shade600,
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              gasto.fotos[0].extension == 'pdf'
+                                                  ? Icons.picture_as_pdf
+                                                  : Icons.image,
+                                              color: Colors.white,
+                                              size: 10,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              gasto.fotos[0].extension
+                                                  .toUpperCase(),
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                letterSpacing: 0.5,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ],
-                                ],
-                              ),
-                            ],
-                          ),
+                                ),
+                              ],
+                            ),
 
-                          // CORRECCIÓN 2: Ajustar la columna derecha para que no desborde
-                          trailing: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize
-                                .min, // IMPORTANTE: Ocupar el mínimo espacio posible
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                _formatMoney(gasto.monto),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ), // Bajé a 15 la fuente
-                              ),
-
-                              // CORRECCIÓN 3: Quitamos el SizedBox grande o lo dejamos en 0
-                              // const SizedBox(height: 4),
-                              InkWell(
-                                borderRadius: BorderRadius.circular(20),
-                                onTap: () {
-                                  if (!tieneEvidencia) {
-                                    _adjuntarEvidencia(gasto.idGasto!);
-                                  } else {
-                                    _borrarArchivo(gasto.idGasto!);
-                                  }
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.all(
-                                    4.0,
-                                  ), // Padding pequeño
-                                  child: Icon(
-                                    tieneEvidencia
-                                        ? Icons.delete_forever
-                                        : Icons.camera_alt,
-                                    color: tieneEvidencia
-                                        ? Colors.red.shade400
-                                        : colorEstado,
-                                    size: 26, // Icono un poco más contenido
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  _formatMoney(gasto.monto),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
                                   ),
                                 ),
-                              ),
-                            ],
+                                InkWell(
+                                  borderRadius: BorderRadius.circular(20),
+                                  onTap: () {
+                                    if (!tieneEvidencia) {
+                                      _adjuntarEvidencia(gasto.idGasto!);
+                                    } else {
+                                      _borrarArchivo(gasto.idGasto!);
+                                    }
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4.0),
+                                    child: Icon(
+                                      tieneEvidencia
+                                          ? Icons.delete_forever
+                                          : Icons.camera_alt,
+                                      color: tieneEvidencia
+                                          ? Colors.red.shade400
+                                          : colorEstado,
+                                      size: 26,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       );
