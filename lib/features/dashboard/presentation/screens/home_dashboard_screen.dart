@@ -178,7 +178,7 @@ class HomeDashboardScreen extends StatelessWidget {
 
                 if (esAdmin)
                   _DashboardButton(
-                    title: "Gestión Clientes",
+                    title: "Clientes y Servicios",
                     icon: Icons.person_search,
                     color: const Color.fromARGB(255, 221, 163, 27),
                     onTap: () {

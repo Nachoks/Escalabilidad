@@ -41,11 +41,13 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(servicioActual.centroCosto ?? "Detalle Servicio"),
+        title: Text(
+          servicioActual.centroCosto ?? "Detalle Servicio",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: isFinalizado ? Colors.grey : AppColors.primary,
         foregroundColor: Colors.white,
       ),
-      // 👇 AQUÍ AGREGAMOS EL SAFEAREA
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),

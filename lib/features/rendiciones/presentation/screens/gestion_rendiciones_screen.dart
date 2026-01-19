@@ -35,7 +35,10 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text("Mis Rendiciones"),
+        title: const Text(
+          "Mis Rendiciones",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),

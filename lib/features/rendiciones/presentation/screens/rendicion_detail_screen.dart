@@ -244,7 +244,10 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text("Detalle Rendición"),
+        title: const Text(
+          "Detalle Rendición",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
