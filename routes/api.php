@@ -34,6 +34,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/usuarios', [AdminController::class, 'crearUsuario']);  
     Route::put('/admin/usuarios/{id}/estado', [AdminController::class, 'cambiarEstadoUsuario']);
     Route::put('/admin/usuarios/{id}', [AdminController::class, 'actualizarUsuario']);
+    Route::get('/admin/historial', [RendicionController::class, 'historialGlobal']);
+    Route::post('/admin/rendiciones/{id}/pagar', [RendicionController::class, 'pagar']);
     
     // --- CLIENTES ---
     Route::get('/clientes', [ClienteController::class, 'index']); 
@@ -60,6 +62,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/rendiciones', [RendicionController::class, 'misRendiciones']); // Listar historial
     Route::post('/rendiciones', [RendicionController::class, 'store']); // Crear nueva (Borrador)
     Route::get('/rendiciones/{id}', [RendicionController::class, 'show']); // Ver detalle
+    Route::delete('/rendiciones/{id}', [RendicionController::class, 'destroy']);
     
     // (Opcional) Ruta para cambiar estado a "Pendiente"
     Route::put('/rendiciones/{id}/enviar', [RendicionController::class, 'enviar']); 

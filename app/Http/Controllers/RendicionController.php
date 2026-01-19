@@ -89,22 +89,25 @@ class RendicionController extends Controller
      */
     public function enviar($id)
     {
-        $rendicion = Rendicion::findOrFail($id);
+        $rendicion = Rendicion::with('gastos')->findOrFail($id);
 
-        if ($rendicion->id_usuario != Auth::id()) return response()->json(['message' => 'No autorizado'], 403);
+        if ($rendicion->id_usuario != Auth::id()) {
+            return response()->json(['message' => 'No autorizado'], 403);
+        }
 
         // Validación: Debe tener gastos
         if ($rendicion->gastos()->count() == 0) {
-            return response()->json(['message' => 'La rendición no tiene gastos, no se puede enviar'], 400);
+            return response()->json(['message' => 'La rendición está vacía, agrega gastos antes de enviar.'], 400);
         }
 
-        // Actualizamos Estado y TIMBRAMOS LA FECHA
+        // Actualizamos Estado
         $rendicion->update([
             'estado' => 'Pendiente de Validación',
-            'fecha'  => now() 
+            // Opcional: Podrías actualizar la fecha de envío aquí si quisieras
+            // 'fecha' => now() 
         ]);
 
-        return response()->json(['success' => true, 'message' => 'Rendición enviada exitosamente']);
+        return response()->json(['success' => true, 'message' => 'Rendición enviada a revisión']);
     }
 
     // --- Métodos de lectura (sin cambios) ---
@@ -126,5 +129,109 @@ class RendicionController extends Controller
         $rendicion = Rendicion::with(['gastos.archivos', 'servicio'])->findOrFail($id);
         if ($rendicion->id_usuario != Auth::id()) return response()->json(['message' => 'No autorizado'], 403);
         return response()->json($rendicion);
+    }
+
+    public function destroy($id)
+    {
+        try {
+            // Buscamos la rendición con sus gastos y archivos para poder borrar físicamente
+            $rendicion = Rendicion::with(['gastos.archivos'])->findOrFail($id);
+
+            // 1. Validar Autoría
+            if ($rendicion->id_usuario != Auth::id()) {
+                return response()->json(['message' => 'No autorizado'], 403);
+            }
+
+            // 2. Validar Estado (Solo Borrador u Observada se pueden borrar)
+            if (!in_array($rendicion->estado, ['Borrador', 'Observada'])) {
+                return response()->json(['message' => 'No se puede eliminar una rendición en proceso o aprobada'], 400);
+            }
+
+            DB::beginTransaction();
+
+            // 3. Borrar Archivos Físicos (Loop profundo)
+            foreach ($rendicion->gastos as $gasto) {
+                foreach ($gasto->archivos as $archivo) {
+                    if (Storage::disk('nas_rendiciones')->exists($archivo->ruta_relativa)) {
+                        Storage::disk('nas_rendiciones')->delete($archivo->ruta_relativa);
+                    }
+                }
+            }
+
+            // 4. Borrar Carpetas Físicas (Opcional, si creaste carpetas por rendición)
+            $nombreCarpeta = str_pad($rendicion->id_rendicion, 3, '0', STR_PAD_LEFT);
+            if (Storage::disk('nas_rendiciones')->exists($nombreCarpeta)) {
+                Storage::disk('nas_rendiciones')->deleteDirectory($nombreCarpeta);
+            }
+
+            // 5. Borrar Registro (La BD borrará los gastos en cascada si está configurada, sino Laravel lo hace)
+            $rendicion->gastos()->delete(); // Borramos gastos hijos primero por seguridad
+            $rendicion->delete();
+
+            DB::commit();
+
+            return response()->json(['success' => true, 'message' => 'Rendición eliminada correctamente']);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function pendientesDeValidacion()
+    {
+        $rendiciones = Rendicion::whereIn('estado', ['Pendiente de Validación', 'Aprobada'])
+                        ->with(['servicio:id_servicio,nombre_servicio,centro_costo', 'usuario:id,name,email'])
+                        ->orderBy('fecha', 'asc') // Las más antiguas primero (FIFO)
+                        ->get();
+
+        return response()->json($rendiciones);
+    }
+
+    /**
+     * ADMIN: Historial Global (Auditoría)
+     * Trae TODO de TODOS. Idealmente paginado, pero por ahora traemos todo.
+     */
+    public function historialGlobal()
+    {
+        $rendiciones = Rendicion::with(['servicio:id_servicio,nombre_servicio', 'usuario:id,name'])
+                        ->orderByDesc('id_rendicion')
+                        ->get(); // Si son muchas, usar ->paginate(20)
+        return response()->json($rendiciones);
+    }
+
+    /**
+     * ADMIN: Pagar Rendición (Subir Comprobante)
+     */
+    public function pagar(Request $request, $id)
+    {
+        $request->validate([
+            'comprobante' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240' // Máx 10MB
+        ]);
+
+        $rendicion = Rendicion::findOrFail($id);
+
+        if ($rendicion->estado !== 'Aprobada') {
+            return response()->json(['message' => 'Solo se pueden pagar rendiciones aprobadas'], 400);
+        }
+
+        try {
+            $file = $request->file('comprobante');
+            // Guardamos en carpeta: ID/pago/archivo.pdf
+            $nombreCarpeta = str_pad($rendicion->id_rendicion, 3, '0', STR_PAD_LEFT);
+            $ruta = $file->storeAs($nombreCarpeta . '/pago', 'comprobante_pago_' . time() . '.' . $file->extension(), 'nas_rendiciones');
+
+            // Actualizamos estado
+            $rendicion->update([
+                'estado' => 'Pagada',
+                // Si tienes un campo 'ruta_comprobante' en la BD, descomenta esto:
+                // 'ruta_comprobante' => $ruta 
+            ]);
+
+            return response()->json(['success' => true, 'message' => 'Pago registrado correctamente']);
+
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Error al subir comprobante: ' . $e->getMessage()], 500);
+        }
     }
 }
