@@ -147,7 +147,7 @@ class RendicionesProvider extends ChangeNotifier {
           // Creamos una copia con el nuevo estado
           // Nota: RendicionModel debe tener copyWith o crealo manual
           // Aquí lo hacemos manual para el ejemplo rápido:
-          final vieja = _rendiciones[index];
+          //final vieja = _rendiciones[index];
           // Asumimos que tienes un constructor o setters, o recreamos:
           // Esto es solo visual, al recargar se trae todo bien.
           // Para simplificar, recargaremos la lista completa al final.
@@ -169,84 +169,34 @@ class RendicionesProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> cargarBandejaValidacion() async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      final token = await AuthService.getToken();
-      final response = await http.get(
-        Uri.parse('${AppConstants.apiUrl}/admin/rendiciones'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        _rendicionesPorValidar = data
-            .map((x) => RendicionModel.fromJson(x))
-            .toList();
-      }
-    } catch (e) {
-      print("Error cargando bandeja: $e");
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  // 2. Cargar Historial Global
   Future<void> cargarHistorialGlobal() async {
     _isLoading = true;
     notifyListeners();
+
     try {
-      final token = await AuthService.getToken();
+      final token =
+          await AuthService.getToken(); // Asegúrate de tener tu servicio de auth
+      final url = Uri.parse('${AppConstants.apiUrl}/admin/historial');
+
       final response = await http.get(
-        Uri.parse('${AppConstants.apiUrl}/admin/historial'),
-        headers: {'Authorization': 'Bearer $token'},
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
       );
+
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         _historialGlobal = data.map((x) => RendicionModel.fromJson(x)).toList();
+      } else {
+        print("Error Server: ${response.statusCode}");
       }
     } catch (e) {
-      print("Error cargando historial: $e");
+      print("Error Provider: $e");
     } finally {
       _isLoading = false;
       notifyListeners();
-    }
-  }
-
-  // 3. Pagar Rendición (Subir Archivo)
-  Future<bool> pagarRendicion(int idRendicion, String pathArchivo) async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      final token = await AuthService.getToken();
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse(
-          '${AppConstants.apiUrl}/admin/rendiciones/$idRendicion/pagar',
-        ),
-      );
-      request.headers['Authorization'] = 'Bearer $token';
-      request.files.add(
-        await http.MultipartFile.fromPath('comprobante', pathArchivo),
-      );
-
-      final response = await request.send();
-
-      if (response.statusCode == 200) {
-        // Remover de la lista de validación localmente
-        _rendicionesPorValidar.removeWhere((r) => r.idRendicion == idRendicion);
-        _isLoading = false;
-        notifyListeners();
-        return true;
-      }
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    } catch (e) {
-      _isLoading = false;
-      notifyListeners();
-      return false;
     }
   }
 }

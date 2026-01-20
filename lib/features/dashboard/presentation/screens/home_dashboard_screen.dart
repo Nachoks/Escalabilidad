@@ -8,12 +8,11 @@ import 'package:somnolence_app/features/auth/presentation/screens/login_screen.d
 import 'package:somnolence_app/core/widgets/logo_appbar.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/dashboard/presentation/screens/perfil_screen.dart';
+import 'package:somnolence_app/features/rendiciones/presentation/screens/admin_history_screen.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/screens/gestion_rendiciones_screen.dart';
 import 'control_salida_screen.dart';
 
 // --- NUEVOS IMPORTS ---
-import 'package:somnolence_app/features/rendiciones/presentation/screens/validator_dashboard_screen.dart';
-import 'package:somnolence_app/features/rendiciones/presentation/screens/admin_history_screen.dart';
 
 class HomeDashboardScreen extends StatelessWidget {
   const HomeDashboardScreen({super.key});
@@ -205,15 +204,7 @@ class HomeDashboardScreen extends StatelessWidget {
                     title: "Validar Gastos",
                     icon: Icons.fact_check, // Icono de checklist/validación
                     color: Colors.purple, // Color distintivo
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const ValidatorDashboardScreen(),
-                        ),
-                      );
-                    },
+                    onTap: () {},
                   ),
 
                   // 7. HISTORIAL GLOBAL (NUEVO)

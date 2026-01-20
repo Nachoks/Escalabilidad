@@ -8,7 +8,9 @@ class RendicionModel {
   final int idServicio;
   final int? idUsuario;
 
-  // Campos calculados por el Backend
+  // Campo para el nombre
+  final String nombreUsuario;
+
   final int totalGastado;
   final int saldo;
 
@@ -21,16 +23,29 @@ class RendicionModel {
     this.centroCosto,
     required this.idServicio,
     this.idUsuario,
+    this.nombreUsuario = 'Usuario Desconocido',
     this.totalGastado = 0,
     this.saldo = 0,
   });
 
   factory RendicionModel.fromJson(Map<String, dynamic> json) {
+    // Lógica para encontrar el nombre sin importar cómo venga del backend
+    String nombreEncontrado = 'Usuario ${json['id_usuario']}';
+
+    if (json['usuario'] != null) {
+      if (json['usuario']['nombre_usuario'] != null) {
+        nombreEncontrado = json['usuario']['nombre_usuario'];
+      } else if (json['usuario']['name'] != null) {
+        nombreEncontrado = json['usuario']['name'];
+      } else if (json['usuario']['nombre'] != null) {
+        nombreEncontrado = json['usuario']['nombre'];
+      }
+    }
+
     return RendicionModel(
       idRendicion: json['id_rendicion'],
       fecha: json['fecha'] ?? '',
-      proposito: json['proposito'] ?? '',
-      // Manejo seguro de tipos (int vs String)
+      proposito: json['proposito'] ?? 'Sin Propósito',
       montoEntregado:
           int.tryParse(json['monto_entregado']?.toString() ?? '0') ?? 0,
       estado: json['estado'] ?? 'Borrador',
@@ -38,18 +53,11 @@ class RendicionModel {
       idServicio: int.tryParse(json['id_servicio']?.toString() ?? '0') ?? 0,
       idUsuario: int.tryParse(json['id_usuario']?.toString() ?? '0'),
 
-      // Datos financieros
+      // Asignamos el nombre encontrado
+      nombreUsuario: nombreEncontrado,
+
       totalGastado: int.tryParse(json['total_gastado']?.toString() ?? '0') ?? 0,
       saldo: int.tryParse(json['saldo']?.toString() ?? '0') ?? 0,
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id_servicio': idServicio,
-      'fecha': fecha,
-      'proposito': proposito,
-      'monto_entregado': montoEntregado,
-    };
   }
 }
