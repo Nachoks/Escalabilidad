@@ -56,12 +56,17 @@ class Rendicion extends Model
 
     public function getTotalGastadoAttribute()
     {
-        // Si no se cargaron los gastos, devolvemos 0 para evitar errores
-        if (!$this->relationLoaded('gastos')) {
-            return 0;
+        // 1. PRIORIDAD: Si usamos withSum, Laravel guarda el valor en 'gastos_sum_monto'
+        if (isset($this->attributes['gastos_sum_monto'])) {
+            return (int) $this->attributes['gastos_sum_monto'];
         }
-        // Sumamos la columna 'monto' de la tabla gastos
-        return $this->gastos->sum('monto');
+
+        // 2. FALLBACK: Si cargamos la relación completa (ej. en el detalle)
+        if ($this->relationLoaded('gastos')) {
+            return $this->gastos->sum('monto');
+        }
+
+        return 0;
     }
 
     public function getSaldoAttribute()

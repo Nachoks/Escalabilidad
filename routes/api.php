@@ -40,7 +40,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/admin/gastos/{id}/evaluar', [GastoController::class, 'evaluarGasto']);
     Route::post('/admin/rendiciones/{id}/finalizar', [RendicionController::class, 'finalizarValidacion']);
     Route::post('/admin/rendiciones/{id}/pagar', [RendicionController::class, 'pagar']);
-    
+    Route::post('/admin/rendiciones/{id}/validar', [RendicionController::class, 'procesarValidacion']);
+    Route::post('/admin/rendiciones/{id}/pagar', [RendicionController::class, 'pagar']);
     // --- CLIENTES ---
     Route::get('/clientes', [ClienteController::class, 'index']); 
     Route::post('/clientes', [ClienteController::class, 'store']); 
