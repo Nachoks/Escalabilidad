@@ -36,6 +36,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/admin/usuarios/{id}', [AdminController::class, 'actualizarUsuario']);
     Route::get('/admin/historial', [RendicionController::class, 'historialGlobal']);
     Route::post('/admin/rendiciones/{id}/pagar', [RendicionController::class, 'pagar']);
+    Route::get('/admin/rendiciones', [RendicionController::class, 'pendientesDeValidacion']);
+    Route::patch('/admin/gastos/{id}/evaluar', [GastoController::class, 'evaluarGasto']);
+    Route::post('/admin/rendiciones/{id}/finalizar', [RendicionController::class, 'finalizarValidacion']);
+    Route::post('/admin/rendiciones/{id}/pagar', [RendicionController::class, 'pagar']);
     
     // --- CLIENTES ---
     Route::get('/clientes', [ClienteController::class, 'index']); 

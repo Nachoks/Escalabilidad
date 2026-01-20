@@ -181,57 +181,21 @@ class RendicionController extends Controller
     public function pendientesDeValidacion()
     {
         $rendiciones = Rendicion::whereIn('estado', ['Pendiente de Validación', 'Aprobada'])
-                        ->with(['servicio:id_servicio,nombre_servicio,centro_costo', 'usuario:id,name,email'])
+                        ->with(['servicio:id_servicio,nombre_servicio,centro_costo', 'usuario:id_usuario,nombre_usuario'])
                         ->orderBy('fecha', 'asc') // Las más antiguas primero (FIFO)
                         ->get();
 
         return response()->json($rendiciones);
     }
 
-    /**
-     * ADMIN: Historial Global (Auditoría)
-     * Trae TODO de TODOS. Idealmente paginado, pero por ahora traemos todo.
-     */
     public function historialGlobal()
     {
-        $rendiciones = Rendicion::with(['servicio:id_servicio,nombre_servicio', 'usuario:id,name'])
-                        ->orderByDesc('id_rendicion')
-                        ->get(); // Si son muchas, usar ->paginate(20)
+        $rendiciones = Rendicion::with(['usuario', 'gastos']) // Cargar relaciones es OBLIGATORIO
+                        ->orderByDesc('id_rendicion') // Las más nuevas primero
+                        ->get();
+
         return response()->json($rendiciones);
     }
 
-    /**
-     * ADMIN: Pagar Rendición (Subir Comprobante)
-     */
-    public function pagar(Request $request, $id)
-    {
-        $request->validate([
-            'comprobante' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240' // Máx 10MB
-        ]);
 
-        $rendicion = Rendicion::findOrFail($id);
-
-        if ($rendicion->estado !== 'Aprobada') {
-            return response()->json(['message' => 'Solo se pueden pagar rendiciones aprobadas'], 400);
-        }
-
-        try {
-            $file = $request->file('comprobante');
-            // Guardamos en carpeta: ID/pago/archivo.pdf
-            $nombreCarpeta = str_pad($rendicion->id_rendicion, 3, '0', STR_PAD_LEFT);
-            $ruta = $file->storeAs($nombreCarpeta . '/pago', 'comprobante_pago_' . time() . '.' . $file->extension(), 'nas_rendiciones');
-
-            // Actualizamos estado
-            $rendicion->update([
-                'estado' => 'Pagada',
-                // Si tienes un campo 'ruta_comprobante' en la BD, descomenta esto:
-                // 'ruta_comprobante' => $ruta 
-            ]);
-
-            return response()->json(['success' => true, 'message' => 'Pago registrado correctamente']);
-
-        } catch (\Exception $e) {
-            return response()->json(['message' => 'Error al subir comprobante: ' . $e->getMessage()], 500);
-        }
-    }
 }

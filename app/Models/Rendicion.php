@@ -7,15 +7,17 @@ use Illuminate\Database\Eloquent\Model;
 use App\Models\Gasto;
 use App\Models\Servicio;
 use App\Models\User;
-use App\Models\Registro;
+use App\Models\Registro; // Mantenemos tu import
 
 class Rendicion extends Model
 {
     use HasFactory;
 
-    protected $table = 'rendicion';
+    // Respetamos tu configuración (Singular)
+    protected $table = 'rendicion'; 
     protected $primaryKey = 'id_rendicion';
-    public $timestamps = false; // Asumo que no usas created_at/updated_at
+    public $timestamps = false; 
+    protected $appends = ['total_gastado'];
 
     protected $fillable = [
         'fecha',
@@ -27,7 +29,8 @@ class Rendicion extends Model
         'id_usuario',
     ];
 
-    // --- RELACIONES ---
+
+    // --- RELACIONES (Tus relaciones intactas) ---
 
     public function servicio()
     {
@@ -36,7 +39,7 @@ class Rendicion extends Model
 
     public function usuario()
     {
-        return $this->belongsTo(User::class, 'id_usuario', 'id_usuario');
+        return $this->belongsTo(User::class, 'id_usuario', 'id_usuario'); // Asumo que id_usuario es la PK en User según tu código
     }
 
     public function gastos()
@@ -49,26 +52,23 @@ class Rendicion extends Model
         return $this->hasMany(Registro::class, 'id_rendicion', 'id_rendicion');
     }
 
-    // --- ATRIBUTOS CALCULADOS (CORREGIDOS) ---
-
-    // Le decimos a Laravel que siempre agregue estos campos al JSON
-    protected $appends = ['total_gastado', 'saldo'];
+    // --- CORRECCIÓN TÉCNICA AQUÍ ---
 
     public function getTotalGastadoAttribute()
     {
-        // CORRECCIÓN IMPORTANTE:
-        // Quitamos el 'if relationLoaded'. Ahora accedemos directo a $this->gastos.
-        // Laravel es listo: si no están cargados, hará la consulta automáticamente para sumarlos.
-        // Además, filtramos para no sumar los rechazados (buena práctica).
-        
-        return $this->gastos->where('estado_gasto', '!=', 'Rechazado')->sum('monto');
+        // Si no se cargaron los gastos, devolvemos 0 para evitar errores
+        if (!$this->relationLoaded('gastos')) {
+            return 0;
+        }
+        // Sumamos la columna 'monto' de la tabla gastos
+        return $this->gastos->sum('monto');
     }
 
     public function getSaldoAttribute()
     {
         $asignado = $this->monto_entregado ?? 0;
         
-        // Accedemos al atributo mágico que creamos arriba
+        // Usamos la lógica corregida de arriba
         $gastado = $this->total_gastado; 
         
         return $asignado - $gastado;
