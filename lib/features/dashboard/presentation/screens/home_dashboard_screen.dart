@@ -10,6 +10,7 @@ import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/dashboard/presentation/screens/perfil_screen.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/screens/admin_history_screen.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/screens/gestion_rendiciones_screen.dart';
+import 'package:somnolence_app/features/rendiciones/presentation/screens/validator_dashboar_screen.dart';
 import 'control_salida_screen.dart';
 
 // --- NUEVOS IMPORTS ---
@@ -204,7 +205,15 @@ class HomeDashboardScreen extends StatelessWidget {
                     title: "Validar Gastos",
                     icon: Icons.fact_check, // Icono de checklist/validación
                     color: Colors.purple, // Color distintivo
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const ValidatorDashboardScreen(),
+                        ),
+                      );
+                    },
                   ),
 
                   // 7. HISTORIAL GLOBAL (NUEVO)

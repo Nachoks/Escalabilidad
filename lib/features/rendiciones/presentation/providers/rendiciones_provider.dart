@@ -199,4 +199,136 @@ class RendicionesProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<void> cargarBandejaValidacion() async {
+    // 1. Activamos el estado de carga
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // 2. Obtenemos el token de seguridad
+      final token = await AuthService.getToken();
+      if (token == null) throw Exception("No hay token de autenticación");
+
+      // 3. Llamamos al endpoint que definiste en api.php
+      final url = Uri.parse('${AppConstants.apiUrl}/admin/rendiciones');
+
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      // 4. Procesamos la respuesta
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+
+        // Convertimos el JSON a objetos RendicionModel
+        _rendicionesPorValidar = data
+            .map((json) => RendicionModel.fromJson(json))
+            .toList();
+
+        print(
+          "✅ Bandeja cargada: ${_rendicionesPorValidar.length} rendiciones.",
+        );
+      } else {
+        print(
+          "❌ Error al cargar bandeja: ${response.statusCode} - ${response.body}",
+        );
+        _rendicionesPorValidar = []; // Limpiamos en caso de error
+      }
+    } catch (e) {
+      print("❌ Excepción en cargarBandejaValidacion: $e");
+      _rendicionesPorValidar = [];
+    } finally {
+      // 5. Desactivamos carga y notificamos a la vista
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // --- ENVIAR VALIDACIÓN MASIVA ---
+  Future<bool> enviarValidacionAdmin(
+    int idRendicion,
+    List<Map<String, dynamic>> evaluaciones,
+  ) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final token = await AuthService.getToken();
+      final url = Uri.parse(
+        '${AppConstants.apiUrl}/admin/rendiciones/$idRendicion/validar',
+      );
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'evaluaciones': evaluaciones}),
+      );
+
+      if (response.statusCode == 200) {
+        // Si fue exitoso, recargamos la bandeja para que desaparezca de "Pendientes"
+        await cargarBandejaValidacion();
+        return true;
+      } else {
+        print("Error validación: ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      print("Error provider validación: $e");
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // --- PAGAR RENDICIÓN (SUBIR COMPROBANTE) ---
+  Future<bool> pagarRendicion(int idRendicion, String filePath) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final token = await AuthService.getToken();
+      final url = Uri.parse(
+        '${AppConstants.apiUrl}/admin/rendiciones/$idRendicion/pagar',
+      );
+
+      var request = http.MultipartRequest('POST', url);
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['Accept'] = 'application/json';
+
+      // Adjuntar archivo
+      request.files.add(
+        await http.MultipartFile.fromPath('comprobante', filePath),
+      );
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        // Recargar la lista para que desaparezca de "Por Pagar"
+        await cargarBandejaValidacion();
+        return true;
+      } else {
+        print("Error pago: ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      print("Excepción pago: $e");
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ... otros métodos y propiedades ...
 }

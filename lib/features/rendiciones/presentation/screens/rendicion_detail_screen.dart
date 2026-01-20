@@ -375,22 +375,27 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                       final gasto = gastos[index];
                       final bool tieneEvidencia = gasto.fotos.isNotEmpty;
 
-                      // Colores: Verde si OK, Naranja si falta
-                      final Color colorEstado = tieneEvidencia
-                          ? Colors.green
-                          : Colors.orange;
-                      final Color colorFondo = tieneEvidencia
-                          ? Colors.white
-                          : Colors.orange.shade50;
+                      // Detectamos si está rechazado y tiene comentario
+                      // Ajusta 'Rechazado' al string exacto que uses en tu BD
+                      final bool esRechazado = gasto.estado == 'Rechazado';
+                      final String? comentario = gasto.comentario;
 
-                      // --- AQUI ESTA EL SLIDABLE INTEGRADO ---
+                      // Colores: Verde si OK, Naranja si falta, Rojo si Rechazado
+                      final Color colorEstado = esRechazado
+                          ? Colors.red
+                          : (tieneEvidencia ? Colors.green : Colors.orange);
+
+                      final Color colorFondo = esRechazado
+                          ? Colors
+                                .red
+                                .shade50 // Fondo rojizo suave para llamar la atención
+                          : (tieneEvidencia
+                                ? Colors.white
+                                : Colors.orange.shade50);
+
                       return Slidable(
                         key: ValueKey(gasto.idGasto),
-
-                        // Solo permite deslizar si se puede editar la rendición
                         enabled: esEditable,
-
-                        // Panel derecho (Deslizar a la izquierda) -> BORRAR
                         endActionPane: ActionPane(
                           motion: const ScrollMotion(),
                           dismissible: DismissiblePane(
@@ -410,10 +415,8 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                             ),
                           ],
                         ),
-
                         child: Card(
-                          margin:
-                              EdgeInsets.zero, // El margen lo pone el ListView
+                          margin: EdgeInsets.zero,
                           elevation: tieneEvidencia ? 1 : 2,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -423,98 +426,69 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                             ),
                           ),
                           color: colorFondo,
-                          child: ListTile(
-                            isThreeLine: true,
-                            // Mantenemos el onLongPress como alternativa
-                            onLongPress: () {
-                              _confirmarBorrarGasto(gasto.idGasto!);
-                            },
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
                               vertical: 8,
-                            ),
-
-                            leading: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: colorEstado.withOpacity(0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.receipt_long,
-                                color: colorEstado,
-                                size: 24,
-                              ),
-                            ),
-
-                            title: Text(
-                              gasto.detalle,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            ), // Padding general al Card
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                const SizedBox(height: 4),
-                                Text("${gasto.fecha} • ${gasto.tipoDocumento}"),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: colorEstado,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        tieneEvidencia
-                                            ? "EVIDENCIA OK"
-                                            : "FALTA FOTO",
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 0.5,
-                                        ),
-                                      ),
+                                ListTile(
+                                  isThreeLine: true,
+                                  onLongPress: () {
+                                    _confirmarBorrarGasto(gasto.idGasto!);
+                                  },
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  leading: Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: colorEstado.withOpacity(0.1),
+                                      shape: BoxShape.circle,
                                     ),
-                                    if (tieneEvidencia &&
-                                        gasto.fotos.isNotEmpty) ...[
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 3,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color:
-                                              gasto.fotos[0].extension == 'pdf'
-                                              ? Colors.red.shade700
-                                              : Colors.blue.shade600,
-                                          borderRadius: BorderRadius.circular(
-                                            6,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              gasto.fotos[0].extension == 'pdf'
-                                                  ? Icons.picture_as_pdf
-                                                  : Icons.image,
-                                              color: Colors.white,
-                                              size: 10,
+                                    child: Icon(
+                                      esRechazado
+                                          ? Icons.highlight_off
+                                          : Icons.receipt_long,
+                                      color: colorEstado,
+                                      size: 24,
+                                    ),
+                                  ),
+                                  title: Text(
+                                    gasto.detalle,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        "${gasto.fecha} • ${gasto.tipoDocumento}",
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 3,
                                             ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              gasto.fotos[0].extension
-                                                  .toUpperCase(),
+                                            decoration: BoxDecoration(
+                                              color: colorEstado,
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              esRechazado
+                                                  ? "RECHAZADO"
+                                                  : (tieneEvidencia
+                                                        ? "EVIDENCIA OK"
+                                                        : "FALTA FOTO"),
                                               style: const TextStyle(
                                                 color: Colors.white,
                                                 fontSize: 10,
@@ -522,49 +496,162 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                                 letterSpacing: 0.5,
                                               ),
                                             ),
+                                          ),
+                                          // ... (Lógica de icono PDF/Imagen se mantiene igual)
+                                          if (tieneEvidencia &&
+                                              gasto.fotos.isNotEmpty) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 3,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color:
+                                                    gasto.fotos[0].extension ==
+                                                        'pdf'
+                                                    ? Colors.red.shade700
+                                                    : Colors.blue.shade600,
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                    gasto.fotos[0].extension ==
+                                                            'pdf'
+                                                        ? Icons.picture_as_pdf
+                                                        : Icons.image,
+                                                    color: Colors.white,
+                                                    size: 10,
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    gasto.fotos[0].extension
+                                                        .toUpperCase(),
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 10,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      letterSpacing: 0.5,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
                                           ],
-                                        ),
+                                        ],
                                       ),
                                     ],
-                                  ],
-                                ),
-                              ],
-                            ),
-
-                            trailing: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  _formatMoney(gasto.monto),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
+                                  ),
+                                  trailing: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        _formatMoney(gasto.monto),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      // BLOQUEO DE SEGURIDAD:
+                                      // Solo mostramos el botón de acción si es editable.
+                                      if (esEditable)
+                                        InkWell(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                          onTap: () {
+                                            if (!tieneEvidencia) {
+                                              _adjuntarEvidencia(
+                                                gasto.idGasto!,
+                                              );
+                                            } else {
+                                              _borrarArchivo(gasto.idGasto!);
+                                            }
+                                          },
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(4.0),
+                                            child: Icon(
+                                              tieneEvidencia
+                                                  ? Icons.delete_forever
+                                                  : Icons.camera_alt,
+                                              color: tieneEvidencia
+                                                  ? Colors.red.shade400
+                                                  : colorEstado,
+                                              size: 26,
+                                            ),
+                                          ),
+                                        )
+                                      // OPCIONAL: Si está bloqueado pero tiene foto, mostramos un candadito o un ojo
+                                      else if (tieneEvidencia)
+                                        const Padding(
+                                          padding: EdgeInsets.all(4.0),
+                                          child: Icon(
+                                            Icons.lock_outline,
+                                            size: 16,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
-                                InkWell(
-                                  borderRadius: BorderRadius.circular(20),
-                                  onTap: () {
-                                    if (!tieneEvidencia) {
-                                      _adjuntarEvidencia(gasto.idGasto!);
-                                    } else {
-                                      _borrarArchivo(gasto.idGasto!);
-                                    }
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(4.0),
-                                    child: Icon(
-                                      tieneEvidencia
-                                          ? Icons.delete_forever
-                                          : Icons.camera_alt,
-                                      color: tieneEvidencia
-                                          ? Colors.red.shade400
-                                          : colorEstado,
-                                      size: 26,
+
+                                // --- SECCIÓN DE COMENTARIO VALIDADOR ---
+                                if (esRechazado &&
+                                    comentario != null &&
+                                    comentario.isNotEmpty) ...[
+                                  const Divider(
+                                    color: Colors.red,
+                                    height: 20,
+                                    thickness: 0.5,
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      0,
+                                      16,
+                                      8,
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Icon(
+                                          Icons.comment,
+                                          color: Colors.red,
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: RichText(
+                                            text: TextSpan(
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.black87,
+                                              ),
+                                              children: [
+                                                const TextSpan(
+                                                  text: "Observación: ",
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.red,
+                                                  ),
+                                                ),
+                                                TextSpan(text: comentario),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ),
+                                ],
                               ],
                             ),
                           ),

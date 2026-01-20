@@ -2,14 +2,20 @@
 class GastoArchivo {
   final String rutaRelativa;
   final String extension;
+  final String nombreOriginal; // <--- NUEVO CAMPO
 
-  GastoArchivo({required this.rutaRelativa, required this.extension});
+  GastoArchivo({
+    required this.rutaRelativa,
+    required this.extension,
+    required this.nombreOriginal, // <--- REQUERIDO
+  });
 
   factory GastoArchivo.fromJson(Map<String, dynamic> json) {
     return GastoArchivo(
       rutaRelativa: json['ruta_relativa'] ?? '',
-      // Si por alguna razón viene null, asumimos jpg para que no falle
       extension: json['extension'] ?? 'jpg',
+      // Mapeamos el campo que viene de la BD (Laravel usa snake_case)
+      nombreOriginal: json['nombre_original'] ?? 'Archivo Adjunto',
     );
   }
 }
