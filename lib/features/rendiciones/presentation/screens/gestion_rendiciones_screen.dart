@@ -29,21 +29,16 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
   }
 
   // --- WIDGET PRIVADO PARA CALCULAR Y MOSTRAR SALDO ---
-  // Lo colocamos aquí mismo para no ensuciar la carpeta widgets innecesariamente
   Widget _buildSaldoWidget(int montoEntregado, int totalGastado) {
-    // 1. Hacemos el cálculo matemático aquí mismo
     final int saldoMatematico = montoEntregado - totalGastado;
-
-    // 2. Determinamos la lógica visual
-    final bool esReembolso = saldoMatematico < 0; // Gastó más de lo asignado
-    final int valorMostrar = saldoMatematico
-        .abs(); // Siempre positivo para mostrar
+    final bool esReembolso = saldoMatematico < 0;
+    final int valorMostrar = saldoMatematico.abs();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(
-          esReembolso ? "REEMBOLSO" : "DEVOLUCIÓN", // Etiqueta dinámica
+          esReembolso ? "REEMBOLSO" : "DEVOLUCIÓN",
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.bold,
@@ -55,7 +50,6 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            // Rojo si la empresa debe pagar (Reembolso), Verde si sobra plata (Devolución)
             color: esReembolso ? Colors.redAccent : Colors.green[700],
           ),
         ),
@@ -63,28 +57,78 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
     );
   }
 
-  // ... (Tus funciones _prepararEnvio, _enviarDefinitivo, _confirmarBorrar se mantienen igual) ...
-  // Para ahorrar espacio, asumo que mantienes esas funciones aquí.
-  // Si las necesitas completas dime y pego todo el bloque de nuevo.
-
+  // --- LÓGICA DE ENVÍO CON BLOQUEO DE SEGURIDAD ---
   Future<void> _prepararEnvio(int idRendicion, int totalMonto) async {
-    // ... (Tu lógica original de envío)
     // 1. Mostrar carga
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
-    // 2. Obtener gastos
+
+    // 2. Obtener gastos actualizados
     final gastoProvider = context.read<GastoProvider>();
     await gastoProvider.cargarGastos(idRendicion);
     final gastos = gastoProvider.gastos;
+
+    // Cerrar carga
     if (mounted) Navigator.pop(context);
-    // 3. Analizar
+
+    // --- BLOQUEO DE SEGURIDAD ---
+    // Verificamos si hay gastos rechazados
+    bool hayRechazados = gastos.any((g) => g.estado == 'Rechazado');
+
+    if (hayRechazados) {
+      if (!mounted) return;
+
+      // ALERTA DE BLOQUEO
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.block, color: Colors.red),
+              SizedBox(width: 10),
+              Text("Envío Bloqueado"),
+            ],
+          ),
+          content: const Text(
+            "Esta rendición contiene gastos que fueron RECHAZADOS anteriormente.\n\n"
+            "Por normativa, debes ELIMINAR los gastos rechazados antes de volver a enviar la rendición a revisión.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text(
+                "Entendido",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      );
+      return; // DETIENE EL PROCESO AQUÍ
+    }
+    // --- FIN BLOQUEO ---
+
+    // 3. Analizar estadísticas para el resumen
     int cantidadGastos = gastos.length;
     int sinFoto = gastos.where((g) => g.fotos.isEmpty).length;
+
+    // Validación extra: No enviar vacíos
+    if (cantidadGastos == 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("No puedes enviar una rendición sin gastos."),
+        ),
+      );
+      return;
+    }
+
     if (!mounted) return;
-    // 4. Popup
+
+    // 4. Popup de Confirmación Final
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -128,10 +172,11 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
 
   Future<void> _enviarDefinitivo(int idRendicion) async {
     await context.read<RendicionesProvider>().enviarRendicion(idRendicion);
-    if (mounted)
+    if (mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Procesado")));
+    }
   }
 
   Future<void> _confirmarBorrar(int idRendicion) async {
@@ -184,12 +229,13 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
                 final String idFormateado = (rendicion.idRendicion ?? 0)
                     .toString()
                     .padLeft(3, '0');
+
                 final bool esEditable = [
                   'Borrador',
                   'Observada',
                 ].contains(rendicion.estado);
 
-                // Colores Badge
+                // Configuración de Badges
                 Color badgeColor;
                 Color badgeTextColor;
                 String badgeText = rendicion.estado;
@@ -224,6 +270,8 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
                 return Slidable(
                   key: ValueKey(rendicion.idRendicion),
                   enabled: esEditable,
+
+                  // Configuración del panel de acciones (Enviar / Borrar)
                   endActionPane: ActionPane(
                     motion: const ScrollMotion(),
                     children: [
@@ -251,6 +299,7 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
                       ),
                     ],
                   ),
+
                   child: Card(
                     margin: EdgeInsets.zero,
                     elevation: 2,
@@ -267,17 +316,18 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
                                 RendicionDetailScreen(rendicion: rendicion),
                           ),
                         );
-                        if (mounted)
+                        if (mounted) {
                           context
                               .read<RendicionesProvider>()
                               .cargarMisRendiciones();
+                        }
                       },
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // 1. Cabecera
+                            // 1. Cabecera (Fecha y Badge)
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -309,7 +359,8 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
                               ],
                             ),
                             const SizedBox(height: 8),
-                            // 2. Título
+
+                            // 2. Título (ID y Propósito)
                             Row(
                               children: [
                                 Text(
@@ -348,6 +399,7 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
                                 ),
                               ),
                             const Divider(height: 24),
+
                             // 3. Resumen Financiero
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -371,7 +423,7 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
                                   ],
                                 ),
 
-                                // --- USO DEL WIDGET PRIVADO ---
+                                // Widget de saldo
                                 _buildSaldoWidget(
                                   rendicion.montoEntregado,
                                   rendicion.totalGastado,

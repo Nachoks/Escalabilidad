@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/rendiciones_provider.dart';
+// 1. IMPORTANTE: Importamos la pantalla de detalle
+import 'package:somnolence_app/features/rendiciones/presentation/screens/rendicion_detail_screen.dart';
 
 class AdminHistoryScreen extends StatefulWidget {
   const AdminHistoryScreen({super.key});
@@ -22,7 +24,7 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
     });
   }
 
-  // --- LÓGICA DE COLORES SEMÁFORO (Adaptada a Rendiciones) ---
+  // --- LÓGICA DE COLORES SEMÁFORO ---
   Color _getColorByEstado(String estado) {
     switch (estado) {
       case 'Pagada':
@@ -38,10 +40,6 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
       default:
         return Colors.grey.shade200;
     }
-  }
-
-  String _formatMoney(int amount) {
-    return "\$${amount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}";
   }
 
   @override
@@ -86,22 +84,33 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
 
                       final String idVisual =
                           "#${(item.idRendicion ?? 0).toString().padLeft(3, '0')}";
-                      final String nombreUsuario =
-                          item.nombreUsuario; // Ya lo tienes en el modelo
+                      final String nombreUsuario = item.nombreUsuario;
                       final colorFondo = _getColorByEstado(item.estado);
 
                       return Card(
                         elevation: 2,
-                        color: colorFondo, // Fondo coloreado según estado
+                        color: colorFondo,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: ListTile(
+                          // 2. AQUÍ ESTÁ LA MAGIA: Navegación "Solo Lectura"
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => RendicionDetailScreen(
+                                  rendicion: item,
+                                  soloLectura:
+                                      true, // <--- ESTO BLOQUEA LA EDICIÓN
+                                ),
+                              ),
+                            );
+                          },
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 8,
                           ),
-
                           leading: CircleAvatar(
                             backgroundColor: Colors.white.withOpacity(0.6),
                             child: Text(
@@ -113,14 +122,12 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
                               ),
                             ),
                           ),
-
                           title: Text(
                             item.proposito,
                             style: const TextStyle(fontWeight: FontWeight.bold),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -153,7 +160,6 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
                               ),
                             ],
                           ),
-
                           trailing: Text(
                             _formatMoney(item.totalGastado),
                             style: const TextStyle(
@@ -172,7 +178,12 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
     );
   }
 
-  // --- WIDGET BARRA DE FILTROS ---
+  // --- Helpers y Widgets Auxiliares ---
+
+  String _formatMoney(int amount) {
+    return "\$${amount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}";
+  }
+
   Widget _buildFilterBar() {
     return Container(
       width: double.infinity,

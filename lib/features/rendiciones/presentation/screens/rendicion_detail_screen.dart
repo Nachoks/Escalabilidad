@@ -2,16 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter_slidable/flutter_slidable.dart'; // <--- IMPORTANTE
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
+import 'package:somnolence_app/core/constants/app_constants.dart';
 import 'package:somnolence_app/features/rendiciones/data/models/rendicion_model.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/gasto_provider.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/widget/add_gasto_dialog.dart';
+// IMPORTANTE: Asegúrate de importar el archivo PDF Builder que creamos arriba
+import 'package:somnolence_app/features/rendiciones/presentation/utils/rendicion_pdf_builder.dart';
 
 class RendicionDetailScreen extends StatefulWidget {
   final RendicionModel rendicion;
+  final bool soloLectura;
 
-  const RendicionDetailScreen({super.key, required this.rendicion});
+  const RendicionDetailScreen({
+    super.key,
+    required this.rendicion,
+    this.soloLectura = false,
+  });
 
   @override
   State<RendicionDetailScreen> createState() => _RendicionDetailScreenState();
@@ -26,11 +34,144 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     });
   }
 
-  // --- 1. LÓGICA PARA SUBIR ARCHIVO ---
+  String _formatMoney(int amount) {
+    return "\$${amount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}";
+  }
+
+  // --- FUNCIÓN PARA GENERAR EL PDF ---
+  Future<void> _generarPdf() async {
+    final provider = context.read<GastoProvider>();
+    final gastos = provider.gastos;
+
+    if (gastos.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No hay gastos para generar el reporte.")),
+      );
+      return;
+    }
+
+    // Feedback visual
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Generando PDF..."),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    try {
+      // Llamamos a nuestro utilitario
+      await RendicionPdfBuilder.imprimirRendicion(widget.rendicion, gastos);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error al generar PDF: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // --- VISUALIZAR EVIDENCIA (POPUP) ---
+  void _verEvidencia(BuildContext context, dynamic archivo) {
+    final baseUrl = AppConstants.apiUrl.replaceAll(RegExp(r'/api/?$'), '');
+    String rutaLimpia = archivo.rutaRelativa;
+    if (rutaLimpia.startsWith('public/')) {
+      rutaLimpia = rutaLimpia.replaceFirst('public/', '');
+    }
+    final urlImagen = "$baseUrl/storage/$rutaLimpia";
+    final bool esPdf = archivo.extension == 'pdf';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(10),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: double.infinity,
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.7,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Text(
+                      "Evidencia Adjunta",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: esPdf
+                        ? const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.picture_as_pdf,
+                                size: 80,
+                                color: Colors.red,
+                              ),
+                              SizedBox(height: 16),
+                              Text(
+                                "Documento PDF",
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          )
+                        : InteractiveViewer(
+                            panEnabled: true,
+                            minScale: 0.5,
+                            maxScale: 4,
+                            child: Image.network(
+                              urlImagen,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              top: 0,
+              right: 0,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(ctx),
+                child: Container(
+                  margin: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- LÓGICA DE ARCHIVOS ---
   Future<void> _adjuntarEvidencia(int idGasto) async {
     final ImagePicker picker = ImagePicker();
     String? pathSeleccionado;
-
     final String? opcion = await showModalBottomSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -44,191 +185,95 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.photo_library, color: Colors.green),
-              title: const Text("Galería de Imágenes"),
+              title: const Text("Galería"),
               onTap: () => Navigator.pop(ctx, 'gallery'),
             ),
             ListTile(
-              leading: const Icon(
-                Icons.picture_as_pdf,
-                color: Colors.redAccent,
-              ),
-              title: const Text("Documento PDF"),
+              leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+              title: const Text("PDF"),
               onTap: () => Navigator.pop(ctx, 'pdf'),
             ),
           ],
         ),
       ),
     );
-
     if (opcion == null) return;
-
-    if (opcion == 'camera') {
+    if (opcion == 'camera' || opcion == 'gallery') {
       final XFile? photo = await picker.pickImage(
-        source: ImageSource.camera,
+        source: opcion == 'camera' ? ImageSource.camera : ImageSource.gallery,
         imageQuality: 50,
       );
       pathSeleccionado = photo?.path;
-    } else if (opcion == 'gallery') {
-      final XFile? photo = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 50,
-      );
-      pathSeleccionado = photo?.path;
-    } else if (opcion == 'pdf') {
+    } else {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf'],
       );
-      if (result != null && result.files.single.path != null) {
-        pathSeleccionado = result.files.single.path;
-      }
+      pathSeleccionado = result?.files.single.path;
     }
 
     if (pathSeleccionado != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Subiendo archivo..."),
+          content: Text("Subiendo..."),
           duration: Duration(seconds: 1),
         ),
       );
-
-      final exito = await context.read<GastoProvider>().subirEvidencia(
+      await context.read<GastoProvider>().subirEvidencia(
         idGasto,
         widget.rendicion.idRendicion!,
         pathSeleccionado,
       );
-
-      if (exito && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Evidencia subida correctamente"),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Error al subir archivo"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
 
-  // --- 2. LÓGICA PARA BORRAR ARCHIVO ---
   Future<void> _borrarArchivo(int idGasto) async {
     final bool? confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Eliminar Evidencia"),
-        content: const Text(
-          "¿Estás seguro de borrar este archivo? Tendrás que subir uno nuevo.",
-        ),
+        content: const Text("¿Borrar archivo?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("Cancelar", style: TextStyle(color: Colors.grey)),
+            child: const Text("Cancelar"),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              "Eliminar",
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-            ),
+            child: const Text("Eliminar", style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
-
-    if (confirmar != true) return;
-
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Eliminando archivo...")));
-
-      final exito = await context.read<GastoProvider>().eliminarEvidencia(
+    if (confirmar == true && mounted) {
+      await context.read<GastoProvider>().eliminarEvidencia(
         idGasto,
         widget.rendicion.idRendicion!,
       );
-
-      if (mounted) {
-        if (exito) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Archivo eliminado"),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Error al eliminar"),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
     }
   }
 
-  // --- 3. LÓGICA PARA BORRAR GASTO COMPLETO ---
   Future<void> _confirmarBorrarGasto(int idGasto) async {
     final bool? confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Eliminar Gasto"),
-        content: const Text(
-          "¿Estás seguro de eliminar este gasto completo? Esta acción no se puede deshacer.",
-        ),
+        content: const Text("¿Eliminar gasto completo?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("Cancelar", style: TextStyle(color: Colors.grey)),
+            child: const Text("Cancelar"),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              "Eliminar",
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-            ),
+            child: const Text("Eliminar", style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
-
     if (confirmar == true && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Eliminando gasto...")));
-
-      final exito = await context.read<GastoProvider>().eliminarGastoCompleto(
-        idGasto,
-      );
-
-      if (mounted) {
-        if (exito) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Gasto eliminado"),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Error al eliminar"),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
+      await context.read<GastoProvider>().eliminarGastoCompleto(idGasto);
     }
-  }
-
-  String _formatMoney(int amount) {
-    return "\$${amount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}";
   }
 
   @override
@@ -236,30 +281,42 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     final provider = context.watch<GastoProvider>();
     final gastos = provider.gastos;
 
-    // Cálculos en vivo
     int totalEnVivo = gastos.fold(0, (sum, item) => sum + item.monto);
     int montoEntregado = widget.rendicion.montoEntregado;
     int saldo = montoEntregado - totalEnVivo;
 
-    // Determinamos si es editable para habilitar/deshabilitar el slide
-    final bool esEditable = [
-      'Borrador',
-      'Observada',
-    ].contains(widget.rendicion.estado);
+    // LÓGICA DE EDICIÓN
+    final bool esEditable =
+        !widget.soloLectura &&
+        ['Borrador', 'Observada'].contains(widget.rendicion.estado);
+
+    // LÓGICA DE IMPRESIÓN (NUEVO)
+    // Se puede imprimir si es 'Pagada' o 'Aprobada', o si estamos en el Historial (soloLectura)
+    final bool puedeImprimir =
+        widget.soloLectura ||
+        ['Pagada', 'Aprobada'].contains(widget.rendicion.estado);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
-          "Detalle Rendición",
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          widget.soloLectura ? "Historial Detalle" : "Detalle Rendición",
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+
+        // --- AQUÍ ESTÁ EL BOTÓN DE PDF EN LA BARRA SUPERIOR ---
+        actions: [
+          if (puedeImprimir)
+            IconButton(
+              icon: const Icon(Icons.print),
+              tooltip: "Generar PDF",
+              onPressed: _generarPdf, // Llama a la función que creamos arriba
+            ),
+        ],
       ),
-      floatingActionButton:
-          widget.rendicion.estado == 'Borrador' ||
-              widget.rendicion.estado == 'Observada'
+      floatingActionButton: esEditable
           ? FloatingActionButton.extended(
               onPressed: () {
                 showDialog(
@@ -278,7 +335,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
           : null,
       body: Column(
         children: [
-          // --- PANEL DE CONTROL (CABECERA) ---
+          // PANEL DE CONTROL
           Container(
             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
             decoration: BoxDecoration(
@@ -294,7 +351,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Columna 1: Asignado
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -302,7 +358,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                       "ASIGNADO",
                       style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
-                    const SizedBox(height: 4),
                     Text(
                       _formatMoney(montoEntregado),
                       style: const TextStyle(
@@ -314,7 +369,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                   ],
                 ),
                 Container(height: 30, width: 1, color: Colors.grey[300]),
-                // Columna 2: Gastado
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -322,7 +376,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                       "TOTAL (con iva)",
                       style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
-                    const SizedBox(height: 4),
                     Text(
                       _formatMoney(totalEnVivo),
                       style: const TextStyle(
@@ -334,7 +387,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                   ],
                 ),
                 Container(height: 30, width: 1, color: Colors.grey[300]),
-                // Columna 3: Saldo
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -342,7 +394,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                       "POR RENDIR",
                       style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
-                    const SizedBox(height: 4),
                     Text(
                       _formatMoney(saldo),
                       style: TextStyle(
@@ -358,10 +409,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
               ],
             ),
           ),
-
           const SizedBox(height: 10),
-
-          // --- LISTA DE GASTOS ---
           Expanded(
             child: provider.isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -374,21 +422,14 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                     itemBuilder: (context, index) {
                       final gasto = gastos[index];
                       final bool tieneEvidencia = gasto.fotos.isNotEmpty;
-
-                      // Detectamos si está rechazado y tiene comentario
-                      // Ajusta 'Rechazado' al string exacto que uses en tu BD
                       final bool esRechazado = gasto.estado == 'Rechazado';
                       final String? comentario = gasto.comentario;
 
-                      // Colores: Verde si OK, Naranja si falta, Rojo si Rechazado
                       final Color colorEstado = esRechazado
                           ? Colors.red
                           : (tieneEvidencia ? Colors.green : Colors.orange);
-
                       final Color colorFondo = esRechazado
-                          ? Colors
-                                .red
-                                .shade50 // Fondo rojizo suave para llamar la atención
+                          ? Colors.red.shade50
                           : (tieneEvidencia
                                 ? Colors.white
                                 : Colors.orange.shade50);
@@ -398,11 +439,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                         enabled: esEditable,
                         endActionPane: ActionPane(
                           motion: const ScrollMotion(),
-                          dismissible: DismissiblePane(
-                            onDismissed: () {
-                              _confirmarBorrarGasto(gasto.idGasto!);
-                            },
-                          ),
+                          extentRatio: 0.3,
                           children: [
                             SlidableAction(
                               onPressed: (_) =>
@@ -411,7 +448,10 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                               foregroundColor: Colors.white,
                               icon: Icons.delete,
                               label: 'Borrar',
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: const BorderRadius.only(
+                                topRight: Radius.circular(12),
+                                bottomRight: Radius.circular(12),
+                              ),
                             ),
                           ],
                         ),
@@ -427,17 +467,17 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                           ),
                           color: colorFondo,
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 8,
-                            ), // Padding general al Card
+                            padding: const EdgeInsets.symmetric(vertical: 8),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 ListTile(
                                   isThreeLine: true,
-                                  onLongPress: () {
-                                    _confirmarBorrarGasto(gasto.idGasto!);
-                                  },
+                                  onLongPress: esEditable
+                                      ? () => _confirmarBorrarGasto(
+                                          gasto.idGasto!,
+                                        )
+                                      : null,
                                   contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 16,
                                   ),
@@ -493,56 +533,9 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                                 color: Colors.white,
                                                 fontSize: 10,
                                                 fontWeight: FontWeight.bold,
-                                                letterSpacing: 0.5,
                                               ),
                                             ),
                                           ),
-                                          // ... (Lógica de icono PDF/Imagen se mantiene igual)
-                                          if (tieneEvidencia &&
-                                              gasto.fotos.isNotEmpty) ...[
-                                            const SizedBox(width: 6),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 3,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color:
-                                                    gasto.fotos[0].extension ==
-                                                        'pdf'
-                                                    ? Colors.red.shade700
-                                                    : Colors.blue.shade600,
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                              ),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(
-                                                    gasto.fotos[0].extension ==
-                                                            'pdf'
-                                                        ? Icons.picture_as_pdf
-                                                        : Icons.image,
-                                                    color: Colors.white,
-                                                    size: 10,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    gasto.fotos[0].extension
-                                                        .toUpperCase(),
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 10,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      letterSpacing: 0.5,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
                                         ],
                                       ),
                                     ],
@@ -559,8 +552,8 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                           fontSize: 15,
                                         ),
                                       ),
-                                      // BLOQUEO DE SEGURIDAD:
-                                      // Solo mostramos el botón de acción si es editable.
+
+                                      // BOTONES DE ACCIÓN (Ojo / Cámara / Candado)
                                       if (esEditable)
                                         InkWell(
                                           borderRadius: BorderRadius.circular(
@@ -588,21 +581,38 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                             ),
                                           ),
                                         )
-                                      // OPCIONAL: Si está bloqueado pero tiene foto, mostramos un candadito o un ojo
                                       else if (tieneEvidencia)
+                                        // SI ES SOLO LECTURA y tiene evidencia -> Icono de OJO para ver
+                                        InkWell(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                          onTap: () => _verEvidencia(
+                                            context,
+                                            gasto.fotos[0],
+                                          ),
+                                          child: const Padding(
+                                            padding: EdgeInsets.all(4.0),
+                                            child: Icon(
+                                              Icons.visibility,
+                                              size: 24,
+                                              color: Colors.blueGrey,
+                                            ),
+                                          ),
+                                        )
+                                      else
+                                        // Si es solo lectura y NO tiene evidencia -> Candado
                                         const Padding(
                                           padding: EdgeInsets.all(4.0),
                                           child: Icon(
                                             Icons.lock_outline,
-                                            size: 16,
+                                            size: 18,
                                             color: Colors.grey,
                                           ),
                                         ),
                                     ],
                                   ),
                                 ),
-
-                                // --- SECCIÓN DE COMENTARIO VALIDADOR ---
                                 if (esRechazado &&
                                     comentario != null &&
                                     comentario.isNotEmpty) ...[
@@ -619,8 +629,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                       8,
                                     ),
                                     child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
                                       children: [
                                         const Icon(
                                           Icons.comment,
@@ -629,22 +637,11 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                         ),
                                         const SizedBox(width: 8),
                                         Expanded(
-                                          child: RichText(
-                                            text: TextSpan(
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.black87,
-                                              ),
-                                              children: [
-                                                const TextSpan(
-                                                  text: "Observación: ",
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.red,
-                                                  ),
-                                                ),
-                                                TextSpan(text: comentario),
-                                              ],
+                                          child: Text(
+                                            "Observación: $comentario",
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.black87,
                                             ),
                                           ),
                                         ),
