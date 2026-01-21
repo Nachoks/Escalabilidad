@@ -1,22 +1,29 @@
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:intl/intl.dart'; // Asegúrate de tener intl o usa tu formateador
+import 'package:intl/intl.dart';
 import 'package:somnolence_app/features/rendiciones/data/models/rendicion_model.dart';
 import 'package:somnolence_app/features/rendiciones/data/models/gasto_model.dart';
 
 class RendicionPdfBuilder {
-  // Función principal que llama la UI
   static Future<void> imprimirRendicion(
     RendicionModel rendicion,
     List<GastoModel> gastos,
   ) async {
     final pdf = pw.Document();
 
-    // Formateador de dinero simple
-    final currencyFormat = NumberFormat.currency(locale: 'es_CL', symbol: '\$');
+    // 1. FORMATO NUMÉRICO BASE (Solo números y puntos de mil)
+    final numberFormat = NumberFormat.decimalPattern('es_CL');
 
-    // Calculamos el total gastado
+    // Helper manual: Signo a la IZQUIERDA
+    String fmtMoney(int amount) {
+      return "\$ ${numberFormat.format(amount)}"; // Ej: $ 10.000
+    }
+
+    // 2. FECHA DE GENERACIÓN
+    final String fechaReporte = DateFormat('dd/MM/yyyy').format(DateTime.now());
+
+    // Cálculos
     int totalGastado = gastos.fold(0, (sum, item) => sum + item.monto);
     int saldo = rendicion.montoEntregado - totalGastado;
 
@@ -26,12 +33,12 @@ class RendicionPdfBuilder {
         margin: const pw.EdgeInsets.all(40),
         build: (pw.Context context) {
           return [
-            // --- 1. TÍTULO ---
+            // TÍTULO
             pw.Header(
               level: 0,
               child: pw.Center(
                 child: pw.Text(
-                  "RENDICIÓN DE GASTOS",
+                  "COMPROBANTE DE RENDICIÓN",
                   style: pw.TextStyle(
                     fontSize: 20,
                     fontWeight: pw.FontWeight.bold,
@@ -41,7 +48,7 @@ class RendicionPdfBuilder {
             ),
             pw.SizedBox(height: 20),
 
-            // --- 2. CABECERA DE DATOS ---
+            // DATOS DE LA RENDICIÓN
             pw.Container(
               padding: const pw.EdgeInsets.all(10),
               decoration: pw.BoxDecoration(
@@ -52,13 +59,14 @@ class RendicionPdfBuilder {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   _buildDataRow("ID Rendición:", "#${rendicion.idRendicion}"),
-                  _buildDataRow("Fecha:", rendicion.fecha),
+                  _buildDataRow("Fecha Emisión:", fechaReporte),
                   _buildDataRow("Responsable:", rendicion.nombreUsuario),
                   _buildDataRow("Propósito:", rendicion.proposito),
                   pw.Divider(),
+                  // Monto asignado con signo a la izquierda
                   _buildDataRow(
                     "Monto Asignado:",
-                    currencyFormat.format(rendicion.montoEntregado),
+                    fmtMoney(rendicion.montoEntregado),
                     isBold: true,
                   ),
                 ],
@@ -67,7 +75,7 @@ class RendicionPdfBuilder {
 
             pw.SizedBox(height: 30),
 
-            // --- 3. TABLA DE GASTOS ---
+            // 3. TABLA DE GASTOS
             pw.Text(
               "Detalle de Gastos",
               style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
@@ -81,31 +89,39 @@ class RendicionPdfBuilder {
               ),
               headerHeight: 25,
               cellHeight: 30,
+
               cellAlignments: {
-                0: pw.Alignment.centerLeft,
-                1: pw.Alignment.centerLeft,
-                2: pw.Alignment.centerLeft,
-                3: pw.Alignment.centerRight,
+                0: pw.Alignment.centerLeft, // Fecha
+                1: pw.Alignment.centerLeft, // Detalle
+                2: pw.Alignment.centerLeft, // Tipo
+                3: pw.Alignment.centerLeft, // N° Doc
+                4: pw
+                    .Alignment
+                    .centerRight, // Monto (Alineado derecha se ve mejor en contabilidad)
               },
+
               headerStyle: pw.TextStyle(
                 fontWeight: pw.FontWeight.bold,
                 fontSize: 10,
               ),
               cellStyle: const pw.TextStyle(fontSize: 10),
-              headers: <String>['Fecha', 'Detalle', 'Documento', 'Monto'],
+
+              headers: <String>['Fecha', 'Detalle', 'Tipo', 'N° Doc.', 'Monto'],
+
               data: gastos.map((g) {
                 return [
                   g.fecha,
                   g.detalle,
-                  "${g.tipoDocumento} ${g.numDocumento ?? ''}",
-                  currencyFormat.format(g.monto),
+                  g.tipoDocumento,
+                  g.numDocumento ?? 'S/N',
+                  fmtMoney(g.monto), // <--- Signo a la izquierda
                 ];
               }).toList(),
             ),
 
             pw.SizedBox(height: 20),
 
-            // --- 4. TOTALES AL FINAL ---
+            // 4. TOTALES
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.end,
               children: [
@@ -113,14 +129,14 @@ class RendicionPdfBuilder {
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
                   children: [
                     pw.Text(
-                      "Total Gastado: ${currencyFormat.format(totalGastado)}",
+                      "Total Gastado: ${fmtMoney(totalGastado)}",
                       style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                     ),
                     pw.SizedBox(height: 5),
                     pw.Text(
                       saldo < 0
-                          ? "Reembolso a Usuario: ${currencyFormat.format(saldo.abs())}"
-                          : "Devolución a Empresa: ${currencyFormat.format(saldo)}",
+                          ? "Reembolso a Usuario: ${fmtMoney(saldo.abs())}"
+                          : "Devolución a Empresa: ${fmtMoney(saldo)}",
                       style: pw.TextStyle(
                         color: saldo < 0 ? PdfColors.red : PdfColors.green,
                         fontWeight: pw.FontWeight.bold,
@@ -135,14 +151,18 @@ class RendicionPdfBuilder {
       ),
     );
 
-    // Abrir vista previa de impresión (Android/iOS/Web)
+    final String nombreArchivo =
+        'Rendicion_${rendicion.idRendicion}_$fechaReporte.pdf'.replaceAll(
+          '/',
+          '-',
+        );
+
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
-      name: 'Rendicion_${rendicion.idRendicion}.pdf',
+      name: nombreArchivo,
     );
   }
 
-  // Helper para filas de datos
   static pw.Widget _buildDataRow(
     String label,
     String value, {

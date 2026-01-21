@@ -8,7 +8,6 @@ import 'package:somnolence_app/core/constants/app_constants.dart';
 import 'package:somnolence_app/features/rendiciones/data/models/rendicion_model.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/gasto_provider.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/widget/add_gasto_dialog.dart';
-// IMPORTANTE: Asegúrate de importar el archivo PDF Builder que creamos arriba
 import 'package:somnolence_app/features/rendiciones/presentation/utils/rendicion_pdf_builder.dart';
 
 class RendicionDetailScreen extends StatefulWidget {
@@ -38,7 +37,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     return "\$${amount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}";
   }
 
-  // --- FUNCIÓN PARA GENERAR EL PDF ---
+  // --- GENERAR PDF ---
   Future<void> _generarPdf() async {
     final provider = context.read<GastoProvider>();
     final gastos = provider.gastos;
@@ -50,7 +49,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
       return;
     }
 
-    // Feedback visual
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text("Generando PDF..."),
@@ -59,7 +57,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     );
 
     try {
-      // Llamamos a nuestro utilitario
       await RendicionPdfBuilder.imprimirRendicion(widget.rendicion, gastos);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -71,7 +68,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     }
   }
 
-  // --- VISUALIZAR EVIDENCIA (POPUP) ---
+  // --- VER EVIDENCIA ---
   void _verEvidencia(BuildContext context, dynamic archivo) {
     final baseUrl = AppConstants.apiUrl.replaceAll(RegExp(r'/api/?$'), '');
     String rutaLimpia = archivo.rutaRelativa;
@@ -168,7 +165,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     );
   }
 
-  // --- LÓGICA DE ARCHIVOS ---
+  // --- SUBIR ARCHIVO ---
   Future<void> _adjuntarEvidencia(int idGasto) async {
     final ImagePicker picker = ImagePicker();
     String? pathSeleccionado;
@@ -285,13 +282,10 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     int montoEntregado = widget.rendicion.montoEntregado;
     int saldo = montoEntregado - totalEnVivo;
 
-    // LÓGICA DE EDICIÓN
     final bool esEditable =
         !widget.soloLectura &&
         ['Borrador', 'Observada'].contains(widget.rendicion.estado);
 
-    // LÓGICA DE IMPRESIÓN (NUEVO)
-    // Se puede imprimir si es 'Pagada' o 'Aprobada', o si estamos en el Historial (soloLectura)
     final bool puedeImprimir =
         widget.soloLectura ||
         ['Pagada', 'Aprobada'].contains(widget.rendicion.estado);
@@ -305,14 +299,12 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
         ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-
-        // --- AQUÍ ESTÁ EL BOTÓN DE PDF EN LA BARRA SUPERIOR ---
         actions: [
           if (puedeImprimir)
             IconButton(
               icon: const Icon(Icons.print),
               tooltip: "Generar PDF",
-              onPressed: _generarPdf, // Llama a la función que creamos arriba
+              onPressed: _generarPdf,
             ),
         ],
       ),
@@ -410,6 +402,8 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
             ),
           ),
           const SizedBox(height: 10),
+
+          // LISTA DE GASTOS
           Expanded(
             child: provider.isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -511,8 +505,11 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                         "${gasto.fecha} • ${gasto.tipoDocumento}",
                                       ),
                                       const SizedBox(height: 8),
+
+                                      // --- BADGES DE ESTADO + TIPO DE ARCHIVO ---
                                       Row(
                                         children: [
+                                          // Badge de Estado Principal
                                           Container(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 8,
@@ -536,6 +533,53 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                               ),
                                             ),
                                           ),
+
+                                          // --- AQUÍ ESTÁ EL CÓDIGO RESTAURADO ---
+                                          if (tieneEvidencia &&
+                                              gasto.fotos.isNotEmpty) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 3,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color:
+                                                    gasto.fotos[0].extension ==
+                                                        'pdf'
+                                                    ? Colors.red.shade700
+                                                    : Colors.blue.shade600,
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                    gasto.fotos[0].extension ==
+                                                            'pdf'
+                                                        ? Icons.picture_as_pdf
+                                                        : Icons.image,
+                                                    color: Colors.white,
+                                                    size: 10,
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    gasto.fotos[0].extension
+                                                        .toUpperCase(),
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 10,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                          // ----------------------------------------
                                         ],
                                       ),
                                     ],
@@ -553,7 +597,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                         ),
                                       ),
 
-                                      // BOTONES DE ACCIÓN (Ojo / Cámara / Candado)
                                       if (esEditable)
                                         InkWell(
                                           borderRadius: BorderRadius.circular(
@@ -582,7 +625,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                           ),
                                         )
                                       else if (tieneEvidencia)
-                                        // SI ES SOLO LECTURA y tiene evidencia -> Icono de OJO para ver
                                         InkWell(
                                           borderRadius: BorderRadius.circular(
                                             20,
@@ -601,7 +643,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                           ),
                                         )
                                       else
-                                        // Si es solo lectura y NO tiene evidencia -> Candado
                                         const Padding(
                                           padding: EdgeInsets.all(4.0),
                                           child: Icon(
