@@ -49,25 +49,28 @@ class _RendicionValidacionScreenState extends State<RendicionValidacionScreen> {
   }
 
   void _verEvidencia(BuildContext context, dynamic archivo) {
-    // 1. Construir la URL completa
-    // Asumimos que AppConstants.apiUrl es algo como "http://192.168.1.X/api"
-    // Las imágenes en Laravel suelen estar en "http://192.168.1.X/storage/..."
-    // Ajustamos la URL base quitando el '/api' final si existe.
-    final baseUrl = AppConstants.apiUrl.replaceAll(RegExp(r'/api/?$'), '');
+    // 1. OBTENER RUTA Y LIMPIARLA
+    String rutaRelativa = archivo.rutaRelativa;
 
-    // 2. Limpieza de Ruta Relativa
-    // Si la ruta en BD viene como 'public/gastos/foto.jpg', debemos quitar 'public/'
-    // porque en la URL web 'storage' ya apunta a 'public'.
-    String rutaLimpia = archivo.rutaRelativa;
-    if (rutaLimpia.startsWith('public/')) {
-      rutaLimpia = rutaLimpia.replaceFirst('public/', '');
+    // --- CORRECCIÓN CRÍTICA ---
+    // Reemplazar TODAS las barras invertidas de Windows (\) por barras web (/)
+    rutaRelativa = rutaRelativa.replaceAll('\\', '/');
+
+    // Si por error se guardó con "public/" al inicio, lo quitamos
+    if (rutaRelativa.startsWith('public/')) {
+      rutaRelativa = rutaRelativa.replaceFirst('public/', '');
+    }
+    // Quitamos slash inicial si existe
+    if (rutaRelativa.startsWith('/')) {
+      rutaRelativa = rutaRelativa.substring(1);
     }
 
-    // 3. Construcción Final
-    final urlImagen = "$baseUrl/storage/$rutaLimpia";
+    // 2. CONSTRUIR URL
+    // Asegúrate que tu apiUrl en AppConstants no tenga "/" al final.
+    // La URL final debe verse como: .../api/evidencia/006/gastos/foto.jpg
+    final urlImagen = "${AppConstants.apiUrl}/evidencia/$rutaRelativa";
 
-    // DEBUG: Imprimir en consola para verificar si la URL es accesible desde el navegador
-    print("URL GENERADA: $urlImagen");
+    print("URL FINAL PARA FLUTTER: $urlImagen");
 
     final bool esPdf = archivo.extension == 'pdf';
 

@@ -75,7 +75,7 @@ class _SplashScreenState extends State<SplashScreen> {
         final user = User.fromJson(userData);
         context.read<AuthProvider>().setUser(user);
 
-        // 🚨 CAMBIO CRÍTICO: Si ya tiene sesión, va al Dashboard
+        //Si ya tiene sesión, va al Dashboard
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomeDashboardScreen()),

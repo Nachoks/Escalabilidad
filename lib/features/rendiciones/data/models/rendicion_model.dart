@@ -7,6 +7,7 @@ class RendicionModel {
   final String? centroCosto;
   final int idServicio;
   final int? idUsuario;
+  final String? rutaComprobante;
 
   // Campo para el nombre
   final String nombreUsuario;
@@ -26,6 +27,7 @@ class RendicionModel {
     this.nombreUsuario = 'Usuario Desconocido',
     this.totalGastado = 0,
     this.saldo = 0,
+    this.rutaComprobante,
   });
 
   factory RendicionModel.fromJson(Map<String, dynamic> json) {
@@ -52,12 +54,10 @@ class RendicionModel {
       centroCosto: json['centro_costo'],
       idServicio: int.tryParse(json['id_servicio']?.toString() ?? '0') ?? 0,
       idUsuario: int.tryParse(json['id_usuario']?.toString() ?? '0'),
-
-      // Asignamos el nombre encontrado
       nombreUsuario: nombreEncontrado,
-
       totalGastado: int.tryParse(json['total_gastado']?.toString() ?? '0') ?? 0,
       saldo: int.tryParse(json['saldo']?.toString() ?? '0') ?? 0,
+      rutaComprobante: json['ruta_comprobante'],
     );
   }
 }

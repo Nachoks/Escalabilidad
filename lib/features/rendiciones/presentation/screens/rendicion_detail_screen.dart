@@ -28,12 +28,18 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<GastoProvider>().cargarGastos(widget.rendicion.idRendicion!);
-    });
+    // Validamos que el ID exista antes de buscar para evitar Crash
+    if (widget.rendicion.idRendicion != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<GastoProvider>().cargarGastos(
+          widget.rendicion.idRendicion!,
+        );
+      });
+    }
   }
 
-  String _formatMoney(int amount) {
+  String _formatMoney(int? amount) {
+    if (amount == null) return "\$0";
     return "\$${amount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}";
   }
 
@@ -68,15 +74,33 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     }
   }
 
-  // --- VER EVIDENCIA ---
+  // --- VER EVIDENCIA (CORREGIDO PARA EL NUEVO BACKEND) ---
   void _verEvidencia(BuildContext context, dynamic archivo) {
-    final baseUrl = AppConstants.apiUrl.replaceAll(RegExp(r'/api/?$'), '');
-    String rutaLimpia = archivo.rutaRelativa;
+    // 1. Limpieza de ruta (Barras de Windows a Web)
+    String rutaLimpia = archivo.rutaRelativa.replaceAll('\\', '/');
+
+    // Limpiezas adicionales de seguridad
     if (rutaLimpia.startsWith('public/')) {
       rutaLimpia = rutaLimpia.replaceFirst('public/', '');
     }
-    final urlImagen = "$baseUrl/storage/$rutaLimpia";
-    final bool esPdf = archivo.extension == 'pdf';
+    if (rutaLimpia.startsWith('/')) {
+      rutaLimpia = rutaLimpia.substring(1);
+    }
+
+    // 2. CONSTRUCCIÓN URL CON EL NUEVO ENDPOINT "EVIDENCIA"
+    // Aseguramos que apiUrl no tenga slash final duplicado
+    final apiUrl = AppConstants.apiUrl.endsWith('/')
+        ? AppConstants.apiUrl.substring(0, AppConstants.apiUrl.length - 1)
+        : AppConstants.apiUrl;
+
+    final urlString = "$apiUrl/evidencia/$rutaLimpia";
+    final urlImagen = Uri.encodeFull(urlString);
+
+    print("Abriendo imagen: $urlImagen"); // Debug
+
+    // Protección contra nulos en extensión
+    final ext = archivo.extension?.toLowerCase() ?? 'jpg';
+    final bool esPdf = ext == 'pdf';
 
     showDialog(
       context: context,
@@ -137,6 +161,31 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                             child: Image.network(
                               urlImagen,
                               fit: BoxFit.contain,
+                              // Agregamos loading builder para que se vea que carga
+                              loadingBuilder: (ctx, child, progress) {
+                                if (progress == null) return child;
+                                return Center(
+                                  child: CircularProgressIndicator(),
+                                );
+                              },
+                              errorBuilder: (context, error, stackTrace) {
+                                return Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      Icons.broken_image,
+                                      size: 50,
+                                      color: Colors.grey,
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      "No se pudo cargar: $urlImagen",
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontSize: 10),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                           ),
                   ),
@@ -273,10 +322,135 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     }
   }
 
+  // --- FUNCIÓN PARA VER COMPROBANTE DE PAGO ---
+  // --- FUNCIÓN PARA VER COMPROBANTE DE PAGO ---
+  void _verComprobanteDePago() {
+    final ruta = widget.rendicion.rutaComprobante;
+    if (ruta == null) return;
+
+    // 1. Limpieza de ruta (Windows a Web)
+    String rutaLimpia = ruta.replaceAll('\\', '/');
+    if (rutaLimpia.startsWith('public/'))
+      rutaLimpia = rutaLimpia.replaceFirst('public/', '');
+    if (rutaLimpia.startsWith('/')) rutaLimpia = rutaLimpia.substring(1);
+
+    // 2. Construir URL (Asegurando formato correcto)
+    final apiUrl = AppConstants.apiUrl.endsWith('/')
+        ? AppConstants.apiUrl.substring(0, AppConstants.apiUrl.length - 1)
+        : AppConstants.apiUrl;
+
+    // Uri.encodeFull es VITAL para evitar errores si el archivo tiene espacios
+    final urlFinal = Uri.encodeFull("$apiUrl/evidencia/$rutaLimpia");
+    final bool esPdf = rutaLimpia.toLowerCase().endsWith('.pdf');
+
+    print("Viendo comprobante: $urlFinal");
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(10),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: double.infinity,
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.8,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(15.0),
+                    child: Text(
+                      "Comprobante de Pago",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green[800],
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: esPdf
+                        ? const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.picture_as_pdf,
+                                size: 80,
+                                color: Colors.red,
+                              ),
+                              Text(
+                                "Documento PDF",
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          )
+                        : Image.network(
+                            urlFinal,
+                            fit: BoxFit.contain,
+                            loadingBuilder: (_, child, prog) => prog == null
+                                ? child
+                                : const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                            errorBuilder: (_, __, ___) => const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.broken_image,
+                                  size: 50,
+                                  color: Colors.grey,
+                                ),
+                                Text("No se pudo cargar la imagen"),
+                              ],
+                            ),
+                          ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              top: 0,
+              right: 0,
+              child: IconButton(
+                onPressed: () => Navigator.pop(ctx),
+                icon: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 20),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<GastoProvider>();
     final gastos = provider.gastos;
+
+    print("--- DEBUG RENDICIÓN ---");
+    print("Estado actual: '${widget.rendicion.estado}'");
+    print("Ruta Comprobante: '${widget.rendicion.rutaComprobante}'");
+    print("¿Es Pagada?: ${widget.rendicion.estado == 'Pagada'}");
+    print("¿Tiene ruta?: ${widget.rendicion.rutaComprobante != null}");
+    final bool estaPagada = widget.rendicion.estado == 'Pagada';
+    final bool tieneComprobante =
+        widget.rendicion.rutaComprobante != null &&
+        widget.rendicion.rutaComprobante!.isNotEmpty;
 
     int totalEnVivo = gastos.fold(0, (sum, item) => sum + item.monto);
     int montoEntregado = widget.rendicion.montoEntregado;
@@ -300,6 +474,12 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         actions: [
+          if (estaPagada && tieneComprobante)
+            IconButton(
+              icon: const Icon(Icons.receipt_long), // Icono de recibo
+              tooltip: "Ver Comprobante de Pago",
+              onPressed: _verComprobanteDePago, // Llamamos a la función
+            ),
           if (puedeImprimir)
             IconButton(
               icon: const Icon(Icons.print),
@@ -311,13 +491,15 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
       floatingActionButton: esEditable
           ? FloatingActionButton.extended(
               onPressed: () {
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (_) => AddGastoDialog(
-                    idRendicion: widget.rendicion.idRendicion!,
-                  ),
-                );
+                if (widget.rendicion.idRendicion != null) {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (_) => AddGastoDialog(
+                      idRendicion: widget.rendicion.idRendicion!,
+                    ),
+                  );
+                }
               },
               label: const Text("Agregar Gasto"),
               icon: const Icon(Icons.add),
@@ -415,9 +597,18 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final gasto = gastos[index];
+                      // Validamos que exista idGasto para el Key
+                      if (gasto.idGasto == null) return SizedBox.shrink();
+
                       final bool tieneEvidencia = gasto.fotos.isNotEmpty;
                       final bool esRechazado = gasto.estado == 'Rechazado';
                       final String? comentario = gasto.comentario;
+
+                      // Protección contra nulos en extensión
+                      final String extension = tieneEvidencia
+                          ? (gasto.fotos[0].extension).toUpperCase()
+                          : '';
+                      final bool esPdf = extension == 'PDF';
 
                       final Color colorEstado = esRechazado
                           ? Colors.red
@@ -534,9 +725,8 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                             ),
                                           ),
 
-                                          // --- AQUÍ ESTÁ EL CÓDIGO RESTAURADO ---
-                                          if (tieneEvidencia &&
-                                              gasto.fotos.isNotEmpty) ...[
+                                          // Badge Tipo Archivo
+                                          if (tieneEvidencia) ...[
                                             const SizedBox(width: 6),
                                             Container(
                                               padding:
@@ -545,9 +735,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                                     vertical: 3,
                                                   ),
                                               decoration: BoxDecoration(
-                                                color:
-                                                    gasto.fotos[0].extension ==
-                                                        'pdf'
+                                                color: esPdf
                                                     ? Colors.red.shade700
                                                     : Colors.blue.shade600,
                                                 borderRadius:
@@ -557,8 +745,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
                                                   Icon(
-                                                    gasto.fotos[0].extension ==
-                                                            'pdf'
+                                                    esPdf
                                                         ? Icons.picture_as_pdf
                                                         : Icons.image,
                                                     color: Colors.white,
@@ -566,8 +753,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                                   ),
                                                   const SizedBox(width: 4),
                                                   Text(
-                                                    gasto.fotos[0].extension
-                                                        .toUpperCase(),
+                                                    extension,
                                                     style: const TextStyle(
                                                       color: Colors.white,
                                                       fontSize: 10,
@@ -579,7 +765,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                               ),
                                             ),
                                           ],
-                                          // ----------------------------------------
                                         ],
                                       ),
                                     ],
@@ -596,7 +781,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                           fontSize: 15,
                                         ),
                                       ),
-
                                       if (esEditable)
                                         InkWell(
                                           borderRadius: BorderRadius.circular(

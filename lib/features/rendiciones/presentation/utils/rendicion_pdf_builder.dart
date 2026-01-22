@@ -12,18 +12,19 @@ class RendicionPdfBuilder {
   ) async {
     final pdf = pw.Document();
 
-    // 1. FORMATO NUMÉRICO BASE (Solo números y puntos de mil)
+    // 1. CARGAR IMAGEN DEL LOGO
+    // Asegúrate de que 'assets/images/icon.png' esté declarado en tu pubspec.yaml
+    final logoImage = await imageFromAssetBundle('assets/images/icon.png');
+
+    // 2. FORMATO NUMÉRICO BASE
     final numberFormat = NumberFormat.decimalPattern('es_CL');
 
-    // Helper manual: Signo a la IZQUIERDA
     String fmtMoney(int amount) {
-      return "\$ ${numberFormat.format(amount)}"; // Ej: $ 10.000
+      return "\$ ${numberFormat.format(amount)}";
     }
 
-    // 2. FECHA DE GENERACIÓN
     final String fechaReporte = DateFormat('dd/MM/yyyy').format(DateTime.now());
 
-    // Cálculos
     int totalGastado = gastos.fold(0, (sum, item) => sum + item.monto);
     int saldo = rendicion.montoEntregado - totalGastado;
 
@@ -33,17 +34,38 @@ class RendicionPdfBuilder {
         margin: const pw.EdgeInsets.all(40),
         build: (pw.Context context) {
           return [
-            // TÍTULO
+            // TÍTULO CON LOGO
             pw.Header(
               level: 0,
-              child: pw.Center(
-                child: pw.Text(
-                  "COMPROBANTE DE RENDICIÓN",
-                  style: pw.TextStyle(
-                    fontSize: 20,
-                    fontWeight: pw.FontWeight.bold,
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  // Logo a la izquierda
+                  pw.Container(
+                    width: 60,
+                    height: 60,
+                    child: pw.Image(logoImage, fit: pw.BoxFit.contain),
                   ),
-                ),
+
+                  // Título centrado (Usamos Expanded para que ocupe el espacio central)
+                  pw.Expanded(
+                    child: pw.Center(
+                      child: pw.Text(
+                        "COMPROBANTE DE RENDICIÓN",
+                        textAlign: pw.TextAlign.center,
+                        style: pw.TextStyle(
+                          fontSize:
+                              18, // Ajusté un poco el tamaño para que quepa bien
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Espaciador invisible a la derecha del mismo ancho que el logo
+                  // para asegurar que el título quede matemáticamente centrado
+                  pw.SizedBox(width: 60),
+                ],
               ),
             ),
             pw.SizedBox(height: 20),
@@ -63,7 +85,6 @@ class RendicionPdfBuilder {
                   _buildDataRow("Responsable:", rendicion.nombreUsuario),
                   _buildDataRow("Propósito:", rendicion.proposito),
                   pw.Divider(),
-                  // Monto asignado con signo a la izquierda
                   _buildDataRow(
                     "Monto Asignado:",
                     fmtMoney(rendicion.montoEntregado),
@@ -89,32 +110,26 @@ class RendicionPdfBuilder {
               ),
               headerHeight: 25,
               cellHeight: 30,
-
               cellAlignments: {
-                0: pw.Alignment.centerLeft, // Fecha
-                1: pw.Alignment.centerLeft, // Detalle
-                2: pw.Alignment.centerLeft, // Tipo
-                3: pw.Alignment.centerLeft, // N° Doc
-                4: pw
-                    .Alignment
-                    .centerRight, // Monto (Alineado derecha se ve mejor en contabilidad)
+                0: pw.Alignment.centerLeft,
+                1: pw.Alignment.centerLeft,
+                2: pw.Alignment.centerLeft,
+                3: pw.Alignment.centerLeft,
+                4: pw.Alignment.centerRight,
               },
-
               headerStyle: pw.TextStyle(
                 fontWeight: pw.FontWeight.bold,
                 fontSize: 10,
               ),
               cellStyle: const pw.TextStyle(fontSize: 10),
-
               headers: <String>['Fecha', 'Detalle', 'Tipo', 'N° Doc.', 'Monto'],
-
               data: gastos.map((g) {
                 return [
                   g.fecha,
                   g.detalle,
                   g.tipoDocumento,
                   g.numDocumento ?? 'S/N',
-                  fmtMoney(g.monto), // <--- Signo a la izquierda
+                  fmtMoney(g.monto),
                 ];
               }).toList(),
             ),
