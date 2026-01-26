@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+// 1. IMPORTAR ONESIGNAL
+import 'package:onesignal_flutter/onesignal_flutter.dart';
+
 import 'package:somnolence_app/features/admin/presentation/providers/admin_users_provider.dart';
 import 'package:somnolence_app/features/admin/presentation/providers/cliente_provider.dart';
 import 'package:somnolence_app/features/admin/presentation/providers/servicio_provider.dart';
@@ -13,6 +16,16 @@ import 'core/api/api_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // --- 2. INICIALIZAR ONESIGNAL ---
+  // Reemplaza con tu App ID real de OneSignal
+  OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
+  OneSignal.initialize("TU_APP_ID_DE_ONESIGNAL_AQUI");
+
+  // Pedir permiso de notificaciones (Obligatorio Android 13+)
+  OneSignal.Notifications.requestPermission(true);
+  // ---------------------------------
+
   await ApiService.inicializarConexion();
 
   runApp(
@@ -73,9 +86,19 @@ class _SplashScreenState extends State<SplashScreen> {
       final userData = await ApiService.getUsuarioLocal();
       if (userData != null && userData.isNotEmpty) {
         final user = User.fromJson(userData);
-        context.read<AuthProvider>().setUser(user);
+
+        // Cargar usuario en el Provider
+        final authProvider = context.read<AuthProvider>();
+        authProvider.setUser(user);
+
+        // --- 3. VINCULAR DISPOSITIVO (IMPORTANTE) ---
+        // Si el usuario ya estaba logueado, nos aseguramos que OneSignal
+        // tenga su ID vinculado en el backend.
+        await authProvider.registrarDispositivoEnBackend();
+        // --------------------------------------------
 
         //Si ya tiene sesión, va al Dashboard
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomeDashboardScreen()),

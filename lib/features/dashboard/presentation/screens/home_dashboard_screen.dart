@@ -8,17 +8,38 @@ import 'package:somnolence_app/features/auth/presentation/screens/login_screen.d
 import 'package:somnolence_app/core/widgets/logo_appbar.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/dashboard/presentation/screens/perfil_screen.dart';
+import 'package:somnolence_app/features/rendiciones/presentation/providers/rendiciones_provider.dart'; // IMPORTAR ESTO
 import 'package:somnolence_app/features/rendiciones/presentation/screens/admin_history_screen.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/screens/gestion_rendiciones_screen.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/screens/validator_dashboar_screen.dart';
 import 'control_salida_screen.dart';
 
-class HomeDashboardScreen extends StatelessWidget {
+class HomeDashboardScreen extends StatefulWidget {
   const HomeDashboardScreen({super.key});
+
+  @override
+  State<HomeDashboardScreen> createState() => _HomeDashboardScreenState();
+}
+
+class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Cargar el contador al iniciar si es admin
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = context.read<AuthProvider>().currentUser;
+      if (user != null && user.esAdmin) {
+        context.read<RendicionesProvider>().actualizarContadorPendientes();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().currentUser;
+    // Consumir el contador
+    final provider = context.watch<RendicionesProvider>();
+    final int pendientes = provider.cantidadPendientes;
 
     if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -53,6 +74,7 @@ class HomeDashboardScreen extends StatelessWidget {
           'icon': Icons.fact_check_outlined,
           'color': Colors.green,
           'page': const ValidatorDashboardScreen(),
+          'badgeCount': pendientes, // PASAMOS EL CONTADOR AQUÍ
         },
         {
           'title': 'Historial Global',
@@ -76,10 +98,10 @@ class HomeDashboardScreen extends StatelessWidget {
     ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F8), // Gris azulado muy claro
+      backgroundColor: const Color(0xFFF4F6F8),
       body: Column(
         children: [
-          // --- HEADER (Mantenemos tu diseño de roles) ---
+          // --- HEADER (Igual al tuyo) ---
           Container(
             padding: const EdgeInsets.fromLTRB(24, 60, 24, 40),
             decoration: BoxDecoration(
@@ -214,17 +236,16 @@ class HomeDashboardScreen extends StatelessWidget {
             ),
           ),
 
-          // --- GRID GRANDE Y LLENO ---
+          // --- GRID CON NOTIFICACIONES ---
           Expanded(
             child: GridView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
               itemCount: menuItems.length,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2, // 2 columnas
+                crossAxisCount: 2,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
-                childAspectRatio:
-                    1.0, // Cuadrado perfecto (1:1) para llenar espacio
+                childAspectRatio: 1.0,
               ),
               itemBuilder: (context, index) {
                 final item = menuItems[index];
@@ -232,11 +253,18 @@ class HomeDashboardScreen extends StatelessWidget {
                   title: item['title'],
                   icon: item['icon'],
                   color: item['color'],
-                  onTap: () {
-                    Navigator.push(
+                  badgeCount: item['badgeCount'], // Pasamos el contador
+                  onTap: () async {
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => item['page']),
                     );
+                    // Al volver, actualizamos el contador por si validó algo
+                    if (context.mounted && esAdmin) {
+                      context
+                          .read<RendicionesProvider>()
+                          .actualizarContadorPendientes();
+                    }
                   },
                 );
               },
@@ -248,80 +276,114 @@ class HomeDashboardScreen extends StatelessWidget {
   }
 }
 
-// --- TARJETA "BIG CARD" (LLENA EL ESPACIO) ---
 class _BigCardButton extends StatelessWidget {
   final String title;
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+  final int? badgeCount; // Variable opcional para el número
 
   const _BigCardButton({
     required this.title,
     required this.icon,
     required this.color,
     required this.onTap,
+    this.badgeCount,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.06),
-            blurRadius: 15,
-            spreadRadius: 2,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // 1. Icono GRANDE con fondo generoso
-              Container(
-                height: 70, // Mucho más grande
-                width: 70,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.08), // Fondo muy suave
-                  shape: BoxShape
-                      .circle, // O BorderRadius.circular(20) si prefieres cuadrado redondeado
-                ),
-                child: Icon(
-                  icon,
-                  size: 32, // Icono interno más grande
-                  color: color,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // 2. Título Centrado y Visible
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                child: Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 16, // Texto más grande
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                    height: 1.2,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+    return Stack(
+      clipBehavior: Clip.none, // Permitir que el badge salga un poco
+      children: [
+        // 1. Tarjeta Normal
+        Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.06),
+                blurRadius: 15,
+                spreadRadius: 2,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    height: 70,
+                    width: 70,
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, size: 32, color: color),
+                  ),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                    child: Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-      ),
+
+        // 2. BADGE DE NOTIFICACIÓN (Solo si hay contador > 0)
+        if (badgeCount != null && badgeCount! > 0)
+          Positioned(
+            right: 12,
+            top: 12,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.redAccent,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white,
+                  width: 2,
+                ), // Borde blanco para resaltar
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.red.withOpacity(0.4),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Text(
+                badgeCount! > 99 ? '99+' : badgeCount.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

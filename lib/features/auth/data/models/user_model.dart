@@ -7,8 +7,6 @@ class User {
   final String correo;
   final String rol;
   final List<String> roles;
-
-  // 1. NUEVO CAMPO: Estado del usuario (true = habilitado, false = deshabilitado)
   final bool estado;
 
   User({
@@ -20,20 +18,12 @@ class User {
     required this.correo,
     required this.rol,
     required this.roles,
-    // 2. AGREGAR AL CONSTRUCTOR
     required this.estado,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
-    // ----------------------------------------------------------
-    // PASO 1: Capturar la data anidada (Personal y Empresa)
-    // ----------------------------------------------------------
     final personalData = json['personal'];
     final empresaData = (personalData != null) ? personalData['empresa'] : null;
-
-    // ----------------------------------------------------------
-    // PASO 2: Procesar los Roles
-    // ----------------------------------------------------------
     List<String> todosLosRoles = [];
 
     if (json['roles'] != null && json['roles'] is List) {
@@ -47,9 +37,6 @@ class User {
       todosLosRoles.add(json['rol'].toString().toLowerCase());
     }
 
-    // ----------------------------------------------------------
-    // PASO 3: Determinar Rol Principal
-    // ----------------------------------------------------------
     String rolPrincipal = 'conductor';
 
     if (todosLosRoles.contains('admin') ||
@@ -65,9 +52,6 @@ class User {
       rolPrincipal = todosLosRoles.first;
     }
 
-    // ----------------------------------------------------------
-    // PASO 4: Retornar el Usuario (Mapeo Final)
-    // ----------------------------------------------------------
     return User(
       id: json['id_usuario'] is int
           ? json['id_usuario']
@@ -96,8 +80,6 @@ class User {
           ? (personalData['correo'] ?? 'Sin Correo')
           : 'Sin Correo',
 
-      // 3. CAPTURAR EL ESTADO
-      // Leemos 'estado' del JSON. Validamos si viene como bool (true) o int (1)
       estado: json['estado'] == true || json['estado'] == 1,
 
       rol: rolPrincipal,
@@ -115,7 +97,7 @@ class User {
       'correo': correo,
       'rol': rol,
       'roles': roles,
-      'estado': estado, // Opcional: incluirlo al serializar
+      'estado': estado,
     };
   }
 

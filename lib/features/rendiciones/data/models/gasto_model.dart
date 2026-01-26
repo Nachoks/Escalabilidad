@@ -2,25 +2,23 @@
 class GastoArchivo {
   final String rutaRelativa;
   final String extension;
-  final String nombreOriginal; // <--- NUEVO CAMPO
+  final String nombreOriginal;
 
   GastoArchivo({
     required this.rutaRelativa,
     required this.extension,
-    required this.nombreOriginal, // <--- REQUERIDO
+    required this.nombreOriginal,
   });
 
   factory GastoArchivo.fromJson(Map<String, dynamic> json) {
     return GastoArchivo(
       rutaRelativa: json['ruta_relativa'] ?? '',
       extension: json['extension'] ?? 'jpg',
-      // Mapeamos el campo que viene de la BD (Laravel usa snake_case)
       nombreOriginal: json['nombre_original'] ?? 'Archivo Adjunto',
     );
   }
 }
 
-// 2. ACTUALIZAMOS EL MODELO PRINCIPAL
 class GastoModel {
   final int? idGasto;
   final int idRendicion;
@@ -31,8 +29,6 @@ class GastoModel {
   final String detalle;
   final String estado;
   final String? comentario;
-
-  // CAMBIO AQUÍ: Ya no es List<String>, ahora es una lista de objetos
   final List<GastoArchivo> fotos;
 
   GastoModel({

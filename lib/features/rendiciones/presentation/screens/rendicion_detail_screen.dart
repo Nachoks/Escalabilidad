@@ -28,7 +28,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
   @override
   void initState() {
     super.initState();
-    // Validamos que el ID exista antes de buscar para evitar Crash
     if (widget.rendicion.idRendicion != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         context.read<GastoProvider>().cargarGastos(
@@ -74,12 +73,10 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     }
   }
 
-  // --- VER EVIDENCIA (CORREGIDO PARA EL NUEVO BACKEND) ---
+  // --- VER EVIDENCIA (MEJORADO CON HEADERS) ---
   void _verEvidencia(BuildContext context, dynamic archivo) {
-    // 1. Limpieza de ruta (Barras de Windows a Web)
     String rutaLimpia = archivo.rutaRelativa.replaceAll('\\', '/');
 
-    // Limpiezas adicionales de seguridad
     if (rutaLimpia.startsWith('public/')) {
       rutaLimpia = rutaLimpia.replaceFirst('public/', '');
     }
@@ -87,18 +84,16 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
       rutaLimpia = rutaLimpia.substring(1);
     }
 
-    // 2. CONSTRUCCIÓN URL CON EL NUEVO ENDPOINT "EVIDENCIA"
-    // Aseguramos que apiUrl no tenga slash final duplicado
     final apiUrl = AppConstants.apiUrl.endsWith('/')
         ? AppConstants.apiUrl.substring(0, AppConstants.apiUrl.length - 1)
         : AppConstants.apiUrl;
 
     final urlString = "$apiUrl/evidencia/$rutaLimpia";
+    // EncodeFull es vital para espacios
     final urlImagen = Uri.encodeFull(urlString);
 
-    print("Abriendo imagen: $urlImagen"); // Debug
+    print("Abriendo imagen: $urlImagen");
 
-    // Protección contra nulos en extensión
     final ext = archivo.extension?.toLowerCase() ?? 'jpg';
     final bool esPdf = ext == 'pdf';
 
@@ -161,14 +156,20 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                             child: Image.network(
                               urlImagen,
                               fit: BoxFit.contain,
-                              // Agregamos loading builder para que se vea que carga
+                              // AGREGAMOS HEADERS PARA EVITAR ERRORES 403/406
+                              headers: const {
+                                'User-Agent': 'SomnolenceApp/1.0',
+                                'Accept':
+                                    'image/jpeg,image/png,application/pdf',
+                              },
                               loadingBuilder: (ctx, child, progress) {
                                 if (progress == null) return child;
-                                return Center(
+                                return const Center(
                                   child: CircularProgressIndicator(),
                                 );
                               },
                               errorBuilder: (context, error, stackTrace) {
+                                print("Error carga imagen: $error");
                                 return Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
@@ -178,10 +179,17 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                       color: Colors.grey,
                                     ),
                                     const SizedBox(height: 10),
-                                    Text(
-                                      "No se pudo cargar: $urlImagen",
+                                    const Text(
+                                      "No se pudo cargar la imagen",
                                       textAlign: TextAlign.center,
-                                      style: TextStyle(fontSize: 10),
+                                      style: TextStyle(fontSize: 12),
+                                    ),
+                                    Text(
+                                      urlImagen,
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey,
+                                      ),
                                     ),
                                   ],
                                 );
@@ -323,23 +331,19 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
   }
 
   // --- FUNCIÓN PARA VER COMPROBANTE DE PAGO ---
-  // --- FUNCIÓN PARA VER COMPROBANTE DE PAGO ---
   void _verComprobanteDePago() {
     final ruta = widget.rendicion.rutaComprobante;
     if (ruta == null) return;
 
-    // 1. Limpieza de ruta (Windows a Web)
     String rutaLimpia = ruta.replaceAll('\\', '/');
     if (rutaLimpia.startsWith('public/'))
       rutaLimpia = rutaLimpia.replaceFirst('public/', '');
     if (rutaLimpia.startsWith('/')) rutaLimpia = rutaLimpia.substring(1);
 
-    // 2. Construir URL (Asegurando formato correcto)
     final apiUrl = AppConstants.apiUrl.endsWith('/')
         ? AppConstants.apiUrl.substring(0, AppConstants.apiUrl.length - 1)
         : AppConstants.apiUrl;
 
-    // Uri.encodeFull es VITAL para evitar errores si el archivo tiene espacios
     final urlFinal = Uri.encodeFull("$apiUrl/evidencia/$rutaLimpia");
     final bool esPdf = rutaLimpia.toLowerCase().endsWith('.pdf');
 
@@ -395,6 +399,11 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                         : Image.network(
                             urlFinal,
                             fit: BoxFit.contain,
+                            // HEADERS TAMBIÉN AQUÍ
+                            headers: const {
+                              'User-Agent': 'SomnolenceApp/1.0',
+                              'Accept': 'image/jpeg,image/png,application/pdf',
+                            },
                             loadingBuilder: (_, child, prog) => prog == null
                                 ? child
                                 : const Center(
@@ -442,11 +451,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     final provider = context.watch<GastoProvider>();
     final gastos = provider.gastos;
 
-    print("--- DEBUG RENDICIÓN ---");
-    print("Estado actual: '${widget.rendicion.estado}'");
-    print("Ruta Comprobante: '${widget.rendicion.rutaComprobante}'");
-    print("¿Es Pagada?: ${widget.rendicion.estado == 'Pagada'}");
-    print("¿Tiene ruta?: ${widget.rendicion.rutaComprobante != null}");
     final bool estaPagada = widget.rendicion.estado == 'Pagada';
     final bool tieneComprobante =
         widget.rendicion.rutaComprobante != null &&
@@ -476,9 +480,9 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
         actions: [
           if (estaPagada && tieneComprobante)
             IconButton(
-              icon: const Icon(Icons.receipt_long), // Icono de recibo
+              icon: const Icon(Icons.receipt_long),
               tooltip: "Ver Comprobante de Pago",
-              onPressed: _verComprobanteDePago, // Llamamos a la función
+              onPressed: _verComprobanteDePago,
             ),
           if (puedeImprimir)
             IconButton(
@@ -597,14 +601,12 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final gasto = gastos[index];
-                      // Validamos que exista idGasto para el Key
                       if (gasto.idGasto == null) return SizedBox.shrink();
 
                       final bool tieneEvidencia = gasto.fotos.isNotEmpty;
                       final bool esRechazado = gasto.estado == 'Rechazado';
                       final String? comentario = gasto.comentario;
 
-                      // Protección contra nulos en extensión
                       final String extension = tieneEvidencia
                           ? (gasto.fotos[0].extension).toUpperCase()
                           : '';
@@ -697,10 +699,10 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                       ),
                                       const SizedBox(height: 8),
 
-                                      // --- BADGES DE ESTADO + TIPO DE ARCHIVO ---
+                                      // --- BADGES + BOTÓN DE VER ARCHIVO ---
                                       Row(
                                         children: [
-                                          // Badge de Estado Principal
+                                          // Badge Estado
                                           Container(
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 8,
@@ -764,6 +766,52 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                                 ],
                                               ),
                                             ),
+
+                                            // --- NUEVO BOTÓN "VER" AQUÍ ---
+                                            const SizedBox(width: 8),
+                                            InkWell(
+                                              onTap: () => _verEvidencia(
+                                                context,
+                                                gasto.fotos[0],
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 2,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  border: Border.all(
+                                                    color: Colors.grey,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                  color: Colors.white,
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(
+                                                      Icons.visibility,
+                                                      size: 12,
+                                                      color: Colors.black87,
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    const Text(
+                                                      "VER",
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: Colors.black87,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            // -------------------------------
                                           ],
                                         ],
                                       ),
@@ -808,25 +856,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                             ),
                                           ),
                                         )
-                                      else if (tieneEvidencia)
-                                        InkWell(
-                                          borderRadius: BorderRadius.circular(
-                                            20,
-                                          ),
-                                          onTap: () => _verEvidencia(
-                                            context,
-                                            gasto.fotos[0],
-                                          ),
-                                          child: const Padding(
-                                            padding: EdgeInsets.all(4.0),
-                                            child: Icon(
-                                              Icons.visibility,
-                                              size: 24,
-                                              color: Colors.blueGrey,
-                                            ),
-                                          ),
-                                        )
-                                      else
+                                      else if (!esEditable)
                                         const Padding(
                                           padding: EdgeInsets.all(4.0),
                                           child: Icon(

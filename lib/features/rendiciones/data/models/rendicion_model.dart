@@ -1,3 +1,5 @@
+import 'package:somnolence_app/features/admin/data/models/servicio_model.dart'; // <--- 1. NO OLVIDES ESTE IMPORT
+
 class RendicionModel {
   final int? idRendicion;
   final String fecha;
@@ -8,12 +10,12 @@ class RendicionModel {
   final int idServicio;
   final int? idUsuario;
   final String? rutaComprobante;
-
-  // Campo para el nombre
   final String nombreUsuario;
-
   final int totalGastado;
   final int saldo;
+
+  // La propiedad que necesitas para el Dialog
+  final ServicioModel? servicio;
 
   RendicionModel({
     this.idRendicion,
@@ -28,10 +30,11 @@ class RendicionModel {
     this.totalGastado = 0,
     this.saldo = 0,
     this.rutaComprobante,
+    this.servicio,
   });
 
   factory RendicionModel.fromJson(Map<String, dynamic> json) {
-    // Lógica para encontrar el nombre sin importar cómo venga del backend
+    // Lógica para encontrar el nombre
     String nombreEncontrado = 'Usuario ${json['id_usuario']}';
 
     if (json['usuario'] != null) {
@@ -51,13 +54,20 @@ class RendicionModel {
       montoEntregado:
           int.tryParse(json['monto_entregado']?.toString() ?? '0') ?? 0,
       estado: json['estado'] ?? 'Borrador',
-      centroCosto: json['centro_costo'],
+      centroCosto:
+          json['centro_costo'], // A veces viene directo, a veces dentro de servicio
       idServicio: int.tryParse(json['id_servicio']?.toString() ?? '0') ?? 0,
       idUsuario: int.tryParse(json['id_usuario']?.toString() ?? '0'),
       nombreUsuario: nombreEncontrado,
       totalGastado: int.tryParse(json['total_gastado']?.toString() ?? '0') ?? 0,
       saldo: int.tryParse(json['saldo']?.toString() ?? '0') ?? 0,
       rutaComprobante: json['ruta_comprobante'],
+
+      // 2. ¡ESTA ES LA LÍNEA QUE FALTABA!
+      // Convierte el JSON anidado en un objeto ServicioModel real
+      servicio: json['servicio'] != null
+          ? ServicioModel.fromJson(json['servicio'])
+          : null,
     );
   }
 }

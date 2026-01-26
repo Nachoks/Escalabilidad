@@ -6,6 +6,7 @@ import 'package:somnolence_app/features/rendiciones/presentation/providers/rendi
 import 'package:somnolence_app/features/rendiciones/presentation/providers/gasto_provider.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/widget/add_rendicion_dialog.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/screens/rendicion_detail_screen.dart';
+import 'package:somnolence_app/features/rendiciones/presentation/widget/edit_rendicion_dialog.dart';
 
 class GestionRendicionesScreen extends StatefulWidget {
   const GestionRendicionesScreen({super.key});
@@ -274,7 +275,33 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
                   // Configuración del panel de acciones (Enviar / Borrar)
                   endActionPane: ActionPane(
                     motion: const ScrollMotion(),
+                    extentRatio: 0.7,
                     children: [
+                      SlidableAction(
+                        onPressed: (_) {
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (_) => EditRendicionDialog(
+                              rendicion:
+                                  rendicion, // <--- Pasamos la rendición actual
+                            ),
+                          );
+                        },
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        icon: Icons.edit,
+                        label: 'Editar',
+                      ),
+                      SlidableAction(
+                        onPressed: (_) =>
+                            _confirmarBorrar(rendicion.idRendicion!),
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        icon: Icons.delete,
+                        label: 'Borrar',
+                      ),
+
                       SlidableAction(
                         onPressed: (_) => _prepararEnvio(
                           rendicion.idRendicion!,
@@ -284,14 +311,6 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
                         foregroundColor: Colors.white,
                         icon: Icons.send,
                         label: 'Enviar',
-                      ),
-                      SlidableAction(
-                        onPressed: (_) =>
-                            _confirmarBorrar(rendicion.idRendicion!),
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        icon: Icons.delete,
-                        label: 'Borrar',
                         borderRadius: const BorderRadius.only(
                           topRight: Radius.circular(12),
                           bottomRight: Radius.circular(12),
