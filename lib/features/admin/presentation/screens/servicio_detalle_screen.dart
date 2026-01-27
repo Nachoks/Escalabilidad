@@ -47,6 +47,15 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
         ),
         backgroundColor: isFinalizado ? Colors.grey : AppColors.primary,
         foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, AppColors.secondary],
+              begin: Alignment.bottomRight,
+              end: Alignment.topLeft,
+            ),
+          ),
+        ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(

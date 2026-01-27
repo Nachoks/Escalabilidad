@@ -128,6 +128,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         color: Colors.white.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(12),
                       ),
+
                       child: IconButton(
                         icon: const Icon(
                           Icons.logout,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/gasto_provider.dart';
@@ -11,6 +12,36 @@ class AddGastoDialog extends StatefulWidget {
 
   @override
   State<AddGastoDialog> createState() => _AddGastoDialogState();
+}
+
+class ThousandsSeparatorInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // Si está vacío, retornamos nada
+    if (newValue.text.isEmpty) {
+      return newValue;
+    }
+
+    // 1. Limpiamos cualquier cosa que no sea número (por si acaso)
+    String newText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+
+    // 2. Si después de limpiar no queda nada, retornamos vacío
+    if (newText.isEmpty) return newValue;
+
+    // 3. Formateamos con puntos (usamos locale de Chile o genérico)
+    final int value = int.parse(newText);
+    final formatter = NumberFormat.decimalPattern('es_CL');
+    String newString = formatter.format(value);
+
+    // 4. Retornamos el valor formateado y mantenemos el cursor al final
+    return TextEditingValue(
+      text: newString,
+      selection: TextSelection.collapsed(offset: newString.length),
+    );
+  }
 }
 
 class _AddGastoDialogState extends State<AddGastoDialog> {
@@ -236,10 +267,17 @@ class _AddGastoDialogState extends State<AddGastoDialog> {
                 TextFormField(
                   controller: _montoController,
                   keyboardType: TextInputType.number,
+                  // 👇 AGREGA ESTA LÍNEA AQUÍ
+                  inputFormatters: [
+                    FilteringTextInputFormatter
+                        .digitsOnly, // Solo deja escribir números
+                    ThousandsSeparatorInputFormatter(), // Aplica los puntos visuales
+                  ],
                   decoration: const InputDecoration(
                     labelText: "Monto Total",
                     prefixText: "\$ ",
                     border: OutlineInputBorder(),
+                    hintText: "Ej: 10.000", // Ayuda visual
                   ),
                   validator: (v) =>
                       v!.isEmpty ? "El monto es obligatorio" : null,

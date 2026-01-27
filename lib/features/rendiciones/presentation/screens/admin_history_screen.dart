@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/rendiciones_provider.dart';
-// 1. IMPORTANTE: Importamos la pantalla de detalle
 import 'package:somnolence_app/features/rendiciones/presentation/screens/rendicion_detail_screen.dart';
 
 class AdminHistoryScreen extends StatefulWidget {
@@ -20,8 +19,13 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<RendicionesProvider>().cargarHistorialGlobal();
+      _recargarDatos(); // Usamos la función centralizada
     });
+  }
+
+  // --- FUNCIÓN PARA REFRESCAR ---
+  Future<void> _recargarDatos() async {
+    await context.read<RendicionesProvider>().cargarHistorialGlobal();
   }
 
   // --- LÓGICA DE COLORES SEMÁFORO ---
@@ -58,120 +62,146 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text("Historial de Rendiciones"),
+        title: const Text(
+          "Historial de Rendiciones",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, AppColors.secondary],
+              begin: Alignment.bottomRight,
+              end: Alignment.topLeft,
+            ),
+          ),
+        ),
+        // --- BOTÓN DE RECARGA EN APPBAR ---
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: "Recargar historial",
+            onPressed: provider.isLoading ? null : _recargarDatos,
+          ),
+        ],
       ),
       body: Column(
         children: [
-          // --- BARRA DE FILTROS ---
+          // --- BARRA DE FILTROS (Fija arriba) ---
           _buildFilterBar(),
 
-          // --- LISTA DE RENDICIONES ---
+          // --- LISTA DE RENDICIONES (Recargable) ---
           Expanded(
-            child: provider.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : historial.isEmpty
-                ? _buildEmptyStateOriginal()
-                : historialFiltrado.isEmpty
-                ? _buildEmptyStateFiltros()
-                : ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: historialFiltrado.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final item = historialFiltrado[index];
+            child: RefreshIndicator(
+              onRefresh: _recargarDatos,
+              color: AppColors.primary,
+              child: provider.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : historial.isEmpty
+                  ? _buildEmptyStateOriginal() // Ahora es scrollable
+                  : historialFiltrado.isEmpty
+                  ? _buildEmptyStateFiltros() // Ahora es scrollable
+                  : ListView.separated(
+                      // Physics permite el rebote para el refresh
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(16),
+                      itemCount: historialFiltrado.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final item = historialFiltrado[index];
 
-                      final String idVisual =
-                          "#${(item.idRendicion ?? 0).toString().padLeft(3, '0')}";
-                      final String nombreUsuario = item.nombreUsuario;
-                      final colorFondo = _getColorByEstado(item.estado);
+                        final String idVisual =
+                            "#${(item.idRendicion ?? 0).toString().padLeft(3, '0')}";
+                        final String nombreUsuario = item.nombreUsuario;
+                        final colorFondo = _getColorByEstado(item.estado);
 
-                      return Card(
-                        elevation: 2,
-                        color: colorFondo,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: ListTile(
-                          // 2. AQUÍ ESTÁ LA MAGIA: Navegación "Solo Lectura"
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => RendicionDetailScreen(
-                                  rendicion: item,
-                                  soloLectura:
-                                      true, // <--- ESTO BLOQUEA LA EDICIÓN
+                        return Card(
+                          elevation: 2,
+                          color: colorFondo,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ListTile(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => RendicionDetailScreen(
+                                    rendicion: item,
+                                    soloLectura: true,
+                                  ),
+                                ),
+                              );
+                            },
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.white.withOpacity(0.6),
+                              child: Text(
+                                idVisual,
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
                                 ),
                               ),
-                            );
-                          },
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          leading: CircleAvatar(
-                            backgroundColor: Colors.white.withOpacity(0.6),
-                            child: Text(
-                              idVisual,
-                              style: TextStyle(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
                             ),
-                          ),
-                          title: Text(
-                            item.proposito,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.person,
-                                    size: 14,
-                                    color: Colors.black54,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      nombreUsuario,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w500,
+                            title: Text(
+                              item.proposito,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.person,
+                                      size: 14,
+                                      color: Colors.black54,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        nombreUsuario,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                "Estado: ${item.estado} • ${item.fecha}",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black87,
+                                  ],
                                 ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  "Estado: ${item.estado} • ${item.fecha}",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            trailing: Text(
+                              _formatMoney(item.totalGastado),
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
                               ),
-                            ],
-                          ),
-                          trailing: Text(
-                            _formatMoney(item.totalGastado),
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
+                        );
+                      },
+                    ),
+            ),
           ),
         ],
       ),
@@ -293,39 +323,61 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
     );
   }
 
+  // --- WIDGETS DE ESTADO VACÍO (MODIFICADOS PARA SER SCROLLABLES) ---
+  // Importante: Usamos ListView para que el RefreshIndicator funcione
+  // incluso si no hay datos.
+
   Widget _buildEmptyStateOriginal() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.history_toggle_off, size: 80, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text(
-            "No hay rendiciones registradas",
-            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+        Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.history_toggle_off, size: 80, color: Colors.grey[300]),
+              const SizedBox(height: 16),
+              Text(
+                "No hay rendiciones registradas",
+                style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 10),
+              TextButton.icon(
+                onPressed: _recargarDatos,
+                icon: const Icon(Icons.refresh),
+                label: const Text("Recargar datos"),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildEmptyStateFiltros() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.filter_list_off, size: 60, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text(
-            "No hay rendiciones con este estado",
-            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+        Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.filter_list_off, size: 60, color: Colors.grey[300]),
+              const SizedBox(height: 16),
+              Text(
+                "No hay rendiciones con este estado",
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              ),
+              TextButton(
+                onPressed: () => setState(() => _filtroEstado = 'Todos'),
+                child: const Text("Limpiar filtros"),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => setState(() => _filtroEstado = 'Todos'),
-            child: const Text("Limpiar filtros"),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

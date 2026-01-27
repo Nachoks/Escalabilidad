@@ -491,6 +491,15 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
               onPressed: _generarPdf,
             ),
         ],
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, AppColors.secondary],
+              begin: Alignment.bottomRight,
+              end: Alignment.topLeft,
+            ),
+          ),
+        ),
       ),
       floatingActionButton: esEditable
           ? FloatingActionButton.extended(

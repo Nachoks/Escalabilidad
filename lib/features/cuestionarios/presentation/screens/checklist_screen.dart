@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart'; // Necesitas el paquete provider
+import 'package:somnolence_app/core/constants/app_colors.dart';
 import '../providers/checklist_provider.dart';
 import '../../data/models/checklist_model.dart';
 
@@ -51,9 +52,21 @@ class _ChecklistContent extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Checklist Pre-Ruta'),
+        title: const Text(
+          'Checklist Pre-Ruta',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: const Color(0xFFF35F34),
         foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, AppColors.secondary],
+              begin: Alignment.bottomRight,
+              end: Alignment.topLeft,
+            ),
+          ),
+        ),
       ),
       backgroundColor: Colors.white,
       body: Column(

@@ -37,6 +37,15 @@ class _ClienteDetailScreenState extends State<ClienteDetailScreen> {
         ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, AppColors.secondary],
+              begin: Alignment.bottomRight,
+              end: Alignment.topLeft,
+            ),
+          ),
+        ),
       ),
       body: Column(
         children: [

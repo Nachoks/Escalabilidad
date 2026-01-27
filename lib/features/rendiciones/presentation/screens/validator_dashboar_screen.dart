@@ -158,7 +158,10 @@ class _ValidatorDashboardScreenState extends State<ValidatorDashboardScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text("Gestión de Gastos"),
+        title: const Text(
+          "Gestión de Gastos",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         bottom: TabBar(

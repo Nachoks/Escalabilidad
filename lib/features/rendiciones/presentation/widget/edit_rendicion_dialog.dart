@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Importante para inputFormatters
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart'; // Importante para formatear el valor inicial
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/rendiciones/data/models/rendicion_model.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/rendiciones_provider.dart';
@@ -13,6 +15,29 @@ class EditRendicionDialog extends StatefulWidget {
   State<EditRendicionDialog> createState() => _EditRendicionDialogState();
 }
 
+// --- CLASE PARA FORMATEAR CON PUNTOS ---
+class ThousandsSeparatorInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.isEmpty) return newValue;
+
+    String newText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (newText.isEmpty) return newValue;
+
+    final int value = int.parse(newText);
+    final formatter = NumberFormat.decimalPattern('es_CL');
+    String newString = formatter.format(value);
+
+    return TextEditingValue(
+      text: newString,
+      selection: TextSelection.collapsed(offset: newString.length),
+    );
+  }
+}
+
 class _EditRendicionDialogState extends State<EditRendicionDialog> {
   final _formKey = GlobalKey<FormState>();
 
@@ -24,13 +49,18 @@ class _EditRendicionDialogState extends State<EditRendicionDialog> {
   @override
   void initState() {
     super.initState();
+
     // 1. PRE-CARGAR DATOS EXISTENTES
     _propositoController = TextEditingController(
       text: widget.rendicion.proposito,
     );
-    _montoController = TextEditingController(
-      text: widget.rendicion.montoEntregado.toString(),
-    );
+
+    // --- CORRECCIÓN 1: Formatear el valor inicial ---
+    // Si viene 50000 de la BD, lo convertimos a "50.000" para mostrarlo
+    final formatter = NumberFormat.decimalPattern('es_CL');
+    String montoFormateado = formatter.format(widget.rendicion.montoEntregado);
+
+    _montoController = TextEditingController(text: montoFormateado);
   }
 
   @override
@@ -47,13 +77,15 @@ class _EditRendicionDialogState extends State<EditRendicionDialog> {
 
     final provider = context.read<RendicionesProvider>();
 
-    // 2. LLAMAR A LA FUNCIÓN DE EDITAR (PUT)
-    // Usamos un try-catch local para manejar la UI aquí mismo
+    // --- CORRECCIÓN 2: Limpiar el valor antes de enviar ---
+    String montoLimpio = _montoController.text.replaceAll('.', '');
+    int montoFinal = int.tryParse(montoLimpio) ?? 0;
+
     try {
       await provider.editarRendicion(
         widget.rendicion.idRendicion!,
         _propositoController.text,
-        int.tryParse(_montoController.text) ?? 0,
+        montoFinal, // Enviamos el int limpio
       );
 
       if (mounted) {
@@ -156,10 +188,15 @@ class _EditRendicionDialogState extends State<EditRendicionDialog> {
                 ),
                 const SizedBox(height: 16),
 
-                // 3. MONTO ENTREGADO (EDITABLE)
+                // 3. MONTO ENTREGADO (EDITABLE) - CORREGIDO
                 TextFormField(
                   controller: _montoController,
                   keyboardType: TextInputType.number,
+                  // --- CORRECCIÓN 3: Agregar Formatters ---
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    ThousandsSeparatorInputFormatter(),
+                  ],
                   decoration: const InputDecoration(
                     labelText: "Monto Entregado (Fondo)",
                     helperText: "Modifica si el anticipo cambió",
@@ -169,7 +206,10 @@ class _EditRendicionDialogState extends State<EditRendicionDialog> {
                   ),
                   validator: (v) {
                     if (v == null || v.isEmpty) return "Ingresa un monto";
-                    if (int.tryParse(v) == null) return "Solo números enteros";
+                    // Validamos quitando los puntos temporalmente
+                    if (int.tryParse(v.replaceAll('.', '')) == null) {
+                      return "Solo números enteros";
+                    }
                     return null;
                   },
                 ),

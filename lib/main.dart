@@ -16,15 +16,9 @@ import 'core/api/api_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // --- 2. INICIALIZAR ONESIGNAL ---
-  // Reemplaza con tu App ID real de OneSignal
   OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
-  OneSignal.initialize("TU_APP_ID_DE_ONESIGNAL_AQUI");
-
-  // Pedir permiso de notificaciones (Obligatorio Android 13+)
+  OneSignal.initialize("e5cdf0ea-ed14-4bd4-a2e4-e0daee698f53");
   OneSignal.Notifications.requestPermission(true);
-  // ---------------------------------
 
   await ApiService.inicializarConexion();
 
@@ -91,11 +85,10 @@ class _SplashScreenState extends State<SplashScreen> {
         final authProvider = context.read<AuthProvider>();
         authProvider.setUser(user);
 
-        // --- 3. VINCULAR DISPOSITIVO (IMPORTANTE) ---
-        // Si el usuario ya estaba logueado, nos aseguramos que OneSignal
-        // tenga su ID vinculado en el backend.
-        await authProvider.registrarDispositivoEnBackend();
-        // --------------------------------------------
+        // --- 3. VINCULAR DISPOSITIVO (CORREGIDO) ---
+        // Pasamos el ID del usuario como String para que OneSignal haga Login
+        await authProvider.registrarDispositivoEnBackend(user.id.toString());
+        // -------------------------------------------
 
         //Si ya tiene sesión, va al Dashboard
         if (!mounted) return;

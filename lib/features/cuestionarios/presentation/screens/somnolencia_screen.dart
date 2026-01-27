@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:somnolence_app/core/constants/app_colors.dart';
 import '../providers/somnolencia_provider.dart';
 import '../../data/models/somnolencia_model.dart';
 
@@ -26,9 +27,21 @@ class _SomnolenciaContent extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Test de Somnolencia'),
+        title: const Text(
+          'Test de Somnolencia',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: const Color(0xFFF35F34),
         foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, AppColors.secondary],
+              begin: Alignment.bottomRight,
+              end: Alignment.topLeft,
+            ),
+          ),
+        ),
       ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 500),

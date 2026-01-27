@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:somnolence_app/core/api/api_service.dart';
+import 'package:somnolence_app/features/auth/data/models/user_model.dart';
 // IMPORTANTE: Redirigimos al Dashboard, NO al test directo
 import 'package:somnolence_app/features/dashboard/presentation/screens/home_dashboard_screen.dart';
 import '../providers/auth_provider.dart';
@@ -37,8 +39,8 @@ class _LoginContentState extends State<_LoginContent> {
 
     final authProvider = context.read<AuthProvider>();
 
-    // Aquí usamos el nuevo login con reintento automático
-    final success = await context.read<AuthProvider>().login(
+    // 1. Ejecutar Login
+    final success = await authProvider.login(
       _usuarioController.text.trim(),
       _passwordController.text,
     );
@@ -53,8 +55,37 @@ class _LoginContentState extends State<_LoginContent> {
         ),
       );
 
-      // 🚨 CAMBIO CRÍTICO: Redirigir al Dashboard (Menú Principal)
-      // Allí es donde se valida si es conductor o no.
+      // --- 🔍 CORRECCIÓN DE BUG: EL USUARIO ERA NULL ---
+      User? usuarioParaRegistrar = authProvider.currentUser;
+
+      // Si el provider no tiene el usuario cargado en memoria,
+      // lo buscamos urgentemente en el almacenamiento local.
+      if (usuarioParaRegistrar == null) {
+        print("⚠️ Provider vacío. Buscando usuario en almacenamiento local...");
+        final userData = await ApiService.getUsuarioLocal();
+        if (userData != null && userData.isNotEmpty) {
+          usuarioParaRegistrar = User.fromJson(userData);
+          // Actualizamos el provider para que ya no sea null
+          authProvider.setUser(usuarioParaRegistrar);
+        }
+      }
+
+      // Ahora sí, intentamos registrar
+      if (usuarioParaRegistrar != null) {
+        print(
+          "👤 Usuario detectado (ID: ${usuarioParaRegistrar.id}). Iniciando OneSignal...",
+        );
+        await authProvider.registrarDispositivoEnBackend(
+          usuarioParaRegistrar.id.toString(),
+        );
+      } else {
+        print(
+          "❌ ERROR CRÍTICO: No se pudo obtener el usuario ni del Login ni de Memoria.",
+        );
+      }
+      // ------------------------------------------------
+
+      // Ir al Dashboard
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const HomeDashboardScreen()),

@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:somnolence_app/core/constants/app_colors.dart';
 import '../providers/reaccion_provider.dart'; // Importamos tu provider con el nombre nuevo
 
 class ReaccionScreen extends StatelessWidget {
@@ -39,9 +40,21 @@ class _ReaccionContent extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Test de Reacción Selectiva'),
+            title: const Text(
+              'Test de Reacción',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             backgroundColor: const Color(0xFFF35F34),
             foregroundColor: Colors.white,
+            flexibleSpace: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.primary, AppColors.secondary],
+                  begin: Alignment.bottomRight,
+                  end: Alignment.topLeft,
+                ),
+              ),
+            ),
           ),
           // Usamos Consumer para reconstruir SOLO el Stack cuando el juego avanza
           body: Consumer<ReaccionProvider>(

@@ -25,6 +25,11 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
     });
   }
 
+  Future<void> _recargarDatos() async {
+    // Llama al provider para traer los datos de nuevo
+    await context.read<RendicionesProvider>().cargarMisRendiciones();
+  }
+
   String _formatMoney(int amount) {
     return "\$${amount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}";
   }
@@ -198,6 +203,23 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
         ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, AppColors.secondary],
+              begin: Alignment.bottomRight,
+              end: Alignment.topLeft,
+            ),
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: "Recargar",
+            // Si está cargando, deshabilitamos el botón para evitar doble click
+            onPressed: provider.isLoading ? null : _recargarDatos,
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {

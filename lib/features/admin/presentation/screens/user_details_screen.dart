@@ -37,6 +37,15 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
         ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, AppColors.secondary],
+              begin: Alignment.bottomRight,
+              end: Alignment.topLeft,
+            ),
+          ),
+        ),
       ),
       // 🔥 CAMBIO ESTRUCTURAL AQUÍ
       // Usamos Column para dividir la pantalla en: Contenido vs Botones Fijos

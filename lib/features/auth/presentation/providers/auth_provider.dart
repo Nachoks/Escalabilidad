@@ -48,28 +48,79 @@ class AuthProvider extends ChangeNotifier {
 
   // Función de Logout
   Future<void> logout() async {
-    await ApiService.logout(); // Llama a tu servicio
-    _currentUser = null; // Borra el usuario de la memoria
-    notifyListeners();
-  }
-
-  Future<void> registrarDispositivoEnBackend() async {
     try {
-      // Para OneSignal v5+
-      String? oneSignalId = OneSignal.User.pushSubscription.id;
+      // 1. PRIMERO: Desconectar OneSignal del celular
+      // Esto le quita la etiqueta de "Usuario X" al dispositivo
+      await OneSignal.logout();
 
-      // Si tienes una versión anterior (v3 o v4) usa:
-      // var deviceState = await OneSignal.shared.getDeviceState();
-      // String? oneSignalId = deviceState?.userId;
+      // 2. SEGUNDO: Avisar al Servidor (Laravel)
+      // Esto borra el ID de la base de datos (con el cambio que hiciste en PHP)
+      await ApiService.logout();
+    } catch (e) {
+      // Si falla internet o el servidor, no importa, seguimos cerrando sesión local
+      print("Error avisando logout al servidor: $e");
+    } finally {
+      // 3. TERCERO: Borrar usuario local y actualizar UI (Siempre se ejecuta)
+      _currentUser = null;
+      notifyListeners();
+    }
+  }
+  // En AuthProvider.dart
 
-      if (oneSignalId != null) {
-        print("Actualizando OneSignal ID: $oneSignalId");
-        final api = ApiService();
-        // Llamamos a tu endpoint de Laravel
-        await api.post('/update-device', {'onesignal_id': oneSignalId});
+  Future<void> registrarDispositivoEnBackend(String idUsuarioLaravel) async {
+    print("🟦 [1] Configurando OneSignal para usuario: $idUsuarioLaravel");
+
+    try {
+      // 1. LOGIN (Vincular usuario)
+      OneSignal.login(idUsuarioLaravel);
+
+      // 2. REVISAR SI YA TENEMOS EL ID (Caso ideal)
+      String? currentId = OneSignal.User.pushSubscription.id;
+
+      if (currentId != null && currentId.isNotEmpty) {
+        print("✅ ID disponible inmediatamente: $currentId");
+        await _enviarALaravel(currentId);
+      } else {
+        print("⏳ ID no disponible aún. Activando OBSERVER (Espía)...");
+
+        // 3. ACTIVAR EL ESPÍA (Observer)
+        // Esto se ejecutará automáticamente cuando OneSignal termine de registrarse
+        OneSignal.User.pushSubscription.addObserver((state) {
+          print("👀 El estado de OneSignal cambió...");
+          var newId = state.current.id;
+
+          if (newId != null && newId.isNotEmpty) {
+            print("🎉 ¡EL ESPÍA ENCONTRÓ EL ID!: $newId");
+            _enviarALaravel(newId);
+          }
+        });
       }
     } catch (e) {
-      print("Error registrando dispositivo: $e");
+      print("❌ Error configurando OneSignal: $e");
+    }
+  }
+
+  // Función auxiliar para no repetir código y validar antes de enviar
+  Future<void> _enviarALaravel(String oneSignalId) async {
+    if (oneSignalId.isEmpty) return;
+
+    try {
+      print("🚀 Enviando ID a Laravel: $oneSignalId");
+      final api = ApiService();
+
+      final response = await api.post('/update-device', {
+        'onesignal_id': oneSignalId,
+      });
+
+      if (response.statusCode == 200) {
+        print("✅ ¡ÉXITO! Dispositivo registrado en BD.");
+      } else {
+        print(
+          "⚠️ Laravel respondió error: ${response.statusCode} - ${response.body}",
+        );
+      }
+    } catch (e) {
+      print("❌ Error de conexión al enviar ID: $e");
     }
   }
 

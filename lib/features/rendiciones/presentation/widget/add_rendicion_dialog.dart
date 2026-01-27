@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Necesario para TextInputFormatter
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
@@ -15,13 +16,44 @@ class AddRendicionDialog extends StatefulWidget {
   State<AddRendicionDialog> createState() => _AddRendicionDialogState();
 }
 
+// --- CLASE PARA FORMATEAR CON PUNTOS ---
+class ThousandsSeparatorInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // Si está vacío, retornamos nada
+    if (newValue.text.isEmpty) {
+      return newValue;
+    }
+
+    // 1. Limpiamos cualquier cosa que no sea número
+    String newText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+
+    // 2. Si después de limpiar no queda nada, retornamos vacío
+    if (newText.isEmpty) return newValue;
+
+    // 3. Formateamos con puntos (Locale de Chile para miles)
+    final int value = int.parse(newText);
+    final formatter = NumberFormat.decimalPattern('es_CL');
+    String newString = formatter.format(value);
+
+    // 4. Retornamos el valor formateado manteniendo el cursor al final
+    return TextEditingValue(
+      text: newString,
+      selection: TextSelection.collapsed(offset: newString.length),
+    );
+  }
+}
+
 class _AddRendicionDialogState extends State<AddRendicionDialog> {
   final _formKey = GlobalKey<FormState>();
 
-  // Controladores y Variables
+  // Controladores
   final TextEditingController _propositoController = TextEditingController();
   final TextEditingController _montoController = TextEditingController(
-    text: '0',
+    text: '0', // Valor inicial
   );
   final TextEditingController _fechaController = TextEditingController();
 
@@ -33,7 +65,7 @@ class _AddRendicionDialogState extends State<AddRendicionDialog> {
   @override
   void initState() {
     super.initState();
-    // 1. Cargar clientes al abrir el diálogo
+    // Cargar clientes al abrir
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ClienteProvider>().cargarClientes();
     });
@@ -41,8 +73,6 @@ class _AddRendicionDialogState extends State<AddRendicionDialog> {
     // Fecha por defecto: Hoy
     _fechaController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
   }
-
-  // Selector de Fecha
 
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
@@ -55,11 +85,18 @@ class _AddRendicionDialogState extends State<AddRendicionDialog> {
 
     setState(() => _isLoading = true);
 
+    // --- CORRECCIÓN AQUÍ ---
+    // 1. Obtenemos el texto (Ej: "50.000")
+    // 2. Quitamos los puntos (Ej: "50000")
+    // 3. Convertimos a int
+    String montoLimpio = _montoController.text.replaceAll('.', '');
+    int montoFinal = int.tryParse(montoLimpio) ?? 0;
+
     final provider = context.read<RendicionesProvider>();
     final exito = await provider.crearRendicion(
       idServicio: _servicioSeleccionado!.idServicio!,
       proposito: _propositoController.text,
-      montoEntregado: int.tryParse(_montoController.text) ?? 0,
+      montoEntregado: montoFinal, // Enviamos el número limpio
     );
 
     setState(() => _isLoading = false);
@@ -80,7 +117,6 @@ class _AddRendicionDialogState extends State<AddRendicionDialog> {
 
   @override
   Widget build(BuildContext context) {
-    // Consumimos los providers de Cliente y Servicio
     final clienteProvider = context.watch<ClienteProvider>();
     final servicioProvider = context.watch<ServicioProvider>();
 
@@ -113,7 +149,6 @@ class _AddRendicionDialogState extends State<AddRendicionDialog> {
                       _clienteSeleccionado = cliente;
                       _servicioSeleccionado = null; // Resetear servicio
                     });
-                    // Cargar servicios del cliente seleccionado
                     if (cliente?.idCliente != null) {
                       context
                           .read<ServicioProvider>()
@@ -123,12 +158,11 @@ class _AddRendicionDialogState extends State<AddRendicionDialog> {
                 ),
                 const SizedBox(height: 16),
 
-                // 2. DROPDOWN SERVICIO (Depende del cliente)
+                // 2. DROPDOWN SERVICIO
                 DropdownButtonFormField<ServicioModel>(
                   decoration: const InputDecoration(labelText: "Servicio"),
                   value: _servicioSeleccionado,
                   isExpanded: true,
-                  // Si no hay cliente o está cargando, deshabilitamos
                   hint: servicioProvider.isLoading
                       ? const Text("Cargando servicios...")
                       : const Text("Selecciona un servicio"),
@@ -160,15 +194,21 @@ class _AddRendicionDialogState extends State<AddRendicionDialog> {
                 ),
                 const SizedBox(height: 16),
 
-                // 5. MONTO ENTREGADO (FONDO)
+                // 4. MONTO ENTREGADO (FONDO) - CORREGIDO
                 TextFormField(
                   controller: _montoController,
                   keyboardType: TextInputType.number,
+                  // --- CORRECCIÓN AQUÍ: Agregamos los formatters ---
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly, // Solo números
+                    ThousandsSeparatorInputFormatter(), // Puntos visuales
+                  ],
                   decoration: const InputDecoration(
                     labelText: "Monto Entregado (Fondo)",
                     helperText: "Ingresa 0 si no recibiste anticipo",
                     prefixText: "\$ ",
                     border: OutlineInputBorder(),
+                    hintText: "Ej: 50.000",
                   ),
                 ),
               ],

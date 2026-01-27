@@ -8,7 +8,7 @@ class LogoAppbar extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(10.0),
       height: kToolbarHeight,
-      child: Image.asset('assets/images/LOGO.png', fit: BoxFit.contain),
+      child: Image.asset('assets/images/isotipo.png', fit: BoxFit.contain),
     );
   }
 }

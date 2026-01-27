@@ -325,7 +325,10 @@ class _RendicionValidacionScreenState extends State<RendicionValidacionScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Revisión de Gastos"),
+        title: const Text(
+          "Revisión de Gastos",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),

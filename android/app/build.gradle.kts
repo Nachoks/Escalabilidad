@@ -17,7 +17,9 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.example.somnolence_app"
-    compileSdk = flutter.compileSdkVersion
+    
+    compileSdk = 35
+    
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -26,22 +28,21 @@ android {
     }
 
     kotlinOptions {
-        // --- 2. CORRECCIÓN DEL ERROR DE JVMTARGET ---
-        // Usamos "17" directamente como texto
         jvmTarget = "17"
     }
 
     defaultConfig {
         applicationId = "com.example.somnolence_app"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        
+        targetSdk = 35 
+        
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     signingConfigs {
         create("release") {
-            // Leemos las variables cargadas arriba de forma segura
             keyAlias = keystoreProperties["keyAlias"] as String? ?: "androiddebugkey"
             keyPassword = keystoreProperties["keyPassword"] as String? ?: "android"
             
@@ -54,7 +55,6 @@ android {
 
     buildTypes {
         release {
-            // Usamos la firma release configurada
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             isShrinkResources = false
@@ -62,6 +62,25 @@ android {
     }
 }
 
+
+
 flutter {
     source = "../.."
+}
+
+apply(plugin = "com.google.gms.google-services")
+
+// 👇 AGREGA ESTO AL FINAL DEL ARCHIVO PARA ARREGLAR EL ERROR DE VERSIONES 👇
+configurations.all {
+    resolutionStrategy {
+        eachDependency {
+            // Forzamos versiones estables que no piden SDK 36
+            if (requested.group == "androidx.activity") {
+                useVersion("1.9.3")
+            }
+            if (requested.group == "androidx.core") {
+                useVersion("1.15.0")
+            }
+        }
+    }
 }
