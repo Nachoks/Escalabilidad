@@ -11,6 +11,8 @@ use App\Models\GastoArchivo;
 use App\Models\Rendicion;
 use App\Models\Servicio;
 use App\Models\Registro;
+use App\Models\User;               // <--- Faltaba esta
+use Illuminate\Support\Facades\Http;
 
 class RendicionController extends Controller
 {
@@ -64,25 +66,46 @@ class RendicionController extends Controller
     }
 
     /**
-     * 2. ACTUALIZAR BORRADOR (Opcional)
-     * - Útil si el usuario se equivocó en el propósito o monto.
-     * - YA NO EDITA LA FECHA.
+     * ACTUALIZAR RENDICIÓN (Solo Borrador u Observada)
      */
     public function update(Request $request, $id)
     {
+        // 1. Buscar
         $rendicion = Rendicion::findOrFail($id);
 
-        if ($rendicion->id_usuario != Auth::id()) return response()->json(['message' => 'No autorizado'], 403);
-        if ($rendicion->estado != 'Borrador') return response()->json(['message' => 'Solo se editan borradores'], 403);
+        // 2. Validar Dueño
+        if ($rendicion->id_usuario != Auth::id()) {
+            return response()->json(['message' => 'No autorizado'], 403);
+        }
 
+        // 3. Validar Estado (Solo se pueden editar estos estados)
+        if (!in_array($rendicion->estado, ['Borrador', 'Observada'])) {
+            return response()->json(['message' => 'Solo se pueden editar rendiciones en Borrador u Observadas'], 400);
+        }
+
+        // 4. Validar Datos
         $request->validate([
-            'proposito'       => 'nullable|string|max:255',
-            'monto_entregado' => 'nullable|integer',
+            'proposito'       => 'required|string|max:255',
+            'monto_entregado' => 'required|integer|min:0',
+            // Agrega 'id_servicio' si permites cambiar el centro de costo
         ]);
 
-        $rendicion->update($request->only(['proposito', 'monto_entregado']));
+        // 5. Actualizar
+        // Si estaba "Observada", al editarla la volvemos a pasar a "Borrador"
+        // para que el usuario tenga que volver a enviarla.
+        $nuevoEstado = $rendicion->estado === 'Observada' ? 'Borrador' : $rendicion->estado;
 
-        return response()->json(['success' => true, 'message' => 'Rendición actualizada', 'data' => $rendicion]);
+        $rendicion->update([
+            'proposito'       => $request->proposito,
+            'monto_entregado' => $request->monto_entregado,
+            'estado'          => $nuevoEstado, 
+        ]);
+
+        return response()->json([
+            'success' => true, 
+            'message' => 'Rendición actualizada correctamente', 
+            'data'    => $rendicion
+        ]);
     }
 
     /**
@@ -92,7 +115,8 @@ class RendicionController extends Controller
      */
     public function enviar($id)
     {
-        $rendicion = Rendicion::with('gastos')->findOrFail($id);
+        // 1. Cargar la rendición con sus gastos y el usuario dueño (para el nombre)
+        $rendicion = Rendicion::with(['gastos', 'usuario'])->findOrFail($id);
 
         if ($rendicion->id_usuario != Auth::id()) {
             return response()->json(['message' => 'No autorizado'], 403);
@@ -103,12 +127,39 @@ class RendicionController extends Controller
             return response()->json(['message' => 'La rendición está vacía, agrega gastos antes de enviar.'], 400);
         }
 
-        // Actualizamos Estado
+        // 2. Actualizar Estado
         $rendicion->update([
             'estado' => 'Pendiente de Validación',
-            // Opcional: Podrías actualizar la fecha de envío aquí si quisieras
-            // 'fecha' => now() 
+            // 'fecha' => now(), // Descomenta si quieres actualizar la fecha de envío
         ]);
+
+        // --- INICIO LÓGICA DE NOTIFICACIONES ---
+        try {
+            // A. Buscar IDs de usuarios con rol 'Validador' o 'Administrador'
+            // Ajusta 'tipo_usuario' según cómo se llamen tus roles en la BD
+            $validadoresIds = User::whereHas('roles', function($q) {
+                $q->whereIn('tipo_usuario', ['Administrador', 'Validador']);
+            })->pluck('id_usuario')->toArray();
+
+            // B. Preparar el mensaje
+            $nombreUsuario = $rendicion->usuario->nombre_usuario ?? 'Un usuario';
+            $titulo = "Nueva Rendición por Validar";
+            $mensaje = "{$nombreUsuario} ha enviado la rendición #{$rendicion->id_rendicion} para revisión.";
+
+            // C. Enviar usando la función helper (asegúrate de tenerla en el controller o trait)
+            $this->enviarNotificacionOneSignal(
+                $validadoresIds, 
+                $titulo, 
+                $mensaje, 
+                ['id_rendicion' => $rendicion->id_rendicion, 'tipo' => 'validacion_pendiente']
+            );
+
+        } catch (\Exception $e) {
+            // Logueamos el error pero NO detenemos el flujo. 
+            // Es mejor que la rendición se envíe aunque falle la notificación.
+            \Log::error("Error enviando notificación OneSignal: " . $e->getMessage());
+        }
+        // --- FIN LÓGICA DE NOTIFICACIONES ---
 
         return response()->json(['success' => true, 'message' => 'Rendición enviada a revisión']);
     }
@@ -117,12 +168,13 @@ class RendicionController extends Controller
     public function misRendiciones()
     {
         $rendiciones = Rendicion::where('id_usuario', Auth::id())
-                        ->with([
-                            'servicio:id_servicio,nombre_servicio,centro_costo', 
-                            'gastos' // <--- ESTO ES LO QUE FALTABA
-                        ])
-                        ->orderByDesc('id_rendicion')
-                        ->get();
+         ->with([
+                'servicio:id_servicio,nombre_servicio,centro_costo', 
+                'gastos',
+                'registros' // <--- IMPORTANTE: Cargar esto para que el accessor tenga datos
+            ])
+            ->orderByDesc('id_rendicion')
+            ->get();
 
         return response()->json($rendiciones);
     }
@@ -293,49 +345,119 @@ class RendicionController extends Controller
      */
     public function pagar(Request $request, $id)
     {
+        // 1. Validaciones
         $request->validate([
-            'comprobante' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120', // Máx 5MB
+            'comprobante' => 'required|file|mimes:jpg,jpeg,png,pdf|max:10240',
         ]);
 
-        DB::beginTransaction();
         try {
-            $rendicion = Rendicion::with('gastos')->findOrFail($id);
-            
-            // 1. Subir el archivo
-            $file = $request->file('comprobante');
-            $nombreFisico = time() . '_' . $file->getClientOriginalName();
-            $ruta = $file->storeAs('public/comprobantes', $nombreFisico); // storage/app/public/comprobantes
+            DB::beginTransaction();
 
-            // 2. Crear el Registro de Pago
-            $registro = new Registro();
-            $registro->id_rendicion = $rendicion->id_rendicion;
-            $registro->id_usuario_pagador = Auth::id(); // Quién pagó (el admin actual)
-            $registro->fecha_pago = now();
-            $registro->monto_pagado = $rendicion->total_gastado; // Asumimos pago total
-            
-            // Datos del archivo
-            $registro->nombre_original = $file->getClientOriginalName();
-            $registro->nombre_fisico = $nombreFisico;
-            $registro->ruta_relativa = 'comprobantes/' . $nombreFisico;
-            $registro->extension = $file->getClientOriginalExtension();
-            $registro->peso_kb = round($file->getSize() / 1024, 2);
-            
-            $registro->save();
+            // Cargamos la rendición
+            $rendicion = Rendicion::withSum('gastos', 'monto')->findOrFail($id);
 
-            // 3. Cambiar estado de la Rendición
-            $rendicion->estado = 'Pagada';
-            $rendicion->save();
+            if ($request->hasFile('comprobante')) {
+                $file = $request->file('comprobante');
+                $extension = $file->getClientOriginalExtension();
+                $pesoKb = round($file->getSize() / 1024, 2);
 
-            DB::commit();
+                // --- LÓGICA DE RUTAS ---
+                $carpetaRendicion = str_pad($rendicion->id_rendicion, 3, '0', STR_PAD_LEFT);
+                $pathDestino = $carpetaRendicion . '/pago'; 
+                $nombreFisico = 'PAGO_' . time() . '.' . $extension;
 
-            return response()->json([
-                'success' => true, 
-                'message' => 'Pago registrado correctamente'
-            ]);
+                // Guardar físico
+                $file->storeAs($pathDestino, $nombreFisico, 'nas_rendiciones');
+                $rutaRelativa = $pathDestino . '/' . $nombreFisico;
+
+                // Crear Registro
+                $registro = new Registro(); 
+                $registro->id_rendicion = $id;
+                $registro->id_usuario_pagador = Auth::id();
+                $registro->fecha_pago = now();
+                $registro->monto_pagado = $rendicion->gastos_sum_monto ?? 0;
+                $registro->nombre_original = $file->getClientOriginalName();
+                $registro->nombre_fisico = $nombreFisico;
+                $registro->ruta_relativa = $rutaRelativa;
+                $registro->extension = $extension;
+                $registro->peso_kb = $pesoKb;
+                $registro->save();
+
+                // Actualizar Rendición
+                $rendicion->estado = 'Pagada';
+                $rendicion->save();
+
+                DB::commit(); // <--- Confirmamos la transacción en BD primero
+
+                // --- INICIO NOTIFICACIÓN AL DUEÑO ---
+                try {
+                    // Enviamos al dueño de la rendición ($rendicion->id_usuario)
+                    $this->enviarNotificacionOneSignal(
+                        [$rendicion->id_usuario], 
+                        "¡Rendición Pagada! 💰", 
+                        "Tu rendición #{$rendicion->id_rendicion} ha sido pagada. Puedes ver el comprobante en la App.", 
+                        [
+                            'id_rendicion' => $rendicion->id_rendicion, 
+                            'tipo' => 'pago_realizado'
+                        ]
+                    );
+                } catch (\Exception $e) {
+                    // Si falla la notificación, solo lo registramos en el log
+                    // No queremos que falle el pago real por culpa de una notificación
+                    \Log::error("Error enviando notificación OneSignal al pagar: " . $e->getMessage());
+                }
+                // --- FIN NOTIFICACIÓN ---
+
+                return response()->json([
+                    'success' => true, 
+                    'message' => 'Pago registrado correctamente',
+                    'ruta' => $rutaRelativa
+                ]);
+            } else {
+                return response()->json(['message' => 'No se recibió el archivo'], 400);
+            }
 
         } catch (\Exception $e) {
             DB::rollBack();
+            
+            // Limpieza de archivo si falló
+            if (isset($pathDestino) && isset($nombreFisico)) {
+                Storage::disk('nas_rendiciones')->delete($pathDestino . '/' . $nombreFisico);
+            }
+            
             return response()->json(['message' => 'Error al pagar: ' . $e->getMessage()], 500);
         }
     }
+
+    public function contarPendientes()
+    {
+        // Contamos las que están "Pendiente de Validación" o "Aprobada" (Por Pagar)
+        $cantidad = Rendicion::whereIn('estado', ['Pendiente de Validación', 'Aprobada'])->count();
+        return response()->json(['cantidad' => $cantidad]);
+    }
+
+    private function enviarNotificacionOneSignal($userIds, $titulo, $mensaje, $dataAdicional = [])
+{
+    // Buscamos los OneSignal IDs de los usuarios destino
+    // OJO: $userIds debe ser un array de IDs de tu tabla users (ej: [1, 5])
+    $destinatarios = User::whereIn('id_usuario', $userIds)
+                         ->whereNotNull('onesignal_id')
+                         ->pluck('onesignal_id')
+                         ->toArray();
+
+    if (empty($destinatarios)) return;
+    
+    $response = Http::withHeaders([
+        'Content-Type' => 'application/json; charset=utf-8',
+        'Authorization' => 'Basic os_v2_app_4xg7b2xncrf5jixe4dno42mpknstbgnysppupq52nqzvgazdmk3otudhs3a25gzfjpmy5qdd3oiy34vvyxbub2tmgbheb4jlgvwngvi' // <--- Sacar de OneSignal Dashboard
+    ])->post('https://onesignal.com/api/v1/notifications', [
+        'app_id' => 'e5cdf0ea-ed14-4bd4-a2e4-e0daee698f53', // <--- Sacar de OneSignal Dashboard
+        'include_player_ids' => $destinatarios, // Array de IDs de OneSignal
+        'headings' => ['en' => $titulo],
+        'contents' => ['en' => $mensaje],
+        'data' => $dataAdicional, // Ej: ['id_rendicion' => 123, 'pantalla' => 'detalle']
+        'small_icon' => 'ic_stat_onesignal_default', // Icono en barra de estado
+    ]);
+    
+}
 }

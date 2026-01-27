@@ -7,18 +7,19 @@ use Illuminate\Database\Eloquent\Model;
 use App\Models\Gasto;
 use App\Models\Servicio;
 use App\Models\User;
-use App\Models\Registro; // Mantenemos tu import
+use App\Models\Registro;
 
 class Rendicion extends Model
 {
     use HasFactory;
 
-    // Respetamos tu configuración (Singular)
     protected $table = 'rendicion'; 
     protected $primaryKey = 'id_rendicion';
     public $timestamps = false; 
-    protected $appends = ['total_gastado'];
-
+    
+    // AQUÍ ESTÁ LA CLAVE: Pedimos que se adjunte 'ruta_comprobante' al JSON
+    protected $appends = ['total_gastado', 'ruta_comprobante'];
+    
     protected $fillable = [
         'fecha',
         'proposito',
@@ -29,8 +30,7 @@ class Rendicion extends Model
         'id_usuario',
     ];
 
-
-    // --- RELACIONES (Tus relaciones intactas) ---
+    // --- RELACIONES ---
 
     public function servicio()
     {
@@ -39,7 +39,7 @@ class Rendicion extends Model
 
     public function usuario()
     {
-        return $this->belongsTo(User::class, 'id_usuario', 'id_usuario'); // Asumo que id_usuario es la PK en User según tu código
+        return $this->belongsTo(User::class, 'id_usuario', 'id_usuario');
     }
 
     public function gastos()
@@ -52,16 +52,43 @@ class Rendicion extends Model
         return $this->hasMany(Registro::class, 'id_rendicion', 'id_rendicion');
     }
 
-    // --- CORRECCIÓN TÉCNICA AQUÍ ---
+    // Agregamos esta relación helper 'hasOne' para ser más precisos (trae el último pago)
+    public function registroPago()
+    {
+        return $this->hasOne(Registro::class, 'id_rendicion', 'id_rendicion')->latest();
+    }
+
+    // --- ATTRIBUTES (La Magia) ---
+
+    /**
+     * ESTA ES LA FUNCIÓN QUE TE FALTABA
+     * Laravel busca get[NombreEnAppends]Attribute
+     */
+    public function getRutaComprobanteAttribute()
+    {
+        // 1. Intentamos obtenerlo de la relación singular si fue cargada
+        if ($this->relationLoaded('registroPago') && $this->registroPago) {
+            return $this->registroPago->ruta_relativa;
+        }
+
+        // 2. Si no, intentamos sacarlo de la colección 'registros'
+        // (Tomamos el primero que tenga ruta, asumiendo que es el pago)
+        if ($this->registros->isNotEmpty()) {
+            return $this->registros->first()->ruta_relativa;
+        }
+
+        // 3. Si no hay registros, retornamos null
+        return null;
+    }
 
     public function getTotalGastadoAttribute()
     {
-        // 1. PRIORIDAD: Si usamos withSum, Laravel guarda el valor en 'gastos_sum_monto'
+        // 1. PRIORIDAD: Si usamos withSum
         if (isset($this->attributes['gastos_sum_monto'])) {
             return (int) $this->attributes['gastos_sum_monto'];
         }
 
-        // 2. FALLBACK: Si cargamos la relación completa (ej. en el detalle)
+        // 2. FALLBACK: Si cargamos la relación completa
         if ($this->relationLoaded('gastos')) {
             return $this->gastos->sum('monto');
         }
@@ -72,8 +99,6 @@ class Rendicion extends Model
     public function getSaldoAttribute()
     {
         $asignado = $this->monto_entregado ?? 0;
-        
-        // Usamos la lógica corregida de arriba
         $gastado = $this->total_gastado; 
         
         return $asignado - $gastado;

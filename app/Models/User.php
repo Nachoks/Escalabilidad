@@ -27,6 +27,7 @@ class User extends Authenticatable
         'password',       
         'id_personal',
         'estado',
+        'onesignal_id',
     ];
 
     /**

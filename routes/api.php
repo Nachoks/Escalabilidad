@@ -18,12 +18,16 @@ Route::get('/ping', function () {
     return response()->json(['status' => 'ok']);
 });
 
+Route::get('evidencia/{ruta}', [GastoController::class, 'verEvidencia'])
+    ->where('ruta', '.*');
+
 // Rutas protegidas (Token Requerido)
 Route::middleware('auth:sanctum')->group(function () {
     // --- AUTENTICACIÓN Y PERFIL ---
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
+    Route::post('/update-device', [AuthController::class, 'updateDeviceId']);
     
     // --- VEHÍCULOS ---
     Route::get('/vehiculos/patentes', [VehiculoController::class, 'obtenerPatentes']);
@@ -39,9 +43,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/rendiciones', [RendicionController::class, 'pendientesDeValidacion']);
     Route::patch('/admin/gastos/{id}/evaluar', [GastoController::class, 'evaluarGasto']);
     Route::post('/admin/rendiciones/{id}/finalizar', [RendicionController::class, 'finalizarValidacion']);
-    Route::post('/admin/rendiciones/{id}/pagar', [RendicionController::class, 'pagar']);
     Route::post('/admin/rendiciones/{id}/validar', [RendicionController::class, 'procesarValidacion']);
-    Route::post('/admin/rendiciones/{id}/pagar', [RendicionController::class, 'pagar']);
+    Route::get('/admin/pendientes/count', [RendicionController::class, 'contarPendientes']);
     // --- CLIENTES ---
     Route::get('/clientes', [ClienteController::class, 'index']); 
     Route::post('/clientes', [ClienteController::class, 'store']); 
@@ -68,6 +71,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/rendiciones', [RendicionController::class, 'store']); // Crear nueva (Borrador)
     Route::get('/rendiciones/{id}', [RendicionController::class, 'show']); // Ver detalle
     Route::delete('/rendiciones/{id}', [RendicionController::class, 'destroy']);
+    Route::put('/rendiciones/{id}', [RendicionController::class, 'update']);
     
     // (Opcional) Ruta para cambiar estado a "Pendiente"
     Route::put('/rendiciones/{id}/enviar', [RendicionController::class, 'enviar']); 
@@ -77,6 +81,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/gastos/archivo', [GastoController::class, 'subirArchivo']); // 2. Subir Archivo (Multipart)
     Route::delete('/gastos/{id}', [GastoController::class, 'destroy']);
     Route::delete('/gastos/{idGasto}/archivo', [GastoController::class, 'eliminarArchivo']);
+
 });
 
 Route::get('/test-db', function () {

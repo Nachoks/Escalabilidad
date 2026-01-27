@@ -10,6 +10,7 @@ use App\Models\GastoArchivo;
 use App\Models\Rendicion;
 use Illuminate\Support\Facades\DB;
 
+
 class GastoController extends Controller
 {
     /**
@@ -197,6 +198,51 @@ class GastoController extends Controller
 
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+    }
+
+   public function verEvidencia($ruta)
+    {
+        // 1. CONSTRUIR LA RUTA FÍSICA (Igual que en el diagnóstico)
+        $ruta = urldecode($ruta);
+        $rutaRelativaWindows = str_replace('/', '\\', $ruta);
+        $rootNas = config('filesystems.disks.nas_rendiciones.root');
+        
+        // Unimos quitando barras duplicadas
+        $pathAbsoluto = rtrim($rootNas, '\\') . '\\' . ltrim($rutaRelativaWindows, '\\');
+
+        // 2. VERIFICAR EXISTENCIA
+        if (!file_exists($pathAbsoluto)) {
+            return response()->json(['error' => 'Archivo no encontrado', 'path' => $pathAbsoluto], 404);
+        }
+
+        // 3. DETERMINAR TIPO MIME (Manual para evitar errores de permisos al escanear el archivo)
+        $extension = strtolower(pathinfo($pathAbsoluto, PATHINFO_EXTENSION));
+        $mimeTypes = [
+            'jpg'  => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png'  => 'image/png',
+            'pdf'  => 'application/pdf',
+        ];
+        // Si no es uno conocido, usamos octet-stream
+        $contentType = $mimeTypes[$extension] ?? 'application/octet-stream';
+
+        // 4. LEER Y SERVIR
+        try {
+            // Usamos file_get_contents dentro de un try/catch por si los permisos fallan
+            $contenido = file_get_contents($pathAbsoluto);
+            
+            return response($contenido, 200)
+                ->header('Content-Type', $contentType)
+                ->header('Content-Disposition', 'inline; filename="' . basename($pathAbsoluto) . '"');
+
+        } catch (\Exception $e) {
+            // SI FALLA AQUÍ: Es 100% un tema de permisos de Windows en la carpeta del NAS
+            return response()->json([
+                'error' => 'Error de Permisos', 
+                'mensaje' => 'El archivo existe pero el usuario de Windows no puede leerlo.',
+                'detalle' => $e->getMessage()
+            ], 403);
         }
     }
 }

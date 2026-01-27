@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id('id_usuario');
             $table->string('nombre_usuario', 50);
             $table->string('password', 100);
+            $table->string('onesignal_id')->nullable();
             $table->timestamps();
             $table->boolean('estado')->default(true);
             $table->foreignId('id_personal')

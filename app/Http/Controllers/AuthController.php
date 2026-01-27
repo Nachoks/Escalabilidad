@@ -5,7 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
-
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 class AuthController extends Controller
 {
     // LOGIN
@@ -71,13 +72,22 @@ class AuthController extends Controller
     // LOGOUT
     public function logout(Request $request)
     {
+        // 1. Capturamos al usuario antes de borrar el token
+        $user = $request->user();
+
+        // 2. LIMPIEZA DE NOTIFICACIONES (¡Esto es lo nuevo!)
+        if ($user) {
+            $user->onesignal_id = null; // Borramos el ID del celular
+            $user->save(); // Guardamos el cambio en MySQL
+        }
+
+        // 3. Ahora sí, borramos el token de sesión (Lo que ya tenías)
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([
-            'message' => 'Sesión cerrada exitosamente'
+            'message' => 'Sesión cerrada y notificaciones desactivadas'
         ], 200);
     }
-
     // ME (Perfil)
     public function me(Request $request)
     {
@@ -121,4 +131,17 @@ class AuthController extends Controller
             'message' => 'Contraseña actualizada correctamente.'
         ], 200);
     }
+
+    public function updateDeviceId(Request $request)
+{
+    $request->validate([
+        'onesignal_id' => 'required|string'
+    ]);
+
+    $user = Auth::user();
+    $user->onesignal_id = $request->onesignal_id;
+    $user->save();
+
+    return response()->json(['message' => 'Dispositivo vinculado correctamente']);
+}
 }
