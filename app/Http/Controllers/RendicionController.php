@@ -437,27 +437,44 @@ class RendicionController extends Controller
     }
 
     private function enviarNotificacionOneSignal($userIds, $titulo, $mensaje, $dataAdicional = [])
-{
-    // Buscamos los OneSignal IDs de los usuarios destino
-    // OJO: $userIds debe ser un array de IDs de tu tabla users (ej: [1, 5])
-    $destinatarios = User::whereIn('id_usuario', $userIds)
-                         ->whereNotNull('onesignal_id')
-                         ->pluck('onesignal_id')
-                         ->toArray();
+    {
+        // 1. Buscamos destinatarios
+        $destinatarios = User::whereIn('id_usuario', $userIds)
+                             ->whereNotNull('onesignal_id')
+                             ->pluck('onesignal_id')
+                             ->toArray();
 
-    if (empty($destinatarios)) return;
-    
-    $response = Http::withHeaders([
-        'Content-Type' => 'application/json; charset=utf-8',
-        'Authorization' => 'Basic os_v2_app_4xg7b2xncrf5jixe4dno42mpknstbgnysppupq52nqzvgazdmk3otudhs3a25gzfjpmy5qdd3oiy34vvyxbub2tmgbheb4jlgvwngvi' // <--- Sacar de OneSignal Dashboard
-    ])->post('https://onesignal.com/api/v1/notifications', [
-        'app_id' => 'e5cdf0ea-ed14-4bd4-a2e4-e0daee698f53', // <--- Sacar de OneSignal Dashboard
-        'include_player_ids' => $destinatarios, // Array de IDs de OneSignal
-        'headings' => ['en' => $titulo],
-        'contents' => ['en' => $mensaje],
-        'data' => $dataAdicional, // Ej: ['id_rendicion' => 123, 'pantalla' => 'detalle']
-        'small_icon' => 'ic_stat_onesignal_default', // Icono en barra de estado
-    ]);
-    
-}
+        if (empty($destinatarios)) {
+            \Log::info("OneSignal: No hay destinatarios con ID válido para notificar.");
+            return;
+        }
+
+        try {
+            // 2. Enviamos la petición IGNORANDO VERIFICACIÓN SSL (withoutVerifying)
+            // Esto es vital para servidores locales o NAS que a veces fallan con certificados externos
+            $response = Http::withoutVerifying() 
+                ->withHeaders([
+                    'Content-Type'  => 'application/json; charset=utf-8',
+                    'Authorization' => 'Basic os_v2_app_4xg7b2xncrf5jixe4dno42mpknstbgnysppupq52nqzvgazdmk3otudhs3a25gzfjpmy5qdd3oiy34vvyxbub2tmgbheb4jlgvwngvi' 
+                ])->post('https://onesignal.com/api/v1/notifications', [
+                    'app_id'             => 'e5cdf0ea-ed14-4bd4-a2e4-e0daee698f53',
+                    'include_player_ids' => $destinatarios,
+                    'headings'           => ['en' => $titulo],
+                    'contents'           => ['en' => $mensaje],
+                    'data'               => $dataAdicional,
+                    'small_icon'         => 'ic_stat_onesignal_default',
+                    // 'android_channel_id' => 'onesignal_default_channel' // Opcional: Asegura el canal
+                ]);
+
+            // 3. Revisar si OneSignal respondió con error (ej: 400 Bad Request)
+            if ($response->failed()) {
+                \Log::error("OneSignal Error API: " . $response->body());
+            } else {
+                \Log::info("OneSignal Enviado OK a " . count($destinatarios) . " usuarios.");
+            }
+
+        } catch (\Exception $e) {
+            \Log::error("OneSignal Exception: " . $e->getMessage());
+        }
+    }
 }
