@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:onesignal_flutter/onesignal_flutter.dart';
-// 1. IMPORT NUEVO
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+// Importa tus servicios y providers
+import 'package:somnolence_app/core/services/notification_service.dart'; // <--- EL NUEVO SERVICIO
+import 'package:somnolence_app/core/api/api_service.dart';
 
 import 'package:somnolence_app/features/admin/presentation/providers/admin_users_provider.dart';
 import 'package:somnolence_app/features/admin/presentation/providers/cliente_provider.dart';
@@ -13,44 +14,18 @@ import 'package:somnolence_app/features/auth/data/models/user_model.dart';
 import 'package:somnolence_app/features/dashboard/presentation/screens/home_dashboard_screen.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/gasto_provider.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/rendiciones_provider.dart';
-import 'core/api/api_service.dart';
+
+// OJO: Importa OneSignal para verificar el ID en el Splash si quieres,
+// o usa NotificationService.getOneSignalId()
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // --- INICIO CÓDIGO NUEVO: FORZAR CANAL ANDROID ---
-  // Esto obliga al teléfono a mostrar el menú de notificaciones en Ajustes
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
+  // 1. INICIALIZAR NOTIFICACIONES (Aquí ocurre la magia del canal)
+  await NotificationService.init();
 
-  const AndroidNotificationChannel channel = AndroidNotificationChannel(
-    'onesignal_default_channel', // ID exacto que usa OneSignal
-    'Notificaciones Generales', // Nombre visible en Ajustes
-    description: 'Avisos de rendiciones y pagos',
-    importance: Importance.high,
-  );
-
-  // Inicialización mínima requerida para crear el canal
-  const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-  const InitializationSettings initializationSettings = InitializationSettings(
-    android: initializationSettingsAndroid,
-  );
-
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-
-  // Crear el canal físicamente en el sistema
-  await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin
-      >()
-      ?.createNotificationChannel(channel);
-  // --- FIN CÓDIGO NUEVO ---
-
-  // INICIALIZACIÓN DE ONESIGNAL
-  OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
-  OneSignal.initialize("e5cdf0ea-ed14-4bd4-a2e4-e0daee698f53");
-
+  // 2. Inicializar API
   await ApiService.inicializarConexion();
 
   runApp(
@@ -94,9 +69,6 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  // Volvemos al código limpio sin diagnósticos visuales exagerados
-  // ya que sabemos que el ID sí se genera.
-
   @override
   void initState() {
     super.initState();
@@ -104,11 +76,8 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _iniciarApp() async {
-    // 1. Pedir permiso explícitamente
-    // Al haber creado el canal arriba, Android ya sabe dónde poner este permiso
-    await OneSignal.Notifications.requestPermission(true);
-
-    await Future.delayed(const Duration(seconds: 2));
+    // Damos un tiempo para que OneSignal termine de conectar
+    await Future.delayed(const Duration(seconds: 3));
     _checkSession();
   }
 
@@ -124,7 +93,10 @@ class _SplashScreenState extends State<SplashScreen> {
         final authProvider = context.read<AuthProvider>();
         authProvider.setUser(user);
 
-        if (OneSignal.User.pushSubscription.id != null) {
+        // Guardar el dispositivo en el Backend
+        final osId = OneSignal.User.pushSubscription.id;
+        if (osId != null) {
+          // Asegúrate de que este método exista en tu AuthProvider
           await authProvider.registrarDispositivoEnBackend(user.id.toString());
         }
 

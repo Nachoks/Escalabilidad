@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   // 1. CONFIGURACIÓN DE RUTAS
   static const String _urlLocal = 'http://192.168.0.24:8090/api';
-  static const String _urlExterna = 'http://iaaspa.synology.me:8090/api';
+  static const String _urlExterna = 'http://app.iaaspa.synology.me:8090/api';
 
   static String baseUrl = _urlExterna;
 
