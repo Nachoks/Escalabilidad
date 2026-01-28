@@ -14,24 +14,24 @@ class AddGastoDialog extends StatefulWidget {
   State<AddGastoDialog> createState() => _AddGastoDialogState();
 }
 
+/// Formateador para poner puntos de miles automáticamente (Ej: 10.000)
 class ThousandsSeparatorInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    // Si está vacío, retornamos nada
     if (newValue.text.isEmpty) {
       return newValue;
     }
 
-    // 1. Limpiamos cualquier cosa que no sea número (por si acaso)
+    // 1. Limpiamos cualquier cosa que no sea número
     String newText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
 
-    // 2. Si después de limpiar no queda nada, retornamos vacío
+    // 2. Si queda vacío, retornamos
     if (newText.isEmpty) return newValue;
 
-    // 3. Formateamos con puntos (usamos locale de Chile o genérico)
+    // 3. Formateamos con puntos
     final int value = int.parse(newText);
     final formatter = NumberFormat.decimalPattern('es_CL');
     String newString = formatter.format(value);
@@ -47,16 +47,14 @@ class ThousandsSeparatorInputFormatter extends TextInputFormatter {
 class _AddGastoDialogState extends State<AddGastoDialog> {
   final _formKey = GlobalKey<FormState>();
 
-  // Controladores básicos
+  // Controladores
   final TextEditingController _fechaController = TextEditingController();
   final TextEditingController _montoController = TextEditingController();
   final TextEditingController _numDocController = TextEditingController();
-
-  // Controladores para cuando seleccionan "Otro"
   final TextEditingController _otroTipoController = TextEditingController();
   final TextEditingController _otroDetalleController = TextEditingController();
 
-  // Listas
+  // Listas y valores seleccionados
   String _tipoSeleccionado = 'Boleta';
   final List<String> _tipos = ['Boleta', 'Factura', 'Vale', 'Ticket', 'Otro'];
 
@@ -88,36 +86,36 @@ class _AddGastoDialogState extends State<AddGastoDialog> {
 
     setState(() => _isSaving = true);
 
-    // --- AQUÍ ESTÁ LA LÓGICA QUE PIDES ---
-
     // 1. Definir qué guardar en TIPO
     String tipoFinalParaBD;
     if (_tipoSeleccionado == 'Otro') {
-      // Si eligió "Otro", ignoramos la palabra "Otro" y guardamos lo que escribió
       tipoFinalParaBD = _otroTipoController.text.trim();
     } else {
-      // Si eligió "Boleta", guardamos "Boleta"
       tipoFinalParaBD = _tipoSeleccionado;
     }
 
-    // 2. Definir qué guardar en DETALLE (Ítem)
+    // 2. Definir qué guardar en DETALLE
     String detalleFinalParaBD;
     if (_detalleSeleccionado == 'Otros') {
-      // Si eligió "Otros", ignoramos la palabra y guardamos lo que escribió
       detalleFinalParaBD = _otroDetalleController.text.trim();
     } else {
-      // Si eligió "Peaje", guardamos "Peaje"
       detalleFinalParaBD = _detalleSeleccionado;
     }
 
-    // Enviamos a la BD los valores finales limpios
+    // ---------------------------------------------------------
+    // CORRECCIÓN PRINCIPAL: Limpiar los puntos antes de enviar
+    // Transforma "20.000" en "20000"
+    // ---------------------------------------------------------
+    String montoLimpio = _montoController.text.replaceAll('.', '');
+
+    // Enviamos a la BD los valores limpios
     final success = await context.read<GastoProvider>().crearGasto(
       idRendicion: widget.idRendicion,
       fecha: _fechaController.text,
-      monto: _montoController.text,
+      monto: montoLimpio, // <--- Usamos la variable limpia aquí
       numDocumento: _numDocController.text,
-      tipoDoc: tipoFinalParaBD, // Se enviará "Vale Vista" (no "Otro")
-      detalle: detalleFinalParaBD, // Se enviará "Repuestos" (no "Otros")
+      tipoDoc: tipoFinalParaBD,
+      detalle: detalleFinalParaBD,
     );
 
     setState(() => _isSaving = false);
@@ -170,7 +168,7 @@ class _AddGastoDialogState extends State<AddGastoDialog> {
                 ),
                 const SizedBox(height: 12),
 
-                // 2. TIPO DOCUMENTO (Dropdown)
+                // 2. TIPO DOCUMENTO
                 DropdownButtonFormField<String>(
                   value: _tipoSeleccionado,
                   decoration: const InputDecoration(
@@ -183,13 +181,12 @@ class _AddGastoDialogState extends State<AddGastoDialog> {
                   onChanged: (val) {
                     setState(() {
                       _tipoSeleccionado = val!;
-                      // Limpiamos el texto si cambia de opción para evitar errores
                       if (val != 'Otro') _otroTipoController.clear();
                     });
                   },
                 ),
 
-                // CAMPO "OTRO TIPO" (Solo aparece si selecciona Otro)
+                // CAMPO "OTRO TIPO"
                 if (_tipoSeleccionado == 'Otro') ...[
                   const SizedBox(height: 8),
                   TextFormField(
@@ -212,7 +209,7 @@ class _AddGastoDialogState extends State<AddGastoDialog> {
 
                 const SizedBox(height: 12),
 
-                // 3. ÍTEM / CATEGORÍA (Dropdown)
+                // 3. ÍTEM / CATEGORÍA
                 DropdownButtonFormField<String>(
                   value: _detalleSeleccionado,
                   decoration: const InputDecoration(
@@ -230,7 +227,7 @@ class _AddGastoDialogState extends State<AddGastoDialog> {
                   },
                 ),
 
-                // CAMPO "OTRO DETALLE" (Solo aparece si selecciona Otros)
+                // CAMPO "OTRO DETALLE"
                 if (_detalleSeleccionado == 'Otros') ...[
                   const SizedBox(height: 8),
                   TextFormField(
@@ -267,17 +264,15 @@ class _AddGastoDialogState extends State<AddGastoDialog> {
                 TextFormField(
                   controller: _montoController,
                   keyboardType: TextInputType.number,
-                  // 👇 AGREGA ESTA LÍNEA AQUÍ
                   inputFormatters: [
-                    FilteringTextInputFormatter
-                        .digitsOnly, // Solo deja escribir números
-                    ThousandsSeparatorInputFormatter(), // Aplica los puntos visuales
+                    FilteringTextInputFormatter.digitsOnly,
+                    ThousandsSeparatorInputFormatter(),
                   ],
                   decoration: const InputDecoration(
                     labelText: "Monto Total",
                     prefixText: "\$ ",
                     border: OutlineInputBorder(),
-                    hintText: "Ej: 10.000", // Ayuda visual
+                    hintText: "Ej: 10.000",
                   ),
                   validator: (v) =>
                       v!.isEmpty ? "El monto es obligatorio" : null,

@@ -25,6 +25,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -70,7 +71,7 @@ flutter {
 
 apply(plugin = "com.google.gms.google-services")
 
-// 👇 AGREGA ESTO AL FINAL DEL ARCHIVO PARA ARREGLAR EL ERROR DE VERSIONES 👇
+
 configurations.all {
     resolutionStrategy {
         eachDependency {
@@ -83,4 +84,9 @@ configurations.all {
             }
         }
     }
+}
+
+dependencies {
+    // 👇 AGREGA ESTA LÍNEA PARA QUE FUNCIONE EL DESUGARING
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }

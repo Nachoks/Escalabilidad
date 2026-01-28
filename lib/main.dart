@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// 1. IMPORTAR ONESIGNAL
 import 'package:onesignal_flutter/onesignal_flutter.dart';
+// 1. IMPORT NUEVO
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'package:somnolence_app/features/admin/presentation/providers/admin_users_provider.dart';
 import 'package:somnolence_app/features/admin/presentation/providers/cliente_provider.dart';
@@ -16,9 +17,39 @@ import 'core/api/api_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // --- INICIO CÓDIGO NUEVO: FORZAR CANAL ANDROID ---
+  // Esto obliga al teléfono a mostrar el menú de notificaciones en Ajustes
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
+  const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    'onesignal_default_channel', // ID exacto que usa OneSignal
+    'Notificaciones Generales', // Nombre visible en Ajustes
+    description: 'Avisos de rendiciones y pagos',
+    importance: Importance.high,
+  );
+
+  // Inicialización mínima requerida para crear el canal
+  const AndroidInitializationSettings initializationSettingsAndroid =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+  const InitializationSettings initializationSettings = InitializationSettings(
+    android: initializationSettingsAndroid,
+  );
+
+  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
+  // Crear el canal físicamente en el sistema
+  await flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >()
+      ?.createNotificationChannel(channel);
+  // --- FIN CÓDIGO NUEVO ---
+
+  // INICIALIZACIÓN DE ONESIGNAL
   OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
   OneSignal.initialize("e5cdf0ea-ed14-4bd4-a2e4-e0daee698f53");
-  OneSignal.Notifications.requestPermission(true);
 
   await ApiService.inicializarConexion();
 
@@ -34,7 +65,6 @@ void main() async {
         ChangeNotifierProvider(create: (_) => RendicionesProvider()),
         ChangeNotifierProvider(create: (_) => GastoProvider()),
       ],
-
       child: const MyApp(),
     ),
   );
@@ -64,14 +94,25 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  // Volvemos al código limpio sin diagnósticos visuales exagerados
+  // ya que sabemos que el ID sí se genera.
+
   @override
   void initState() {
     super.initState();
+    _iniciarApp();
+  }
+
+  Future<void> _iniciarApp() async {
+    // 1. Pedir permiso explícitamente
+    // Al haber creado el canal arriba, Android ya sabe dónde poner este permiso
+    await OneSignal.Notifications.requestPermission(true);
+
+    await Future.delayed(const Duration(seconds: 2));
     _checkSession();
   }
 
   Future<void> _checkSession() async {
-    await Future.delayed(const Duration(seconds: 2));
     final isLoggedIn = await ApiService.isLoggedIn();
 
     if (!mounted) return;
@@ -80,17 +121,13 @@ class _SplashScreenState extends State<SplashScreen> {
       final userData = await ApiService.getUsuarioLocal();
       if (userData != null && userData.isNotEmpty) {
         final user = User.fromJson(userData);
-
-        // Cargar usuario en el Provider
         final authProvider = context.read<AuthProvider>();
         authProvider.setUser(user);
 
-        // --- 3. VINCULAR DISPOSITIVO (CORREGIDO) ---
-        // Pasamos el ID del usuario como String para que OneSignal haga Login
-        await authProvider.registrarDispositivoEnBackend(user.id.toString());
-        // -------------------------------------------
+        if (OneSignal.User.pushSubscription.id != null) {
+          await authProvider.registrarDispositivoEnBackend(user.id.toString());
+        }
 
-        //Si ya tiene sesión, va al Dashboard
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
