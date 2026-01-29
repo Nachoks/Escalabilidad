@@ -6,26 +6,27 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('has_guia', function (Blueprint $table) {
             $table->id('id_has_guia');
+            
+            // CAMBIO: Ahora se relaciona con la OC, no con el servicio directo
+            $table->unsignedBigInteger('id_oc_cliente'); 
+            
+            // Datos
             $table->string('cod_has_guia', 255);
-            $table->unsignedBigInteger('id_servicio');
 
-            $table->foreign('id_servicio')
-                ->references('id_servicio')->on('servicio')
+            // Foreign Key
+            $table->foreign('id_oc_cliente')
+                ->references('id_oc_cliente')->on('oc_cliente')
                 ->onUpdate('cascade')
-                ->onDelete('cascade');
+                ->onDelete('cascade'); // Si borran la OC, se borran sus guías
+            
+            // Sin timestamps
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('has_guia');
