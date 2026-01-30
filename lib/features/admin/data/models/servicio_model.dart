@@ -1,3 +1,5 @@
+import 'oc_cliente_model.dart'; // Asegúrate de importar el modelo de OC
+
 class ServicioModel {
   final int? idServicio;
   final String nombreServicio;
@@ -6,12 +8,11 @@ class ServicioModel {
   final String? centroCosto;
   final String? fechaInicio;
   final String? fechaTermino;
-
-  // --- NUEVOS CAMPOS ---
   final String? facturacion;
   final String estadoServicio;
-  final List<dynamic> ordenesCompra; // Lista de OCs
-  final List<dynamic> guias; // Lista de HAS
+
+  // ✅ CAMBIO 1: Usamos una lista tipada de OcClienteModel
+  final List<OcClienteModel> ocs;
 
   ServicioModel({
     this.idServicio,
@@ -23,8 +24,7 @@ class ServicioModel {
     this.fechaTermino,
     this.facturacion,
     this.estadoServicio = 'Activo',
-    this.ordenesCompra = const [],
-    this.guias = const [],
+    this.ocs = const [], // Valor por defecto
   });
 
   Map<String, dynamic> toJson() {
@@ -34,7 +34,9 @@ class ServicioModel {
       'id_area': idArea,
       'fecha_inicio': fechaInicio,
       'fecha_termino': fechaTermino,
-      // No enviamos OC ni guias aquí porque se agregan por separado
+      'estado_servicio': estadoServicio,
+      'facturacion': facturacion,
+      'centro_costo': centroCosto,
     };
   }
 
@@ -57,14 +59,15 @@ class ServicioModel {
       centroCosto: json['centro_costo']?.toString(),
       fechaInicio: json['fecha_inicio']?.toString(),
       fechaTermino: json['fecha_termino']?.toString(),
-
-      // --- MAPPING NUEVOS CAMPOS ---
       facturacion: json['facturacion']?.toString(),
       estadoServicio: json['estado_servicio']?.toString() ?? 'Activo',
 
-      // Laravel suele devolver las relaciones como 'ordenes_compra' (snake_case)
-      ordenesCompra: json['ordenes_compra'] ?? [],
-      guias: json['guias'] ?? [],
+      // ✅ CAMBIO CRÍTICO: Leemos 'ocs' (como lo manda Laravel) y convertimos a Modelos
+      ocs:
+          (json['ocs'] as List<dynamic>?)
+              ?.map((e) => OcClienteModel.fromJson(e))
+              .toList() ??
+          [],
     );
   }
 }

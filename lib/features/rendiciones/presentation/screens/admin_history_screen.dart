@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart'; // Importante para fechas
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/rendiciones_provider.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/screens/rendicion_detail_screen.dart';
@@ -14,18 +15,69 @@ class AdminHistoryScreen extends StatefulWidget {
 class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
   // --- VARIABLES DE FILTRO ---
   String _filtroEstado = 'Todos';
+  DateTimeRange? _rangoFechas; // Nuevo filtro de fecha
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _recargarDatos(); // Usamos la función centralizada
+      _recargarDatos();
     });
   }
 
-  // --- FUNCIÓN PARA REFRESCAR ---
   Future<void> _recargarDatos() async {
     await context.read<RendicionesProvider>().cargarHistorialGlobal();
+  }
+
+  // --- LÓGICA DE FILTROS DE FECHA ---
+  void _filtrarHoy() {
+    final now = DateTime.now();
+    setState(() => _rangoFechas = DateTimeRange(start: now, end: now));
+  }
+
+  void _filtrarEsteMes() {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, 1);
+    final end = DateTime(now.year, now.month + 1, 0);
+    setState(() => _rangoFechas = DateTimeRange(start: start, end: end));
+  }
+
+  void _filtrarEsteAnio() {
+    final now = DateTime.now();
+    final start = DateTime(now.year, 1, 1);
+    final end = DateTime(now.year, 12, 31);
+    setState(() => _rangoFechas = DateTimeRange(start: start, end: end));
+  }
+
+  void _limpiarFiltroFecha() {
+    setState(() => _rangoFechas = null);
+  }
+
+  Future<void> _seleccionarRangoPersonalizado() async {
+    final DateTime now = DateTime.now();
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2023),
+      lastDate: now,
+      initialDateRange: null, // Limpio para evitar errores
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() => _rangoFechas = picked);
+    }
   }
 
   // --- LÓGICA DE COLORES SEMÁFORO ---
@@ -46,16 +98,46 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
     }
   }
 
+  String _formatMoney(int amount) {
+    return "\$${amount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}";
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<RendicionesProvider>();
     final historial = provider.historialGlobal;
 
-    // --- APLICAR FILTROS ---
+    // --- APLICAR TODOS LOS FILTROS (ESTADO + FECHA) ---
     final historialFiltrado = historial.where((rendicion) {
+      // 1. Filtro por Estado
       if (_filtroEstado != 'Todos' && rendicion.estado != _filtroEstado) {
         return false;
       }
+
+      // 2. Filtro por Fecha
+      if (_rangoFechas != null) {
+        if (rendicion.fecha.isEmpty) return false;
+        try {
+          final fechaRendicion = DateTime.parse(rendicion.fecha);
+          final start = _rangoFechas!.start.copyWith(
+            hour: 0,
+            minute: 0,
+            second: 0,
+          );
+          final end = _rangoFechas!.end.copyWith(
+            hour: 23,
+            minute: 59,
+            second: 59,
+          );
+
+          if (fechaRendicion.isBefore(start) || fechaRendicion.isAfter(end)) {
+            return false;
+          }
+        } catch (e) {
+          return false;
+        }
+      }
+
       return true;
     }).toList();
 
@@ -77,8 +159,42 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
             ),
           ),
         ),
-        // --- BOTÓN DE RECARGA EN APPBAR ---
         actions: [
+          // BOTÓN DE FILTRO FECHA (NUEVO)
+          PopupMenuButton<String>(
+            icon: Icon(
+              Icons.calendar_month,
+              color: _rangoFechas != null ? Colors.amberAccent : Colors.white,
+            ),
+            tooltip: "Filtrar por fecha",
+            onSelected: (value) {
+              if (value == 'hoy') _filtrarHoy();
+              if (value == 'mes') _filtrarEsteMes();
+              if (value == 'anio') _filtrarEsteAnio();
+              if (value == 'custom') _seleccionarRangoPersonalizado();
+              if (value == 'limpiar') _limpiarFiltroFecha();
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem(value: 'hoy', child: Text('📅 Hoy')),
+              const PopupMenuItem(value: 'mes', child: Text('📆 Este Mes')),
+              const PopupMenuItem(value: 'anio', child: Text('🗓️ Este Año')),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'custom',
+                child: Text('🛠️ Rango Personalizado'),
+              ),
+              if (_rangoFechas != null) ...[
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'limpiar',
+                  child: Text(
+                    '❌ Quitar Filtro',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+              ],
+            ],
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: "Recargar historial",
@@ -88,10 +204,41 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
       ),
       body: Column(
         children: [
-          // --- BARRA DE FILTROS (Fija arriba) ---
+          // --- BARRA DE FILTROS DE ESTADO ---
           _buildFilterBar(),
 
-          // --- LISTA DE RENDICIONES (Recargable) ---
+          // --- INDICADOR FILTRO FECHA ACTIVO (NUEVO) ---
+          if (_rangoFechas != null)
+            Container(
+              width: double.infinity,
+              color: Colors.grey.shade100,
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+              child: Row(
+                children: [
+                  Icon(Icons.filter_list, size: 14, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    "Fecha: ${DateFormat('dd/MM/yyyy').format(_rangoFechas!.start)} - ${DateFormat('dd/MM/yyyy').format(_rangoFechas!.end)}",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const Spacer(),
+                  InkWell(
+                    onTap: _limpiarFiltroFecha,
+                    child: const Icon(
+                      Icons.close,
+                      size: 16,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // --- LISTA DE RENDICIONES ---
           Expanded(
             child: RefreshIndicator(
               onRefresh: _recargarDatos,
@@ -99,18 +246,16 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
               child: provider.isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : historial.isEmpty
-                  ? _buildEmptyStateOriginal() // Ahora es scrollable
+                  ? _buildEmptyStateOriginal()
                   : historialFiltrado.isEmpty
-                  ? _buildEmptyStateFiltros() // Ahora es scrollable
+                  ? _buildEmptyStateFiltros()
                   : ListView.separated(
-                      // Physics permite el rebote para el refresh
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.all(16),
                       itemCount: historialFiltrado.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
                         final item = historialFiltrado[index];
-
                         final String idVisual =
                             "#${(item.idRendicion ?? 0).toString().padLeft(3, '0')}";
                         final String nombreUsuario = item.nombreUsuario;
@@ -182,7 +327,7 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
                                 const SizedBox(height: 2),
                                 Text(
                                   "Estado: ${item.estado} • ${item.fecha}",
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 12,
                                     color: Colors.black87,
                                   ),
@@ -206,12 +351,6 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
         ],
       ),
     );
-  }
-
-  // --- Helpers y Widgets Auxiliares ---
-
-  String _formatMoney(int amount) {
-    return "\$${amount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}";
   }
 
   Widget _buildFilterBar() {
@@ -323,10 +462,6 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
     );
   }
 
-  // --- WIDGETS DE ESTADO VACÍO (MODIFICADOS PARA SER SCROLLABLES) ---
-  // Importante: Usamos ListView para que el RefreshIndicator funcione
-  // incluso si no hay datos.
-
   Widget _buildEmptyStateOriginal() {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -367,12 +502,17 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
               Icon(Icons.filter_list_off, size: 60, color: Colors.grey[300]),
               const SizedBox(height: 16),
               Text(
-                "No hay rendiciones con este estado",
+                "No hay resultados con estos filtros",
                 style: TextStyle(fontSize: 16, color: Colors.grey[600]),
               ),
               TextButton(
-                onPressed: () => setState(() => _filtroEstado = 'Todos'),
-                child: const Text("Limpiar filtros"),
+                onPressed: () {
+                  setState(() {
+                    _filtroEstado = 'Todos';
+                    _rangoFechas = null;
+                  });
+                },
+                child: const Text("Limpiar todos los filtros"),
               ),
             ],
           ),

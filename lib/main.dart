@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
+import 'dart:io';
 // Importa tus servicios y providers
 import 'package:somnolence_app/core/services/notification_service.dart'; // <--- EL NUEVO SERVICIO
 import 'package:somnolence_app/core/api/api_service.dart';
@@ -21,7 +21,7 @@ import 'package:onesignal_flutter/onesignal_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  HttpOverrides.global = MyHttpOverrides();
   // 1. INICIALIZAR NOTIFICACIONES (Aquí ocurre la magia del canal)
   await NotificationService.init();
 
@@ -152,5 +152,14 @@ class _SplashScreenState extends State<SplashScreen> {
         ),
       ),
     );
+  }
+}
+
+class MyHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    return super.createHttpClient(context)
+      ..badCertificateCallback =
+          (X509Certificate cert, String host, int port) => true;
   }
 }

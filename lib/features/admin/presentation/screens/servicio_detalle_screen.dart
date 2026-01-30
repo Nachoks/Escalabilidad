@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-//import 'package:provider/provider.dart';
 import 'package:somnolence_app/core/api/api_service.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/admin/data/models/servicio_model.dart';
-//import 'package:somnolence_app/features/admin/presentation/providers/servicio_provider.dart';
+import 'package:somnolence_app/features/admin/data/models/oc_cliente_model.dart';
+// 👇 Asegúrate de crear este archivo (el segundo código que te mandaré si me lo pides)
+import 'oc_detalle_screen.dart';
 
 class ServicioDetalleScreen extends StatefulWidget {
   final ServicioModel servicio;
@@ -24,13 +25,20 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
     servicioActual = widget.servicio;
   }
 
-  // Método seguro para recargar la UI localmente
+  // Método para actualizar la UI
   void _actualizarLocalmente(Function updateFn) {
     if (mounted) {
       setState(() {
         updateFn();
       });
     }
+  }
+
+  // Recargar datos al volver de la pantalla de OC
+  Future<void> _recargarDatos() async {
+    // Aquí idealmente harías un fetch del servicio actualizado desde la API
+    // Por ahora hacemos un setState para asegurar que se refresque la vista si hubo cambios
+    setState(() {});
   }
 
   @override
@@ -43,7 +51,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
       appBar: AppBar(
         title: Text(
           servicioActual.centroCosto ?? "Detalle Servicio",
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: isFinalizado ? Colors.grey : AppColors.primary,
         foregroundColor: Colors.white,
@@ -63,92 +71,31 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 1. Tarjeta de Información General
               _buildInfoCard(isFinalizado, estadoColor),
               const SizedBox(height: 24),
 
+              // 2. Sección de Órdenes de Compra (OC)
               _buildSectionHeader(
                 "Órdenes de Compra (OC)",
-                () => _showAddDocDialog("OC"),
+                () => _showAddOcDialog(),
               ),
-              _buildDocList(servicioActual.ordenesCompra, "OC"),
+              const SizedBox(height: 10),
 
-              const SizedBox(height: 20),
-
-              _buildSectionHeader(
-                "Hojas de Aceptación (HAS)",
-                () => _showAddDocDialog("HAS"),
-              ),
-              _buildDocList(servicioActual.guias, "HAS"),
+              // Lista de OCs
+              if (servicioActual.ocs.isEmpty)
+                _buildEmptyState()
+              else
+                Column(
+                  children: servicioActual.ocs
+                      .map((oc) => _buildOcCard(oc))
+                      .toList(),
+                ),
 
               const SizedBox(height: 40),
 
-              // BOTÓN 1: MODIFICAR INFO
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  icon: const Icon(Icons.edit_calendar),
-                  label: const Text("MODIFICAR INFO (Fechas / Facturación)"),
-                  onPressed: _showEditInfoDialog,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // BOTÓN 2: FINALIZAR / ACTUALIZAR FECHA
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isFinalizado
-                        ? Colors.blueGrey
-                        : Colors.redAccent,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  icon: Icon(
-                    isFinalizado ? Icons.update : Icons.check_circle_outline,
-                  ),
-                  label: Text(
-                    isFinalizado
-                        ? "ACTUALIZAR FECHA TÉRMINO"
-                        : "FINALIZAR SERVICIO",
-                  ),
-                  onPressed: _showFinalizarDialog,
-                ),
-              ),
-
-              // BOTÓN 3: REACTIVAR
-              if (isFinalizado) ...[
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    icon: const Icon(Icons.restore_from_trash),
-                    label: const Text("REACTIVAR SERVICIO"),
-                    onPressed: _showReactivarDialog,
-                  ),
-                ),
-              ],
-
-              // Espacio extra al final para asegurar que se vea bien
+              // 3. Botones de Acción (Modificar, Finalizar, Reactivar)
+              _buildActionButtons(isFinalizado),
               const SizedBox(height: 20),
             ],
           ),
@@ -157,7 +104,71 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
     );
   }
 
-  // --- WIDGETS VISUALES ---
+  // --- WIDGETS DE LA LISTA ---
+
+  Widget _buildOcCard(OcClienteModel oc) {
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 10),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          backgroundColor: AppColors.primary.withOpacity(0.1),
+          child: const Icon(Icons.shopping_bag, color: AppColors.primary),
+        ),
+        title: Text(
+          oc.codOcCliente,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        subtitle: Text(
+          "${oc.guias.length} Guías asociadas",
+          style: TextStyle(color: Colors.grey[600]),
+        ),
+        trailing: const Icon(
+          Icons.arrow_forward_ios,
+          size: 16,
+          color: Colors.grey,
+        ),
+        onTap: () async {
+          // NAVEGACIÓN A LA VISTA DE HAS (OC DETALLE)
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => OcDetalleScreen(oc: oc)),
+          );
+          // Al volver, recargamos (opcional)
+          _recargarDatos();
+        },
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.folder_off, size: 40, color: Colors.grey[400]),
+          const SizedBox(height: 10),
+          Text(
+            "No hay Órdenes de Compra registradas",
+            style: TextStyle(
+              color: Colors.grey[500],
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- WIDGETS DE INFORMACIÓN (Tus widgets originales) ---
+
   Widget _buildInfoCard(bool isFinalizado, Color color) {
     return Card(
       elevation: 3,
@@ -226,51 +237,88 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
       children: [
         Text(
           title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         IconButton(
-          icon: const Icon(Icons.add_circle, color: AppColors.primary),
+          icon: const Icon(
+            Icons.add_circle,
+            color: AppColors.primary,
+            size: 30,
+          ),
           onPressed: onAdd,
+          tooltip: "Agregar OC",
         ),
       ],
     );
   }
 
-  Widget _buildDocList(List docs, String type) {
-    if (docs.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.grey[100],
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          "Sin registros de $type",
-          style: TextStyle(
-            color: Colors.grey[500],
-            fontStyle: FontStyle.italic,
-          ),
-        ),
-      );
-    }
+  Widget _buildActionButtons(bool isFinalizado) {
     return Column(
-      children: docs
-          .map(
-            (doc) => Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                dense: true,
-                leading: Icon(Icons.description, color: Colors.blueGrey[300]),
-                title: Text(
-                  type == "OC"
-                      ? (doc['cod_oc_cliente'] ?? '---')
-                      : (doc['cod_has_guia'] ?? '---'),
-                ),
+      children: [
+        // BOTÓN 1: MODIFICAR INFO
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
               ),
             ),
-          )
-          .toList(),
+            icon: const Icon(Icons.edit_calendar),
+            label: const Text("MODIFICAR INFO (Fechas / Facturación)"),
+            onPressed: _showEditInfoDialog,
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // BOTÓN 2: FINALIZAR / ACTUALIZAR FECHA
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isFinalizado
+                  ? Colors.blueGrey
+                  : Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            icon: Icon(
+              isFinalizado ? Icons.update : Icons.check_circle_outline,
+            ),
+            label: Text(
+              isFinalizado ? "ACTUALIZAR FECHA TÉRMINO" : "FINALIZAR SERVICIO",
+            ),
+            onPressed: _showFinalizarDialog,
+          ),
+        ),
+
+        // BOTÓN 3: REACTIVAR
+        if (isFinalizado) ...[
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blueAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              icon: const Icon(Icons.restore_from_trash),
+              label: const Text("REACTIVAR SERVICIO"),
+              onPressed: _showReactivarDialog,
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -278,8 +326,8 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
   // === LÓGICA DE DIÁLOGOS ===
   // ===========================================================================
 
-  // 1. Agregar OC / HAS
-  void _showAddDocDialog(String tipo) {
+  // 1. Agregar SOLO OC
+  void _showAddOcDialog() {
     _textController.clear();
     bool isSaving = false;
 
@@ -292,12 +340,14 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
             return PopScope(
               canPop: !isSaving,
               child: AlertDialog(
-                title: Text("Agregar $tipo"),
+                title: const Text("Agregar Orden de Compra"),
                 content: TextField(
                   controller: _textController,
-                  decoration: InputDecoration(
-                    hintText: "Código del documento",
-                    border: const OutlineInputBorder(),
+                  decoration: const InputDecoration(
+                    labelText: "Código OC",
+                    hintText: "Ej: OC-4500123",
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.confirmation_number),
                   ),
                   enabled: !isSaving,
                 ),
@@ -307,7 +357,6 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                       onPressed: () => Navigator.pop(dialogContext),
                       child: const Text("Cancelar"),
                     ),
-
                   ElevatedButton(
                     onPressed: isSaving
                         ? null
@@ -321,39 +370,34 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
 
                             bool success = false;
                             try {
-                              if (tipo == "OC") {
-                                success = await ApiService.agregarOc(
-                                  servicioActual.idServicio!,
-                                  _textController.text,
-                                );
-                              } else {
-                                success = await ApiService.agregarHas(
-                                  servicioActual.idServicio!,
-                                  _textController.text,
-                                );
-                              }
+                              // Llamada al endpoint de OCs
+                              success = await ApiService.agregarOc(
+                                servicioActual.idServicio!,
+                                _textController.text,
+                              );
                             } catch (e) {
                               success = false;
                             }
 
                             if (success) {
+                              // Actualizar UI localmente
                               _actualizarLocalmente(() {
-                                if (tipo == "OC") {
-                                  servicioActual.ordenesCompra.add({
-                                    'cod_oc_cliente': _textController.text,
-                                  });
-                                } else {
-                                  servicioActual.guias.add({
-                                    'cod_has_guia': _textController.text,
-                                  });
-                                }
+                                // Agregamos la OC a la lista localmente
+                                servicioActual.ocs.add(
+                                  OcClienteModel(
+                                    idOcCliente: 0, // Temporal hasta recargar
+                                    idServicio: servicioActual.idServicio!,
+                                    codOcCliente: _textController.text,
+                                    guias: [],
+                                  ),
+                                );
                               });
 
                               if (dialogContext.mounted)
                                 Navigator.pop(dialogContext);
                               messenger.showSnackBar(
                                 const SnackBar(
-                                  content: Text("Agregado correctamente"),
+                                  content: Text("OC Agregada correctamente"),
                                   backgroundColor: Colors.green,
                                 ),
                               );
@@ -362,7 +406,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                                 setStateBd(() => isSaving = false);
                               messenger.showSnackBar(
                                 const SnackBar(
-                                  content: Text("Error al guardar"),
+                                  content: Text("Error al guardar OC"),
                                   backgroundColor: Colors.red,
                                 ),
                               );
@@ -388,7 +432,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
     );
   }
 
-  // 2. Modificar Info
+  // 2. Modificar Info (Tus funciones originales intactas)
   void _showEditInfoDialog() {
     String? nuevaFecha = servicioActual.fechaInicio;
     String nuevaFacturacion = servicioActual.facturacion ?? "No facturado";
@@ -460,7 +504,6 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                       onPressed: () => Navigator.pop(dialogContext),
                       child: const Text("Cancelar"),
                     ),
-
                   ElevatedButton(
                     onPressed: isSaving
                         ? null
@@ -483,6 +526,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
 
                             if (success) {
                               _actualizarLocalmente(() {
+                                // Reconstruimos el modelo con los datos nuevos
                                 servicioActual = ServicioModel(
                                   idServicio: servicioActual.idServicio,
                                   nombreServicio: servicioActual.nombreServicio,
@@ -491,8 +535,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                                   centroCosto: servicioActual.centroCosto,
                                   fechaTermino: servicioActual.fechaTermino,
                                   estadoServicio: servicioActual.estadoServicio,
-                                  guias: servicioActual.guias,
-                                  ordenesCompra: servicioActual.ordenesCompra,
+                                  ocs: servicioActual.ocs, // Mantenemos OCs
                                   fechaInicio: nuevaFecha,
                                   facturacion: nuevaFacturacion,
                                 );
@@ -518,14 +561,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                             }
                           },
                     child: isSaving
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
+                        ? const CircularProgressIndicator(color: Colors.white)
                         : const Text("Guardar"),
                   ),
                 ],
@@ -582,7 +618,6 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                   onPressed: () => Navigator.pop(dialogContext),
                   child: const Text("Cancelar"),
                 ),
-
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
@@ -623,8 +658,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                               centroCosto: servicioActual.centroCosto,
                               fechaTermino: fechaFin,
                               estadoServicio: 'Finalizado',
-                              guias: servicioActual.guias,
-                              ordenesCompra: servicioActual.ordenesCompra,
+                              ocs: servicioActual.ocs,
                               fechaInicio: servicioActual.fechaInicio,
                               facturacion: servicioActual.facturacion,
                             );
@@ -650,14 +684,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                         }
                       },
                 child: isSaving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
+                    ? const CircularProgressIndicator(color: Colors.white)
                     : const Text("FINALIZAR"),
               ),
             ],
@@ -667,7 +694,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
     );
   }
 
-  // 4. REACTIVAR SERVICIO
+  // 4. Reactivar Servicio
   void _showReactivarDialog() {
     bool isSaving = false;
 
@@ -718,8 +745,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                               centroCosto: servicioActual.centroCosto,
                               fechaTermino: null,
                               estadoServicio: 'Activo',
-                              guias: servicioActual.guias,
-                              ordenesCompra: servicioActual.ordenesCompra,
+                              ocs: servicioActual.ocs,
                               fechaInicio: servicioActual.fechaInicio,
                               facturacion: servicioActual.facturacion,
                             );
@@ -745,14 +771,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                         }
                       },
                 child: isSaving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
+                    ? const CircularProgressIndicator(color: Colors.white)
                     : const Text("REACTIVAR"),
               ),
             ],

@@ -2,27 +2,15 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:somnolence_app/features/admin/data/models/has_guia_model.dart';
 
 class ApiService {
-  // 1. CONFIGURACIÓN DE RUTAS
-  static const String _urlLocal = 'http://192.168.0.24:8090/api';
-  static const String _urlExterna = 'http://app.iaaspa.synology.me:8090/api';
+  static const String baseUrl = 'https://iaaspa.synology.me:8090/api';
+  //static const String baseUrl = 'https://192.168.0.24:8090/api';
+  // static const String baseUrl = 'https://localhost:8090/api';
 
-  static String baseUrl = _urlExterna;
-
-  // Inicializar conexión (decidir entre local o externa)
   static Future<void> inicializarConexion() async {
-    print("📡 Probando conexión local con $_urlLocal...");
-    try {
-      await http
-          .get(Uri.parse('$_urlLocal/ping'))
-          .timeout(const Duration(seconds: 3));
-      print("✅ Usando Local: $_urlLocal");
-      baseUrl = _urlLocal;
-    } catch (e) {
-      print("🌍 Usando Internet: $_urlExterna");
-      baseUrl = _urlExterna;
-    }
+    print("🚀 API Configurada en: $baseUrl");
   }
 
   // Login
@@ -43,10 +31,10 @@ class ApiService {
       http.Response response;
 
       try {
-        response = await _hacerPeticion().timeout(const Duration(seconds: 5));
+        response = await _hacerPeticion().timeout(const Duration(seconds: 10));
       } catch (e) {
-        print("⚠️ Primer intento fallido. Reintentando...");
-        response = await _hacerPeticion().timeout(const Duration(seconds: 8));
+        print("⚠️ Timeout. Reintentando...");
+        response = await _hacerPeticion().timeout(const Duration(seconds: 10));
       }
 
       dynamic data;
@@ -55,7 +43,7 @@ class ApiService {
       } catch (e) {
         return {
           'success': false,
-          'message': 'Error: Respuesta inválida del servidor',
+          'message': 'Error: Respuesta inválida del servidor ($baseUrl)',
         };
       }
 
@@ -78,12 +66,10 @@ class ApiService {
       print("ERROR CRÍTICO: $e");
       return {
         'success': false,
-        'message': 'Error de conexión. Intenta nuevamente.',
+        'message': 'Error de conexión con el servidor seguro.',
       };
     }
   }
-
-  //MÉTODOS DE AUTENTICACIÓN Y SESIÓN
 
   // Logout
   static Future<void> logout() async {
@@ -121,7 +107,9 @@ class ApiService {
     return null;
   }
 
-  //MÉTODOS DE NEGOCIO
+  // =============================================================
+  // MÉTODOS DE NEGOCIO
+  // =============================================================
 
   // Obtener Patentes de Vehículos
   static Future<List<String>> obtenerPatentes() async {
@@ -178,7 +166,6 @@ class ApiService {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
 
-      // Usa baseUrl dinámico (local o externo)
       final response = await http.get(
         Uri.parse('$baseUrl/admin/empresas'),
         headers: {
@@ -188,7 +175,6 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        // Retornamos la lista cruda para que el Provider la procese
         return jsonDecode(response.body);
       } else {
         print("Error API empresas: ${response.statusCode} - ${response.body}");
@@ -213,7 +199,7 @@ class ApiService {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
-          'Accept': 'application/json', // Importante para errores de Laravel
+          'Accept': 'application/json',
         },
         body: jsonEncode(datos),
       );
@@ -222,13 +208,10 @@ class ApiService {
 
       if (response.statusCode == 201) {
         return {'success': true, 'message': 'Usuario creado exitosamente'};
-      }
-      // Errores de validación (Laravel 422)
-      else if (response.statusCode == 422) {
+      } else if (response.statusCode == 422) {
         final errors = data['errors'];
         String mensajeError = data['message'];
 
-        // Extraemos el primer error específico si existe
         if (errors != null && errors is Map) {
           mensajeError = errors.values.first[0];
         }
@@ -250,7 +233,6 @@ class ApiService {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
 
-      // Llamamos a la ruta PUT que definimos en Laravel
       final response = await http.put(
         Uri.parse('$baseUrl/admin/usuarios/$id/estado'),
         headers: {
@@ -260,15 +242,7 @@ class ApiService {
         },
       );
 
-      if (response.statusCode == 200) {
-        print("Estado actualizado: ${response.body}");
-        return true;
-      } else {
-        print(
-          "Error al cambiar estado: ${response.statusCode} - ${response.body}",
-        );
-        return false;
-      }
+      return response.statusCode == 200;
     } catch (e) {
       print("Excepción cambiando estado: $e");
       return false;
@@ -289,20 +263,12 @@ class ApiService {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
-          'Accept':
-              'application/json', // Importante para que Laravel responda JSON en errores
+          'Accept': 'application/json',
         },
         body: jsonEncode(datos),
       );
 
-      if (response.statusCode == 200) {
-        return true;
-      } else {
-        print(
-          "❌ Error al actualizar (${response.statusCode}): ${response.body}",
-        );
-        return false;
-      }
+      return response.statusCode == 200;
     } catch (e) {
       print("❌ Excepción actualizando usuario: $e");
       return false;
@@ -324,8 +290,7 @@ class ApiService {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
-          'Accept':
-              'application/json', // Importante para recibir errores de validación de Laravel
+          'Accept': 'application/json',
         },
         body: jsonEncode({
           'current_password': actual,
@@ -339,7 +304,6 @@ class ApiService {
       if (response.statusCode == 200) {
         return {'success': true, 'message': data['message']};
       } else {
-        // Capturamos el error que envía Laravel (ej: "Contraseña incorrecta")
         return {
           'success': false,
           'message': data['message'] ?? 'Error al actualizar contraseña',
@@ -350,6 +314,7 @@ class ApiService {
     }
   }
 
+  // Actualizar Información de Servicio
   static Future<bool> updateServiceInfo(
     int id,
     String? fechaInicio,
@@ -378,7 +343,7 @@ class ApiService {
     }
   }
 
-  // 2. Finalizar Servicio
+  // Finalizar Servicio
   static Future<bool> finalizarServicio(int id, String fechaTermino) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -400,14 +365,15 @@ class ApiService {
     }
   }
 
-  // 3. Agregar OC
+  // Agregar OC a Servicio
   static Future<bool> agregarOc(int id, String codigoOc) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
 
+      // CAMBIO IMPORTANTE: '/ocs' (plural) en lugar de '/oc'
       final response = await http.post(
-        Uri.parse('$baseUrl/servicios/$id/oc'),
+        Uri.parse('$baseUrl/servicios/$id/ocs'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -415,6 +381,8 @@ class ApiService {
         },
         body: jsonEncode({'cod_oc_cliente': codigoOc}),
       );
+
+      // Aceptamos 200 o 201 como éxito
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       print("Error agregarOc: $e");
@@ -422,14 +390,60 @@ class ApiService {
     }
   }
 
-  // 4. Agregar HAS
-  static Future<bool> agregarHas(int id, String codigoHas) async {
+  // Agregar HAS a Servicio
+  static Future<List<HasGuiaModel>> getHasByOc(int idOc) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
 
+      print("🔍 BUSCANDO HAS EN: $baseUrl/ocs/$idOc/has"); // LOG DE DEBUG
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/ocs/$idOc/has'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      print(
+        "📥 RESPUESTA HAS (${response.statusCode}): ${response.body}",
+      ); // LOG DE DEBUG
+
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        List<dynamic> data;
+
+        // VERIFICACIÓN DE FORMATO (Aquí estaba el problema de visualización)
+        if (decoded is List) {
+          data = decoded; // El backend mandó directamente [...]
+        } else if (decoded is Map && decoded.containsKey('data')) {
+          data = decoded['data']; // El backend mandó {"data": [...]}
+        } else {
+          print("⚠️ Formato de respuesta no reconocido para HAS");
+          return [];
+        }
+
+        return data.map((e) => HasGuiaModel.fromJson(e)).toList();
+      }
+      return [];
+    } catch (e) {
+      print("❌ Error CRÍTICO en getHasByOc: $e");
+      return [];
+    }
+  }
+
+  // 2. Agregar HAS (Con logs de error detallados)
+  static Future<bool> agregarHas(int idOc, String codigoHas) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      final url = Uri.parse('$baseUrl/ocs/$idOc/has');
+      print("📤 ENVIANDO HAS A: $url");
+
       final response = await http.post(
-        Uri.parse('$baseUrl/servicios/$id/has'),
+        url,
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -437,13 +451,42 @@ class ApiService {
         },
         body: jsonEncode({'cod_has_guia': codigoHas}),
       );
-      return response.statusCode == 200 || response.statusCode == 201;
+
+      print("RESPUESTA AGREGAR HAS: ${response.statusCode} - ${response.body}");
+
+      // Aceptamos 200, 201 y también manejamos errores comunes
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return true;
+      } else {
+        return false;
+      }
     } catch (e) {
-      print("Error agregarHas: $e");
+      print("❌ Error CRÍTICO al agregar HAS: $e");
       return false;
     }
   }
 
+  // Eliminar HAS
+  static Future<bool> deleteHas(int idHas) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      final response = await http.delete(
+        Uri.parse('$baseUrl/has/$idHas'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print("Error deleteHas: $e");
+      return false;
+    }
+  }
+
+  // Reactivar Servicio
   static Future<bool> reactivarServicio(int id) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -464,6 +507,7 @@ class ApiService {
     }
   }
 
+  // Editar Cliente
   static Future<bool> editCliente(int id, Map<String, dynamic> data) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -484,18 +528,15 @@ class ApiService {
   }
 
   // =============================================================
-  // MÉTODOS GENÉRICOS HTTP (NUEVOS - PARA USAR EN INSTANCIAS)
+  // MÉTODOS GENÉRICOS
   // =============================================================
 
-  // GET Genérico: Maneja la URL y el Token automáticamente
+  // GET Genérico
   Future<http.Response> get(String endpoint) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
-
-      // Accedemos a la variable estática baseUrl
       final uri = Uri.parse('$baseUrl$endpoint');
-      print('📡 GET Genérico: $uri');
 
       return await http.get(
         uri,
@@ -510,14 +551,12 @@ class ApiService {
     }
   }
 
-  // POST Genérico: Maneja URL, Token y JSON Body
+  // POST Genérico
   Future<http.Response> post(String endpoint, Map<String, dynamic> body) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
-
       final uri = Uri.parse('$baseUrl$endpoint');
-      print('📡 POST Genérico: $uri');
 
       return await http.post(
         uri,
@@ -534,14 +573,12 @@ class ApiService {
     }
   }
 
-  // PUT Genérico (Lo necesitarás para "Enviar Rendición")
+  // PUT Genérico
   Future<http.Response> put(String endpoint, Map<String, dynamic> body) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
-
       final uri = Uri.parse('$baseUrl$endpoint');
-      print('📡 PUT Genérico: $uri');
 
       return await http.put(
         uri,
@@ -558,14 +595,12 @@ class ApiService {
     }
   }
 
-  // DELETE Genérico (Lo necesitarás para eliminar Gastos)
+  // DELETE Genérico
   Future<http.Response> delete(String endpoint) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
-
       final uri = Uri.parse('$baseUrl$endpoint');
-      print('📡 DELETE Genérico: $uri');
 
       return await http.delete(
         uri,
@@ -580,7 +615,7 @@ class ApiService {
     }
   }
 
-  // POST Multipart (para subir archivos)
+  // POST Multipart Genérico
   Future<http.StreamedResponse> postMultipart(
     String endpoint,
     Map<String, String> fields,
@@ -589,24 +624,18 @@ class ApiService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
-
-      // Accedemos a la variable estática baseUrl
       final uri = Uri.parse('$baseUrl$endpoint');
 
       var request = http.MultipartRequest('POST', uri);
 
-      // Headers de autorización
       request.headers.addAll({
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
       });
 
-      // Agregar los campos de texto (ej: id_gasto)
       request.fields.addAll(fields);
 
-      // Agregar el archivo si existe
       if (filePath != null && filePath.isNotEmpty) {
-        // 'archivo' es el nombre que espera tu GastoController en Laravel
         request.files.add(
           await http.MultipartFile.fromPath('archivo', filePath),
         );
