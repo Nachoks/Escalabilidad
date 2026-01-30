@@ -132,16 +132,19 @@ class AuthController extends Controller
         ], 200);
     }
 
-    public function updateDeviceId(Request $request)
-{
-    $request->validate([
-        'onesignal_id' => 'required|string'
-    ]);
+    public function updateDevice(Request $request)
+    {
+        $request->validate([
+            'onesignal_id' => 'required|string'
+        ]);
 
-    $user = Auth::user();
-    $user->onesignal_id = $request->onesignal_id;
-    $user->save();
+        // Usamos $request->user() para mantener consistencia con el resto de tu código
+        $user = $request->user(); 
+        
+        $user->onesignal_id = $request->onesignal_id;
+        $user->save();
 
-    return response()->json(['message' => 'Dispositivo vinculado correctamente']);
+        return response()->json(['message' => 'Dispositivo vinculado correctamente']);
+    }
 }
-}
+

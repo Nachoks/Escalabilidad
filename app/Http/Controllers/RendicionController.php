@@ -105,22 +105,27 @@ class RendicionController extends Controller
      */
     public function enviar($id)
     {
+        // 1. Buscar la rendición
         $rendicion = Rendicion::with(['gastos', 'usuario'])->findOrFail($id);
 
+        // 2. Validar que sea del usuario autenticado
         if ($rendicion->id_usuario != Auth::id()) {
             return response()->json(['message' => 'No autorizado'], 403);
         }
 
+        // 3. Validar que tenga gastos
         if ($rendicion->gastos()->count() == 0) {
             return response()->json(['message' => 'La rendición está vacía, agrega gastos antes de enviar.'], 400);
         }
 
-        // Actualizar Estado
+        // 4. Actualizar Estado y capturar FECHA actual
+        // Aquí agregamos el campo 'fecha' con la hora del servidor (now())
         $rendicion->update([
             'estado' => 'Pendiente de Validación',
+            'fecha'  => now(), 
         ]);
 
-        // --- NOTIFICAR A VALIDADORES ---
+        // --- NOTIFICAR A VALIDADORES (Tu lógica original intacta) ---
         try {
             $validadoresIds = User::whereHas('roles', function($q) {
                 $q->whereIn('tipo_usuario', ['Administrador', 'Validador']);

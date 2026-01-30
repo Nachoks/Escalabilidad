@@ -1,89 +1,146 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+
+// --- IMPORTACIÓN DE CONTROLADORES ---
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\ViajeController;
-use App\Http\Controllers\VehiculoController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\ServicioController;
+use App\Http\Controllers\OcClienteController;
+use App\Http\Controllers\HasGuiaController;
+use App\Http\Controllers\RendicionController;
+use App\Http\Controllers\GastoController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\AreaController;
-use App\Http\Controllers\ServicioController;
-use App\Http\Controllers\RendicionController; // <--- AGREGAR
-use App\Http\Controllers\GastoController;
+use App\Http\Controllers\VehiculoController;
+use App\Http\Controllers\ViajeController;
 
-// Rutas públicas
+/*
+|--------------------------------------------------------------------------
+| RUTAS PÚBLICAS (Sin Autenticación)
+|--------------------------------------------------------------------------
+*/
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/viajes/registrar', [ViajeController::class, 'registrar']);
 Route::get('/ping', function () {
     return response()->json(['status' => 'ok']);
 });
 
+// Acceso a imágenes de evidencia (Ruta pública controlada)
 Route::get('evidencia/{ruta}', [GastoController::class, 'verEvidencia'])
     ->where('ruta', '.*');
 
-// Rutas protegidas (Token Requerido)
+
+/*
+|--------------------------------------------------------------------------
+| RUTAS PROTEGIDAS (Requieren Token Bearer)
+|--------------------------------------------------------------------------
+*/
 Route::middleware('auth:sanctum')->group(function () {
-    // --- AUTENTICACIÓN Y PERFIL ---
+
+    // =================================================================
+    // 1. GESTIÓN DE CUENTA Y PERFIL
+    // =================================================================
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
-    Route::post('/update-device', [AuthController::class, 'updateDeviceId']);
+    Route::post('/update-device', [AuthController::class, 'updateDevice']);
+
+
+    // =================================================================
+    // 2. ADMINISTRACIÓN DEL SISTEMA (Usuarios y Config)
+    // =================================================================
+    Route::prefix('admin')->group(function () {
+        Route::get('/users', [AdminController::class, 'listarUsuarios']);
+        Route::post('/usuarios', [AdminController::class, 'crearUsuario']);
+        Route::put('/usuarios/{id}', [AdminController::class, 'actualizarUsuario']);
+        Route::put('/usuarios/{id}/estado', [AdminController::class, 'cambiarEstadoUsuario']);
+        Route::get('/empresas', [AdminController::class, 'listarEmpresas']);
+        Route::get('/areas', [AreaController::class, 'index']);
+    });
     
-    // --- VEHÍCULOS ---
+    // Dropdowns y Utilitarios
     Route::get('/vehiculos/patentes', [VehiculoController::class, 'obtenerPatentes']);
 
-    // --- ZONA ADMIN (USUARIOS) ---
-    Route::get('/admin/users', [AdminController::class, 'listarUsuarios']);
-    Route::get('/admin/empresas', [AdminController::class, 'listarEmpresas']); 
-    Route::post('/admin/usuarios', [AdminController::class, 'crearUsuario']);  
-    Route::put('/admin/usuarios/{id}/estado', [AdminController::class, 'cambiarEstadoUsuario']);
-    Route::put('/admin/usuarios/{id}', [AdminController::class, 'actualizarUsuario']);
-    Route::get('/admin/historial', [RendicionController::class, 'historialGlobal']);
-    Route::post('/admin/rendiciones/{id}/pagar', [RendicionController::class, 'pagar']);
-    Route::get('/admin/rendiciones', [RendicionController::class, 'pendientesDeValidacion']);
-    Route::patch('/admin/gastos/{id}/evaluar', [GastoController::class, 'evaluarGasto']);
-    Route::post('/admin/rendiciones/{id}/finalizar', [RendicionController::class, 'finalizarValidacion']);
-    Route::post('/admin/rendiciones/{id}/validar', [RendicionController::class, 'procesarValidacion']);
-    Route::get('/admin/pendientes/count', [RendicionController::class, 'contarPendientes']);
-    // --- CLIENTES ---
-    Route::get('/clientes', [ClienteController::class, 'index']); 
-    Route::post('/clientes', [ClienteController::class, 'store']); 
+
+    // =================================================================
+    // 3. GESTIÓN COMERCIAL (Clientes)
+    // =================================================================
+    Route::get('/clientes', [ClienteController::class, 'index']);
+    Route::post('/clientes', [ClienteController::class, 'store']);
     Route::put('/clientes/{id}', [ClienteController::class, 'update']);
 
-    // --- GESTIÓN DE SERVICIOS ---
-    
-    // 1. Áreas (Dropdown)
-    Route::get('/admin/areas', [AreaController::class, 'index']);
 
-    // 2. Operaciones de Servicios
+    // =================================================================
+    // 4. OPERACIONES: SERVICIOS -> OCs -> HAS (Estructura Jerárquica)
+    // =================================================================
+    
+    // A. Servicios (Nivel Padre)
     Route::prefix('servicios')->group(function () {
-        // Rutas Base
-        Route::post('/', [ServicioController::class, 'store']);                  // Crear servicio simple
-        Route::get('/cliente/{id}', [ServicioController::class, 'byCliente']);  // Listar servicios de un cliente
-        Route::put('/{id}/info', [ServicioController::class, 'updateInfo']);      // Modificar Fechas/Facturación
-        Route::put('/{id}/finalizar', [ServicioController::class, 'finalizar']);    // Finalizar Servicio
-        Route::put('/{id}/reactivar', [ServicioController::class, 'reactivar']); // Reactivar Servicio
-        Route::post('/{id}/oc', [ServicioController::class, 'agregarOc']);        // Agregar una OC
-        Route::post('/{id}/has', [ServicioController::class, 'agregarHas']);      // Agregar una HAS
+        // CRUD Básico
+        Route::post('/', [ServicioController::class, 'store']);
+        Route::get('/cliente/{id}', [ServicioController::class, 'byCliente']);
+        Route::put('/{id}/info', [ServicioController::class, 'updateInfo']);
+        
+        // Cambios de Estado
+        Route::put('/{id}/finalizar', [ServicioController::class, 'finalizar']);
+        Route::put('/{id}/reactivar', [ServicioController::class, 'reactivar']); // <--- AQUÍ ESTÁ LA RUTA QUE FALTABA
+
+        // Relación: Servicios -> OCs
+        Route::get('/{id}/ocs', [OcClienteController::class, 'indexByServicio']);
+        Route::post('/{id}/ocs', [OcClienteController::class, 'store']);
     });
 
-    Route::get('/rendiciones', [RendicionController::class, 'misRendiciones']); // Listar historial
-    Route::post('/rendiciones', [RendicionController::class, 'store']); // Crear nueva (Borrador)
-    Route::get('/rendiciones/{id}', [RendicionController::class, 'show']); // Ver detalle
-    Route::delete('/rendiciones/{id}', [RendicionController::class, 'destroy']);
-    Route::put('/rendiciones/{id}', [RendicionController::class, 'update']);
-    
-    // (Opcional) Ruta para cambiar estado a "Pendiente"
-    Route::put('/rendiciones/{id}/enviar', [RendicionController::class, 'enviar']); 
+    // B. Órdenes de Compra (Nivel Hijo)
+    // Editar y Eliminar OC por su ID directo
+    Route::put('/ocs/{id}', [OcClienteController::class, 'update']);
+    Route::delete('/ocs/{id}', [OcClienteController::class, 'destroy']);
 
-    // --- GASTOS (Detalle + Fotos) ---
-    Route::post('/gastos', [GastoController::class, 'store']);           // 1. Crear Gasto (Texto)
-    Route::post('/gastos/archivo', [GastoController::class, 'subirArchivo']); // 2. Subir Archivo (Multipart)
+    // Relación: OCs -> HAS (Ver y Crear HAS dentro de una OC)
+    Route::get('/ocs/{id}/has', [HasGuiaController::class, 'indexByOc']);
+    Route::post('/ocs/{id}/has', [HasGuiaController::class, 'store']);
+
+    // C. Hojas de Aceptación HAS (Nivel Nieto)
+    // Gestión directa de la HAS
+    Route::put('/has/{id}', [HasGuiaController::class, 'update']);
+    Route::delete('/has/{id}', [HasGuiaController::class, 'destroy']);
+    Route::get('/has-archivo/{id}', [HasGuiaController::class, 'verArchivo']);
+
+
+    // =================================================================
+    // 5. RENDICIONES Y GASTOS
+    // =================================================================
+    
+    // Rutas para el Usuario (Rendidor)
+    Route::get('/rendiciones', [RendicionController::class, 'misRendiciones']);
+    Route::post('/rendiciones', [RendicionController::class, 'store']);
+    Route::get('/rendiciones/{id}', [RendicionController::class, 'show']);
+    Route::put('/rendiciones/{id}', [RendicionController::class, 'update']);
+    Route::delete('/rendiciones/{id}', [RendicionController::class, 'destroy']);
+    Route::put('/rendiciones/{id}/enviar', [RendicionController::class, 'enviar']);
+
+    // Rutas para Gastos (Detalle de Rendición)
+    Route::post('/gastos', [GastoController::class, 'store']);
+    Route::post('/gastos/archivo', [GastoController::class, 'subirArchivo']);
     Route::delete('/gastos/{id}', [GastoController::class, 'destroy']);
     Route::delete('/gastos/{idGasto}/archivo', [GastoController::class, 'eliminarArchivo']);
 
+    // Rutas para el Admin (Validador)
+    Route::prefix('admin')->group(function () {
+        Route::get('/rendiciones', [RendicionController::class, 'pendientesDeValidacion']);
+        Route::get('/historial', [RendicionController::class, 'historialGlobal']);
+        Route::get('/pendientes/count', [RendicionController::class, 'contarPendientes']);
+        
+        // Acciones de Validación
+        Route::post('/rendiciones/{id}/validar', [RendicionController::class, 'procesarValidacion']);
+        Route::post('/rendiciones/{id}/pagar', [RendicionController::class, 'pagar']);
+        Route::post('/rendiciones/{id}/finalizar', [RendicionController::class, 'finalizarValidacion']);
+        Route::patch('/gastos/{id}/evaluar', [GastoController::class, 'evaluarGasto']);
+    });
+
 });
 
+// --- RUTA DE TEST ---
 Route::get('/test-db', function () {
     try {
         \DB::connection()->getPdo();
