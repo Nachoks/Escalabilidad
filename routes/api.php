@@ -102,9 +102,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // C. Hojas de Aceptación HAS (Nivel Nieto)
     // Gestión directa de la HAS
-    Route::put('/has/{id}', [HasGuiaController::class, 'update']);
+    Route::post('/has/{idHas}/archivo', [HasGuiaController::class, 'subirArchivoHas']);
+    Route::delete('/has/{idHas}/archivo', [HasGuiaController::class, 'eliminarArchivo']);
     Route::delete('/has/{id}', [HasGuiaController::class, 'destroy']);
-    Route::get('/has-archivo/{id}', [HasGuiaController::class, 'verArchivo']);
+    Route::post('/has/{idHas}/archivo', [HasGuiaController::class, 'subirArchivoHas']);
 
 
     // =================================================================

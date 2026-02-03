@@ -6,151 +6,111 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use App\Models\HasGuia;
 use App\Models\HasGuiaArchivo;
 use App\Models\OcCliente;
 
 class HasGuiaController extends Controller
 {
-    // 1. Obtener todas las HAS de una OC específica
+    // 1. LISTAR HAS POR OC
     public function indexByOc($idOc)
     {
-        $guias = HasGuia::where('id_oc_cliente', $idOc)
-                    ->with('archivos') 
-                    ->get();
-        
-        return response()->json($guias);
+        return response()->json(
+            HasGuia::where('id_oc_cliente', $idOc)
+                   ->with('archivos')
+                   ->orderBy('id_has_guia', 'desc')
+                   ->get()
+        );
     }
 
-    // 2. Crear una HAS y subir archivo (Transacción)
+    // 2. CREAR HAS (Solo texto + Validación de Unicidad)
     public function store(Request $request, $idOc)
     {
-        // Validación
+        // VALIDACIÓN: El código 'cod_has_guia' debe ser ÚNICO en la tabla 'has_guia'
         $request->validate([
-            'cod_has_guia' => 'required|string|max:255',
-            'archivo' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240', // 10MB Máx
+            'cod_has_guia' => 'required|string|max:255|unique:has_guia,cod_has_guia'
+        ], [
+            'cod_has_guia.unique' => 'Ya existe una guía HAS con este código.'
         ]);
 
-        // Verificar que la OC existe
         if (!OcCliente::where('id_oc_cliente', $idOc)->exists()) {
             return response()->json(['message' => 'OC no encontrada'], 404);
         }
 
-        DB::beginTransaction();
         try {
-            // A. Crear la Guía en BD
             $has = new HasGuia();
             $has->id_oc_cliente = $idOc;
             $has->cod_has_guia = $request->cod_has_guia;
             $has->save();
 
-            // B. Procesar Archivo si viene uno
-            if ($request->hasFile('archivo')) {
-                $file = $request->file('archivo');
-
-                // Generar nombres únicos
-                $nombreOriginal = $file->getClientOriginalName();
-                $extension = $file->getClientOriginalExtension();
-                $nombreFisico = time() . '_' . uniqid() . '.' . $extension;
-                
-                // Definir carpeta: has/ID_OC/ID_HAS/
-                $rutaRelativaCarpeta = 'has/' . $idOc . '/' . $has->id_has_guia;
-                
-                // Guardar físicamente en disco 'public'
-                $file->storeAs($rutaRelativaCarpeta, $nombreFisico, 'public');
-
-                // Guardar registro en BD
-                $archivoModel = new HasGuiaArchivo();
-                $archivoModel->id_has_guia = $has->id_has_guia;
-                $archivoModel->nombre_original = $nombreOriginal;
-                $archivoModel->nombre_fisico = $nombreFisico;
-                $archivoModel->ruta_relativa = $rutaRelativaCarpeta . '/' . $nombreFisico;
-                $archivoModel->extension = $extension;
-                $archivoModel->peso_kb = round($file->getSize() / 1024);
-                $archivoModel->save();
-            }
-
-            DB::commit();
-            
-            // Devolver respuesta con los archivos cargados
-            $has->load('archivos');
             return response()->json([
                 'success' => true, 
-                'message' => 'HAS creada correctamente',
-                'data' => $has
+                'message' => 'HAS creada', 
+                'data' => $has->load('archivos')
             ], 201);
-
         } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 
-    // 3. Ver Archivo (Túnel para ver imagen privada/publica)
-    public function verArchivo($idArchivo)
-    {
-        $archivo = HasGuiaArchivo::find($idArchivo);
-        if (!$archivo) return response()->json(['message' => 'Archivo no encontrado'], 404);
-
-        // Verifica si existe en el disco
-        if (!Storage::disk('public')->exists($archivo->ruta_relativa)) {
-            return response()->json(['message' => 'Archivo físico no encontrado'], 404);
-        }
-
-        // Devuelve el archivo al navegador/app
-        return response()->file(storage_path('app/public/' . $archivo->ruta_relativa));
-    }
-
-    // 4. Editar HAS (Reemplaza archivo si se sube uno nuevo)
-    public function update(Request $request, $id)
+    // 3. SUBIR IMAGEN (Nombre = CodigoHas.ext)
+    public function subirArchivoHas(Request $request, $idHas)
     {
         $request->validate([
-            'cod_has_guia' => 'required|string|max:255',
-            'archivo' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+            'archivo' => 'required|file|mimes:jpg,jpeg,png,pdf|max:51200',
         ]);
 
-        $has = HasGuia::find($id);
+        $has = HasGuia::find($idHas);
         if (!$has) return response()->json(['message' => 'HAS no encontrada'], 404);
 
         DB::beginTransaction();
         try {
-            // Actualizar código
-            $has->cod_has_guia = $request->cod_has_guia;
-            $has->save();
+            // Borrar archivo anterior si existe (para no dejar basura)
+            $this->eliminarArchivoFisicoLogica($idHas);
 
-            // Si hay archivo nuevo, reemplazar
-            if ($request->hasFile('archivo')) {
-                // A. Borrar archivo viejo
-                $archivoAntiguo = HasGuiaArchivo::where('id_has_guia', $has->id_has_guia)->first();
-                if ($archivoAntiguo) {
-                    if (Storage::disk('public')->exists($archivoAntiguo->ruta_relativa)) {
-                        Storage::disk('public')->delete($archivoAntiguo->ruta_relativa);
-                    }
-                    $archivoAntiguo->delete();
-                }
+            $has->load('oc.servicio.cliente');
+            $oc = $has->oc;
+            $servicio = $oc->servicio;
+            $cliente = $servicio->cliente;
 
-                // B. Subir nuevo
-                $file = $request->file('archivo');
-                $nombreOriginal = $file->getClientOriginalName();
-                $extension = $file->getClientOriginalExtension();
-                $nombreFisico = time() . '_' . uniqid() . '.' . $extension;
-                $rutaRelativaCarpeta = 'has/' . $has->id_oc_cliente . '/' . $has->id_has_guia;
-                
-                $file->storeAs($rutaRelativaCarpeta, $nombreFisico, 'public');
+            // 1. Construir Ruta de Carpetas
+            $folderCliente  = Str::slug($cliente->nombre_cliente, '_'); 
+            $folderServicio = Str::slug($servicio->nombre_servicio, '_');
+            $folderOc       = Str::slug($oc->cod_oc_cliente, '_');
+            
+            // Ruta: cliente/servicio/oc/
+            $rutaRelativaCarpeta = "{$folderCliente}/{$folderServicio}/{$folderOc}";
 
-                $archivoModel = new HasGuiaArchivo();
-                $archivoModel->id_has_guia = $has->id_has_guia;
-                $archivoModel->nombre_original = $nombreOriginal;
-                $archivoModel->nombre_fisico = $nombreFisico;
-                $archivoModel->ruta_relativa = $rutaRelativaCarpeta . '/' . $nombreFisico;
-                $archivoModel->extension = $extension;
-                $archivoModel->peso_kb = round($file->getSize() / 1024);
-                $archivoModel->save();
+            // 2. Preparar Nombre del Archivo
+            $file = $request->file('archivo');
+            $extension = $file->getClientOriginalExtension();
+            
+            // Nombre Físico: CODIGOHAS.ext (Ej: 123456.jpg)
+            // Usamos Str::slug por seguridad (quita espacios y acentos), 
+            // pero si el código es "123456", queda igual.
+            $nombreFisico = Str::slug($has->cod_has_guia, '_') . '.' . $extension;
+
+            // 3. Guardar en NAS
+            // Resultado: .../cliente/servicio/oc/123456.jpg
+            $pathGuardado = $file->storeAs($rutaRelativaCarpeta, $nombreFisico, 'nas_registros');
+
+            if (!$pathGuardado) {
+                throw new \Exception("No se pudo escribir en el NAS.");
             }
 
+            // 4. Guardar BD
+            $archivo = new HasGuiaArchivo();
+            $archivo->id_has_guia     = $has->id_has_guia;
+            $archivo->nombre_original = $file->getClientOriginalName();
+            $archivo->nombre_fisico   = $nombreFisico;
+            $archivo->ruta_relativa   = $pathGuardado;
+            $archivo->extension       = $extension;
+            $archivo->peso_kb         = round($file->getSize() / 1024);
+            $archivo->save();
+
             DB::commit();
-            $has->load('archivos');
-            return response()->json(['success' => true, 'message' => 'HAS actualizada', 'data' => $has]);
+            return response()->json(['success' => true, 'message' => 'Archivo guardado correctamente']);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -158,22 +118,49 @@ class HasGuiaController extends Controller
         }
     }
 
-    // 5. Eliminar HAS y sus archivos físicos
+    // 4. ELIMINAR SOLO LA IMAGEN
+    public function eliminarArchivo($idHas)
+    {
+        try {
+            $resultado = $this->eliminarArchivoFisicoLogica($idHas);
+            
+            if ($resultado) {
+                return response()->json(['success' => true, 'message' => 'Imagen eliminada']);
+            } else {
+                return response()->json(['success' => false, 'message' => 'No había imagen para eliminar']);
+            }
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    // 5. ELIMINAR HAS COMPLETA
     public function destroy($id)
     {
-        $has = HasGuia::with('archivos')->find($id);
+        $has = HasGuia::find($id);
         if (!$has) return response()->json(['message' => 'HAS no encontrada'], 404);
-        
-        // Borrar físicos del disco
-        foreach ($has->archivos as $archivo) {
-            if (Storage::disk('public')->exists($archivo->ruta_relativa)) {
-                Storage::disk('public')->delete($archivo->ruta_relativa);
-            }
-        }
 
-        // Borrar de BD (Cascade se encarga de los hijos, pero el delete del padre es necesario)
-        $has->delete();
+        try {
+            $this->eliminarArchivoFisicoLogica($id);
+            $has->delete();
+            return response()->json(['success' => true, 'message' => 'HAS eliminada correctamente']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    // Helper privado
+    private function eliminarArchivoFisicoLogica($idHas)
+    {
+        $archivo = HasGuiaArchivo::where('id_has_guia', $idHas)->first();
         
-        return response()->json(['success' => true, 'message' => 'HAS eliminada correctamente']);
+        if ($archivo) {
+            if (Storage::disk('nas_registros')->exists($archivo->ruta_relativa)) {
+                Storage::disk('nas_registros')->delete($archivo->ruta_relativa);
+            }
+            $archivo->delete();
+            return true;
+        }
+        return false;
     }
 }
