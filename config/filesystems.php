@@ -72,11 +72,7 @@ return [
         ],
         'nas_registros' => [
             'driver' => 'local',
-            // RUTA AL NAS: Asegúrate que esta ruta sea accesible desde el servidor donde corre Laravel
-            // Opción 1 (Ruta de Red Windows):
             'root' => '//Iaanas-01/db-registros/Registro de Servicios', 
-            // Opción 2 (Si estás probando local en tu PC, usa una carpeta tuya):
-            // 'root' => storage_path('app/nas_simulado'), 
             'throw' => false,
             'permissions' => [
                 'file' => [
