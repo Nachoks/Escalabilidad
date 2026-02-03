@@ -10,38 +10,49 @@ class GestionClientesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Usamos el provider a nivel de app (main.dart) para evitar múltiples instancias
     return const _ListaClientesContent();
   }
 }
 
-class _ListaClientesContent extends StatelessWidget {
+// 1. Convertimos a StatefulWidget para manejar el texto del buscador
+class _ListaClientesContent extends StatefulWidget {
   const _ListaClientesContent();
+
+  @override
+  State<_ListaClientesContent> createState() => _ListaClientesContentState();
+}
+
+class _ListaClientesContentState extends State<_ListaClientesContent> {
+  // Controlador y variable para el buscador
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  bool _isSearching = false; // Para alternar entre título y buscador
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ClienteProvider>();
-    final clientes = provider.clientes;
+    final allClientes = provider.clientes;
+
+    // 2. Lógica de filtrado: Si hay texto, filtramos; si no, mostramos todos
+    final filteredClientes = _searchQuery.isEmpty
+        ? allClientes
+        : allClientes.where((cliente) {
+            final nombre = cliente.nombreCliente.toLowerCase();
+            final query = _searchQuery.toLowerCase();
+            // Puedes agregar más condiciones aquí (ej: buscar por código también)
+            return nombre.contains(query) ||
+                (cliente.codCliente?.toLowerCase().contains(query) ?? false);
+          }).toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Gestión de Clientes',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-            Text(
-              '${clientes.length} registrados',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         flexibleSpace: Container(
@@ -53,14 +64,76 @@ class _ListaClientesContent extends StatelessWidget {
             ),
           ),
         ),
+        // 3. Título dinámico: Texto o Campo de búsqueda
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                cursorColor: Colors.white,
+                decoration: const InputDecoration(
+                  hintText: 'Buscar por nombre...',
+                  hintStyle: TextStyle(color: Colors.white70),
+                  border: InputBorder.none,
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value;
+                  });
+                },
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Gestión de Clientes',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                  Text(
+                    // Mostramos la cantidad filtrada vs total
+                    _searchQuery.isEmpty
+                        ? '${allClientes.length} registrados'
+                        : '${filteredClientes.length} encontrados',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Recargar lista',
-            onPressed: () {
-              context.read<ClienteProvider>().cargarClientes();
-            },
-          ),
+          // 4. Botón de Lupa / Cerrar búsqueda
+          if (_isSearching)
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () {
+                setState(() {
+                  _isSearching = false;
+                  _searchQuery = '';
+                  _searchController.clear();
+                });
+              },
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.search),
+              tooltip: 'Buscar cliente',
+              onPressed: () {
+                setState(() {
+                  _isSearching = true;
+                });
+              },
+            ),
+
+          // Botón de refrescar (solo si no estamos buscando para no saturar)
+          if (!_isSearching)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Recargar lista',
+              onPressed: () {
+                context.read<ClienteProvider>().cargarClientes();
+              },
+            ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -71,7 +144,6 @@ class _ListaClientesContent extends StatelessWidget {
           final providerActual = context.read<ClienteProvider>();
           showDialog(
             context: context,
-            // Pasamos el provider existente al diálogo
             builder: (_) => ChangeNotifierProvider.value(
               value: providerActual,
               child: const AddClienteDialog(),
@@ -79,19 +151,21 @@ class _ListaClientesContent extends StatelessWidget {
           );
         },
       ),
-
-      body: provider.isLoading && clientes.isEmpty
+      body: provider.isLoading && allClientes.isEmpty
           ? const Center(child: CircularProgressIndicator())
-          : clientes.isEmpty
-          ? _buildEmptyState()
+          : filteredClientes.isEmpty
+          ? _buildEmptyState(
+              _searchQuery.isNotEmpty,
+            ) // Pasamos si es búsqueda vacía
           : RefreshIndicator(
               onRefresh: provider.cargarClientes,
               child: ListView.separated(
                 padding: const EdgeInsets.all(16),
-                itemCount: clientes.length,
+                itemCount: filteredClientes.length, // Usamos la lista filtrada
                 separatorBuilder: (c, i) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
-                  final cliente = clientes[index];
+                  final cliente =
+                      filteredClientes[index]; // Usamos la lista filtrada
                   return Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(
@@ -160,15 +234,22 @@ class _ListaClientesContent extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyState() {
+  // Modifiqué un poco el Empty State para diferenciar si no hay datos o si no hay resultados de búsqueda
+  Widget _buildEmptyState(bool isSearching) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.business_outlined, size: 60, color: Colors.grey[300]),
+          Icon(
+            isSearching ? Icons.search_off : Icons.business_outlined,
+            size: 60,
+            color: Colors.grey[300],
+          ),
           const SizedBox(height: 16),
           Text(
-            "No hay clientes registrados",
+            isSearching
+                ? "No se encontraron clientes con ese nombre"
+                : "No hay clientes registrados",
             style: TextStyle(color: Colors.grey[600]),
           ),
         ],

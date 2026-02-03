@@ -435,7 +435,7 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
                       String tituloID = "#$idFormateado";
                       if (rendicion.estado != 'Borrador' &&
                           rendicion.fecha.isNotEmpty) {
-                        tituloID = "#$idFormateado | ${rendicion.fecha}";
+                        tituloID = "#$idFormateado ";
                       }
                       // -----------------------------------------------
 

@@ -364,38 +364,33 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                             if (_textController.text.isEmpty) return;
 
                             setStateBd(() => isSaving = true);
-                            final messenger = ScaffoldMessenger.of(
-                              this.context,
+                            final codigoOc = _textController.text;
+
+                            // 1. LLAMADA AL API (Esperamos el ID)
+                            final int? nuevoIdReal = await ApiService.agregarOc(
+                              servicioActual.idServicio!,
+                              codigoOc,
                             );
 
-                            bool success = false;
-                            try {
-                              // Llamada al endpoint de OCs
-                              success = await ApiService.agregarOc(
-                                servicioActual.idServicio!,
-                                _textController.text,
-                              );
-                            } catch (e) {
-                              success = false;
-                            }
+                            if (nuevoIdReal != null) {
+                              // ÉXITO: Tenemos el ID real del servidor
+                              if (dialogContext.mounted)
+                                Navigator.pop(dialogContext);
 
-                            if (success) {
-                              // Actualizar UI localmente
+                              // 2. ACTUALIZAMOS LA LISTA CON EL ID REAL
                               _actualizarLocalmente(() {
-                                // Agregamos la OC a la lista localmente
                                 servicioActual.ocs.add(
                                   OcClienteModel(
-                                    idOcCliente: 0, // Temporal hasta recargar
+                                    idOcCliente:
+                                        nuevoIdReal, // <--- ID REAL (No 0)
                                     idServicio: servicioActual.idServicio!,
-                                    codOcCliente: _textController.text,
+                                    codOcCliente: codigoOc,
                                     guias: [],
                                   ),
                                 );
                               });
 
-                              if (dialogContext.mounted)
-                                Navigator.pop(dialogContext);
-                              messenger.showSnackBar(
+                              ScaffoldMessenger.of(this.context).showSnackBar(
                                 const SnackBar(
                                   content: Text("OC Agregada correctamente"),
                                   backgroundColor: Colors.green,
@@ -404,7 +399,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                             } else {
                               if (context.mounted)
                                 setStateBd(() => isSaving = false);
-                              messenger.showSnackBar(
+                              ScaffoldMessenger.of(this.context).showSnackBar(
                                 const SnackBar(
                                   content: Text("Error al guardar OC"),
                                   backgroundColor: Colors.red,

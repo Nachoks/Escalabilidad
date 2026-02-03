@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:somnolence_app/features/admin/data/models/has_guia_model.dart';
@@ -366,14 +367,14 @@ class ApiService {
   }
 
   // Agregar OC a Servicio
-  static Future<bool> agregarOc(int id, String codigoOc) async {
+  // Modifica esta función para que devuelva int? (el ID)
+  static Future<int?> agregarOc(int idServicio, String codigoOc) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
 
-      // CAMBIO IMPORTANTE: '/ocs' (plural) en lugar de '/oc'
       final response = await http.post(
-        Uri.parse('$baseUrl/servicios/$id/ocs'),
+        Uri.parse('$baseUrl/servicios/$idServicio/ocs'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -382,11 +383,16 @@ class ApiService {
         body: jsonEncode({'cod_oc_cliente': codigoOc}),
       );
 
-      // Aceptamos 200 o 201 como éxito
-      return response.statusCode == 200 || response.statusCode == 201;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        // AQUÍ ESTÁ LA CLAVE: Devolvemos el ID real de la base de datos
+        // Asegúrate que tu backend devuelva 'data' y dentro el objeto con 'id_oc_cliente'
+        return data['data']['id_oc_cliente'];
+      }
+      return null;
     } catch (e) {
       print("Error agregarOc: $e");
-      return false;
+      return null;
     }
   }
 
@@ -433,7 +439,42 @@ class ApiService {
     }
   }
 
-  // 2. Agregar HAS (Con logs de error detallados)
+  // SUBIR IMAGEN A HAS
+  static Future<bool> subirArchivoHas(int idHas, File archivo) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      // Ajusta la URL si es necesario
+      final uri = Uri.parse('$baseUrl/has/$idHas/archivo');
+
+      var request = http.MultipartRequest('POST', uri);
+
+      request.headers.addAll({
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+
+      // 'archivo' es el nombre que espera el controlador: $request->file('archivo')
+      request.files.add(
+        await http.MultipartFile.fromPath('archivo', archivo.path),
+      );
+
+      print('📤 Subiendo archivo a HAS ID: $idHas');
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      print("📥 Respuesta Server: ${response.statusCode} - ${response.body}");
+
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (e) {
+      print("❌ Error subiendo archivo: $e");
+      return false;
+    }
+  }
+
+  // Agregar HAS (Con logs de error detallados)
   static Future<bool> agregarHas(int idOc, String codigoHas) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -479,9 +520,31 @@ class ApiService {
           'Accept': 'application/json',
         },
       );
+
       return response.statusCode == 200;
     } catch (e) {
-      print("Error deleteHas: $e");
+      print("Error borrando has: $e");
+      return false;
+    }
+  }
+
+  // ELIMINAR SOLO LA IMAGEN DE LA HAS
+  static Future<bool> deleteArchivoHas(int idHas) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      final response = await http.delete(
+        Uri.parse('$baseUrl/has/$idHas/archivo'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print("Error borrando archivo: $e");
       return false;
     }
   }

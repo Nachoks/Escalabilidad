@@ -8,7 +8,7 @@ import 'package:somnolence_app/features/auth/presentation/screens/login_screen.d
 import 'package:somnolence_app/core/widgets/logo_appbar.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/dashboard/presentation/screens/perfil_screen.dart';
-import 'package:somnolence_app/features/rendiciones/presentation/providers/rendiciones_provider.dart'; // IMPORTAR ESTO
+import 'package:somnolence_app/features/rendiciones/presentation/providers/rendiciones_provider.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/screens/admin_history_screen.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/screens/gestion_rendiciones_screen.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/screens/validator_dashboar_screen.dart';
@@ -34,6 +34,148 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     });
   }
 
+  /// Refrescamos el contador manualmente al volver de una pantalla
+  void _actualizarContador() {
+    if (mounted) {
+      context.read<RendicionesProvider>().actualizarContadorPendientes();
+    }
+  }
+
+  /// ------------------------------------------------------------
+  /// MENÚ DESPLEGABLE (POPUP) PARA EL ADMIN
+  /// Aquí aparecen los 3 botones agrupados
+  /// ------------------------------------------------------------
+  void _mostrarMenuRendicionesAdmin(BuildContext context, int pendientes) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true, // Permite que el modal se ajuste mejor
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Pequeña barra gris decorativa
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Text(
+              "Gestión de Rendiciones",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // 1. Validar Gastos (Validar)
+            _buildListItem(
+              icon: Icons.fact_check_outlined,
+              color: Colors.green,
+              text: "Validar Gastos",
+              badgeCount: pendientes, // El contador también se ve aquí dentro
+              onTap: () {
+                Navigator.pop(context); // Cerrar el menú
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ValidatorDashboardScreen(),
+                  ),
+                ).then((_) => _actualizarContador());
+              },
+            ),
+            const Divider(),
+
+            // 2. Historial Global
+            _buildListItem(
+              icon: Icons.history_edu,
+              color: Colors.teal,
+              text: "Historial Global",
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AdminHistoryScreen()),
+                );
+              },
+            ),
+            const Divider(),
+
+            // 3. Mis propias rendiciones (Como usuario normal)
+            _buildListItem(
+              icon: Icons.receipt_long_outlined,
+              color: Colors.blueAccent,
+              text: "Mis Rendiciones",
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const GestionRendicionesScreen(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Widget auxiliar para las filas del menú desplegable
+  Widget _buildListItem({
+    required IconData icon,
+    required Color color,
+    required String text,
+    required VoidCallback onTap,
+    int? badgeCount,
+  }) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: color, size: 24),
+      ),
+      title: Text(
+        text,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+      ),
+      trailing: (badgeCount != null && badgeCount > 0)
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.redAccent,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                "$badgeCount",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            )
+          : const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+      onTap: onTap,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().currentUser;
@@ -48,60 +190,76 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     final bool esConductor = user.esConductor;
     final bool esAdmin = user.esAdmin;
 
-    final List<Map<String, dynamic>> menuItems = [
-      {
-        'title': 'Mi Perfil',
-        'icon': Icons.person_outline,
-        'color': Colors.orange,
-        'page': const PerfilScreen(),
-      },
-      {
+    // ------------------------------------------------------
+    // CONSTRUCCIÓN DE LA LISTA DE BOTONES SEGÚN EL ROL
+    // ------------------------------------------------------
+    final List<Map<String, dynamic>> menuItems = [];
+
+    // 1. MI PERFIL (Para todos)
+    menuItems.add({
+      'title': 'Mi Perfil',
+      'icon': Icons.person_outline,
+      'color': Colors.orange,
+      'page': const PerfilScreen(),
+    });
+
+    // 2. CONTROL SALIDA (Solo si es conductor)
+    if (esConductor) {
+      menuItems.add({
+        'title': 'Control Salida',
+        'icon': Icons.directions_car_filled_outlined,
+        'color': Colors.indigo,
+        'page': const ControlSalidaScreen(),
+      });
+    }
+
+    // 3. LÓGICA DE RENDICIONES (Diferenciada)
+    if (esAdmin) {
+      // --- VISTA ADMIN / VALIDADOR ---
+
+      // A. Gestión de Usuarios
+      menuItems.add({
+        'title': 'Usuarios',
+        'icon': Icons.manage_accounts_outlined,
+        'color': Colors.brown,
+        'page': const GestionUsuariosScreen(),
+      });
+
+      // B. Clientes y Servicios
+      menuItems.add({
+        'title': 'Clientes y Servicios',
+        'icon': Icons.business_center_outlined,
+        'color': Colors.amber.shade800,
+        'page': const GestionClientesScreen(),
+      });
+
+      // C. RENDICIONES (Botón Agrupado)
+      // Este botón NO navega, abre el Popup (_mostrarMenuRendicionesAdmin)
+      menuItems.add({
+        'title': 'Rendiciones', // Nombre genérico
+        'icon': Icons.folder_shared_outlined, // Icono de agrupación
+        'color': Colors.blueGrey,
+        'badgeCount': pendientes, // El contador se ve aquí afuera
+        'isAction': true, // Bandera para indicar que es una acción custom
+        'action': (BuildContext ctx) =>
+            _mostrarMenuRendicionesAdmin(ctx, pendientes),
+      });
+    } else {
+      // --- VISTA NORMAL (Solo Rendidor/Conductor) ---
+      // Ellos ven su botón directo
+      menuItems.add({
         'title': 'Mis Rendiciones',
         'icon': Icons.receipt_long_outlined,
         'color': Colors.blueAccent,
         'page': const GestionRendicionesScreen(),
-      },
-      if (esConductor)
-        {
-          'title': 'Control Salida',
-          'icon': Icons.directions_car_filled_outlined,
-          'color': Colors.indigo,
-          'page': const ControlSalidaScreen(),
-        },
-      if (esAdmin) ...[
-        {
-          'title': 'Validar Gastos',
-          'icon': Icons.fact_check_outlined,
-          'color': Colors.green,
-          'page': const ValidatorDashboardScreen(),
-          'badgeCount': pendientes, // PASAMOS EL CONTADOR AQUÍ
-        },
-        {
-          'title': 'Historial Global',
-          'icon': Icons.history_edu,
-          'color': Colors.teal,
-          'page': const AdminHistoryScreen(),
-        },
-        {
-          'title': 'Usuarios',
-          'icon': Icons.manage_accounts_outlined,
-          'color': Colors.brown,
-          'page': const GestionUsuariosScreen(),
-        },
-        {
-          'title': 'Clientes y Servicios',
-          'icon': Icons.business_center_outlined,
-          'color': Colors.amber.shade800,
-          'page': const GestionClientesScreen(),
-        },
-      ],
-    ];
+      });
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F8),
       body: Column(
         children: [
-          // --- HEADER (Igual al tuyo) ---
+          // --- HEADER (Diseño original mantenido) ---
           Container(
             padding: const EdgeInsets.fromLTRB(24, 60, 24, 40),
             decoration: BoxDecoration(
@@ -128,7 +286,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         color: Colors.white.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(12),
                       ),
-
                       child: IconButton(
                         icon: const Icon(
                           Icons.logout,
@@ -237,7 +394,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             ),
           ),
 
-          // --- GRID CON NOTIFICACIONES ---
+          // --- GRID DE BOTONES ---
           Expanded(
             child: GridView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
@@ -250,21 +407,29 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               ),
               itemBuilder: (context, index) {
                 final item = menuItems[index];
+
                 return _BigCardButton(
                   title: item['title'],
                   icon: item['icon'],
                   color: item['color'],
                   badgeCount: item['badgeCount'], // Pasamos el contador
                   onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => item['page']),
-                    );
-                    // Al volver, actualizamos el contador por si validó algo
-                    if (context.mounted && esAdmin) {
-                      context
-                          .read<RendicionesProvider>()
-                          .actualizarContadorPendientes();
+                    // VERIFICACIÓN IMPORTANTE:
+                    // ¿Es un botón de acción (Popup) o de navegación normal?
+
+                    if (item['isAction'] == true) {
+                      // Ejecutar la función (abrir el modal)
+                      item['action'](context);
+                    } else {
+                      // Navegación normal
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => item['page']),
+                      );
+                      // Al volver, actualizamos el contador por si acaso
+                      if (context.mounted && esAdmin) {
+                        _actualizarContador();
+                      }
                     }
                   },
                 );
@@ -277,6 +442,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 }
 
+// --- WIDGET DE TARJETA (Mantenido igual para diseño visual) ---
 class _BigCardButton extends StatelessWidget {
   final String title;
   final IconData icon;
@@ -362,10 +528,7 @@ class _BigCardButton extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.redAccent,
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white,
-                  width: 2,
-                ), // Borde blanco para resaltar
+                border: Border.all(color: Colors.white, width: 2),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.red.withOpacity(0.4),
