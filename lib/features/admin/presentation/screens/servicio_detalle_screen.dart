@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart'; // <--- IMPORTANTE
 import 'package:somnolence_app/core/api/api_service.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/admin/data/models/servicio_model.dart';
 import 'package:somnolence_app/features/admin/data/models/oc_cliente_model.dart';
-// 👇 Asegúrate de crear este archivo (el segundo código que te mandaré si me lo pides)
-import 'oc_detalle_screen.dart';
+import 'oc_detalle_screen.dart'; // Asegúrate de tener esta pantalla creada
 
 class ServicioDetalleScreen extends StatefulWidget {
   final ServicioModel servicio;
@@ -25,6 +25,12 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
     servicioActual = widget.servicio;
   }
 
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
   // Método para actualizar la UI
   void _actualizarLocalmente(Function updateFn) {
     if (mounted) {
@@ -36,9 +42,67 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
 
   // Recargar datos al volver de la pantalla de OC
   Future<void> _recargarDatos() async {
-    // Aquí idealmente harías un fetch del servicio actualizado desde la API
-    // Por ahora hacemos un setState para asegurar que se refresque la vista si hubo cambios
     setState(() {});
+  }
+
+  // --- LÓGICA PARA ELIMINAR OC ---
+  Future<void> _eliminarOc(OcClienteModel oc) async {
+    // 1. Confirmación
+    final bool? confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Eliminar Orden de Compra"),
+        content: Text(
+          "¿Estás seguro de eliminar la OC '${oc.codOcCliente}'?\n\n⚠️ Esto eliminará también todas sus Guías HAS asociadas.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancelar"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Eliminar", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true) return;
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Eliminando OC...")));
+
+    // 2. Llamada a la API
+    // Asegúrate de haber agregado 'eliminarOc' en tu ApiService
+    final success = await ApiService.eliminarOc(oc.idOcCliente!);
+
+    if (!mounted) return;
+
+    if (success) {
+      // 3. Actualizar UI (Eliminar de la lista local)
+      _actualizarLocalmente(() {
+        servicioActual.ocs.removeWhere(
+          (item) => item.idOcCliente == oc.idOcCliente,
+        );
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("✅ OC eliminada correctamente"),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("❌ Error al eliminar OC"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -94,7 +158,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
 
               const SizedBox(height: 40),
 
-              // 3. Botones de Acción (Modificar, Finalizar, Reactivar)
+              // 3. Botones de Acción
               _buildActionButtons(isFinalizado),
               const SizedBox(height: 20),
             ],
@@ -104,40 +168,64 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
     );
   }
 
-  // --- WIDGETS DE LA LISTA ---
+  // --- WIDGETS DE LA LISTA (CON SLIDABLE IMPLEMENTADO) ---
 
   Widget _buildOcCard(OcClienteModel oc) {
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: CircleAvatar(
-          backgroundColor: AppColors.primary.withOpacity(0.1),
-          child: const Icon(Icons.shopping_bag, color: AppColors.primary),
+    return Slidable(
+      key: ValueKey(oc.idOcCliente), // Llave única para Flutter
+      // Panel de acciones (Lado derecho - Deslizar a la izquierda)
+      endActionPane: ActionPane(
+        motion: const ScrollMotion(),
+        extentRatio: 0.3,
+        children: [
+          SlidableAction(
+            onPressed: (context) => _eliminarOc(oc),
+            backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
+            icon: Icons.delete,
+            label: 'Borrar',
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ],
+      ),
+
+      // Contenido principal (Card original)
+      child: Card(
+        elevation: 2,
+        margin: const EdgeInsets.only(bottom: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
+          leading: CircleAvatar(
+            backgroundColor: AppColors.primary.withOpacity(0.1),
+            child: const Icon(Icons.shopping_bag, color: AppColors.primary),
+          ),
+          title: Text(
+            oc.codOcCliente,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          subtitle: Text(
+            "${oc.guias.length} Guías asociadas",
+            style: TextStyle(color: Colors.grey[600]),
+          ),
+          trailing: const Icon(
+            Icons.arrow_forward_ios,
+            size: 16,
+            color: Colors.grey,
+          ),
+          onTap: () async {
+            // NAVEGACIÓN A LA VISTA DE HAS (OC DETALLE)
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => OcDetalleScreen(oc: oc)),
+            );
+            // Al volver, recargamos (opcional por si se agregaron guías)
+            _recargarDatos();
+          },
         ),
-        title: Text(
-          oc.codOcCliente,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        subtitle: Text(
-          "${oc.guias.length} Guías asociadas",
-          style: TextStyle(color: Colors.grey[600]),
-        ),
-        trailing: const Icon(
-          Icons.arrow_forward_ios,
-          size: 16,
-          color: Colors.grey,
-        ),
-        onTap: () async {
-          // NAVEGACIÓN A LA VISTA DE HAS (OC DETALLE)
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => OcDetalleScreen(oc: oc)),
-          );
-          // Al volver, recargamos (opcional)
-          _recargarDatos();
-        },
       ),
     );
   }
@@ -167,7 +255,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
     );
   }
 
-  // --- WIDGETS DE INFORMACIÓN (Tus widgets originales) ---
+  // --- WIDGETS DE INFORMACIÓN ---
 
   Widget _buildInfoCard(bool isFinalizado, Color color) {
     return Card(
@@ -323,10 +411,9 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
   }
 
   // ===========================================================================
-  // === LÓGICA DE DIÁLOGOS ===
+  // === LÓGICA DE DIÁLOGOS (Sin Cambios significativos) ===
   // ===========================================================================
 
-  // 1. Agregar SOLO OC
   void _showAddOcDialog() {
     _textController.clear();
     bool isSaving = false;
@@ -366,23 +453,19 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                             setStateBd(() => isSaving = true);
                             final codigoOc = _textController.text;
 
-                            // 1. LLAMADA AL API (Esperamos el ID)
                             final int? nuevoIdReal = await ApiService.agregarOc(
                               servicioActual.idServicio!,
                               codigoOc,
                             );
 
                             if (nuevoIdReal != null) {
-                              // ÉXITO: Tenemos el ID real del servidor
                               if (dialogContext.mounted)
                                 Navigator.pop(dialogContext);
 
-                              // 2. ACTUALIZAMOS LA LISTA CON EL ID REAL
                               _actualizarLocalmente(() {
                                 servicioActual.ocs.add(
                                   OcClienteModel(
-                                    idOcCliente:
-                                        nuevoIdReal, // <--- ID REAL (No 0)
+                                    idOcCliente: nuevoIdReal,
                                     idServicio: servicioActual.idServicio!,
                                     codOcCliente: codigoOc,
                                     guias: [],
@@ -427,7 +510,6 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
     );
   }
 
-  // 2. Modificar Info (Tus funciones originales intactas)
   void _showEditInfoDialog() {
     String? nuevaFecha = servicioActual.fechaInicio;
     String nuevaFacturacion = servicioActual.facturacion ?? "No facturado";
@@ -521,7 +603,6 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
 
                             if (success) {
                               _actualizarLocalmente(() {
-                                // Reconstruimos el modelo con los datos nuevos
                                 servicioActual = ServicioModel(
                                   idServicio: servicioActual.idServicio,
                                   nombreServicio: servicioActual.nombreServicio,
@@ -530,7 +611,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                                   centroCosto: servicioActual.centroCosto,
                                   fechaTermino: servicioActual.fechaTermino,
                                   estadoServicio: servicioActual.estadoServicio,
-                                  ocs: servicioActual.ocs, // Mantenemos OCs
+                                  ocs: servicioActual.ocs,
                                   fechaInicio: nuevaFecha,
                                   facturacion: nuevaFacturacion,
                                 );
@@ -568,7 +649,6 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
     );
   }
 
-  // 3. Finalizar Servicio
   void _showFinalizarDialog() {
     String? fechaFin = servicioActual.fechaTermino;
     bool isSaving = false;
@@ -689,7 +769,6 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
     );
   }
 
-  // 4. Reactivar Servicio
   void _showReactivarDialog() {
     bool isSaving = false;
 

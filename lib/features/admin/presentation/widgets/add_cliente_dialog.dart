@@ -14,7 +14,6 @@ class AddClienteDialog extends StatefulWidget {
 class _AddClienteDialogState extends State<AddClienteDialog> {
   final _formKey = GlobalKey<FormState>();
 
-  // Controladores
   final _nombreCtrl = TextEditingController();
   final _codigoCtrl = TextEditingController();
   final _representanteCtrl = TextEditingController();
@@ -42,7 +41,7 @@ class _AddClienteDialogState extends State<AddClienteDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Nombre del Cliente
+              // Nombre del Cliente (OBLIGATORIO)
               TextFormField(
                 controller: _nombreCtrl,
                 decoration: const InputDecoration(
@@ -55,19 +54,20 @@ class _AddClienteDialogState extends State<AddClienteDialog> {
               ),
               const SizedBox(height: 12),
 
-              // Representante (Opcional)
+              // Representante (OPCIONAL VISUALMENTE)
               TextFormField(
                 controller: _representanteCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'Nombre Representante',
+                  labelText: 'Nombre Representante (Opcional)',
                   prefixIcon: Icon(Icons.person_outline),
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),
+                // Sin validator: El usuario puede dejarlo en blanco
               ),
               const SizedBox(height: 12),
 
-              // Correo (Opcional pero validado si se ingresa)
+              // Correo
               TextFormField(
                 controller: _correoCtrl,
                 keyboardType: TextInputType.emailAddress,
@@ -118,38 +118,33 @@ class _AddClienteDialogState extends State<AddClienteDialog> {
   }
 
   Future<void> _guardarCliente() async {
-    // Estado de carga visual inmediato
     setState(() => _isSaving = true);
 
     try {
-      // 1. AHORA LA VALIDACIÓN ESTÁ PROTEGIDA
       if (!_formKey.currentState!.validate()) {
         setState(() => _isSaving = false);
         return;
       }
 
-      // --- LÓGICA DE "NO DEFINIDO" ---
-      // Obtenemos los textos limpios
+      // --- LÓGICA DE VALORES POR DEFECTO ---
       String nombreRep = _representanteCtrl.text.trim();
       String correoRep = _correoCtrl.text.trim();
 
-      // Si están vacíos, asignamos "No definido"
+      // Si el usuario lo dejó vacío, guardamos "No Definido"
       if (nombreRep.isEmpty) {
-        nombreRep = 'No definido';
+        nombreRep = 'No Definido';
       }
+
+      // Mismo caso para el correo
       if (correoRep.isEmpty) {
         correoRep = 'nodefinido@no.cl';
       }
-      // -------------------------------
 
       final nuevoCliente = ClienteModel(
         nombreCliente: _nombreCtrl.text.trim(),
-        codCliente: _codigoCtrl.text
-            .trim(), // Esto el backend lo ignorará/sobrescribirá con el autoincremental
-        nombreRepresentante:
-            nombreRep, // Usamos la variable con la lógica aplicada
-        correoRepresentante:
-            correoRep, // Usamos la variable con la lógica aplicada
+        codCliente: _codigoCtrl.text.trim(),
+        nombreRepresentante: nombreRep, // Aquí va el valor procesado
+        correoRepresentante: correoRep,
       );
 
       final provider = context.read<ClienteProvider>();

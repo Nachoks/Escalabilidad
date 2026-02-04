@@ -396,6 +396,30 @@ class ApiService {
     }
   }
 
+  // Eliminar OC
+  static Future<bool> eliminarOc(int idOc) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      // Ruta basada en tu OcClienteController::destroy
+      final response = await http.delete(
+        Uri.parse(
+          '$baseUrl/ocs/$idOc',
+        ), // Asegúrate que esta ruta exista en routes/api.php
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print("Error eliminando OC: $e");
+      return false;
+    }
+  }
+
   // Agregar HAS a Servicio
   static Future<List<HasGuiaModel>> getHasByOc(int idOc) async {
     try {

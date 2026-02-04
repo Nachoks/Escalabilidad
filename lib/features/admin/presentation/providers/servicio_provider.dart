@@ -13,134 +13,85 @@ class ServicioProvider extends ChangeNotifier {
   String? _error;
   String? get error => _error;
 
-  // Lista de Servicios (del cliente seleccionado)
   List<ServicioModel> _servicios = [];
   List<ServicioModel> get servicios => _servicios;
 
-  // Lista de Áreas (Para el Dropdown)
   List<AreaModel> _areas = [];
   List<AreaModel> get areas => _areas;
 
-  // --- 1. CARGAR ÁREAS (Para el Dropdown) ---
-  Future<void> cargarAreas() async {
-    // Si ya tenemos áreas cargadas, no las pedimos de nuevo (Optimización)
-    if (_areas.isNotEmpty) return;
+  // --- FUNCIÓN PRIVADA PARA HEADERS ---
+  Future<Map<String, String>> _getHeaders() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    return {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+  }
 
+  // --- 1. CARGAR ÁREAS ---
+  Future<void> cargarAreas() async {
+    if (_areas.isNotEmpty) return;
     _isLoading = true;
     notifyListeners();
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
-
       final response = await http.get(
         Uri.parse('${ApiService.baseUrl}/admin/areas'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
+        headers: await _getHeaders(),
       );
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         _areas = data.map((json) => AreaModel.fromJson(json)).toList();
-      } else {
-        _error = "Error cargando áreas";
       }
     } catch (e) {
-      _error = "Error de conexión: $e";
+      print("Error cargando áreas: $e");
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // --- 2. LISTAR SERVICIOS DE UN CLIENTE ---
+  // --- 2. LISTAR SERVICIOS (CON LOGS DE DEPURACIÓN) ---
   Future<void> cargarServiciosPorCliente(
     int idCliente, {
     int intento = 1,
     int maxIntentos = 2,
   }) async {
     _isLoading = true;
-    _servicios = []; // Limpiamos visualmente
-    _error = null; // Limpiamos errores viejos
+    _error = null;
+    // NOTA: Ya NO borramos la lista al inicio para evitar pantalla blanca si falla
+    // _servicios = [];
     notifyListeners();
 
-    print(
-      "🔍 PROVIDER: Cargando servicios para Cliente ID: $idCliente (intento $intento)...",
-    );
-
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
-
       final url = '${ApiService.baseUrl}/servicios/cliente/$idCliente';
-      print("📡 GET URL: $url");
+      print("📡 GET Solicitando: $url"); // DEBUG
 
       final response = await http.get(
         Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
+        headers: await _getHeaders(),
       );
 
-      print("📨 RESPUESTA CODE: ${response.statusCode}");
+      print("📨 Respuesta Status: ${response.statusCode}"); // DEBUG
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-
-        print("📦 RESPUESTA BODY LENGTH: ${data.length}");
-
+        // Mapeamos los datos
         _servicios = data.map((json) => ServicioModel.fromJson(json)).toList();
-        print(
-          "🎉 Lista procesada correctamente en Flutter. Total: ${_servicios.length}",
-        );
-
-        // Si la respuesta fue vacía y aún no llegamos al máximo de intentos, reintentamos
-        if (_servicios.isEmpty && intento < maxIntentos) {
-          print("⚠️ Respuesta vacía, reintentando en 600ms...");
-          await Future.delayed(const Duration(milliseconds: 600));
-          await cargarServiciosPorCliente(
-            idCliente,
-            intento: intento + 1,
-            maxIntentos: maxIntentos,
-          );
-        }
+        print("✅ Servicios cargados: ${_servicios.length}"); // DEBUG
       } else {
+        // Si falla, mostramos el cuerpo del error para saber qué pasó en Laravel
+        print("❌ Error Backend Body: ${response.body}");
         _error =
             "Error ${response.statusCode}: No se pudieron cargar servicios";
-        print("❌ ERROR BACKEND: $_error");
-
-        // Si hubo error y podemos reintentar, lo hacemos
-        if (intento < maxIntentos) {
-          print(
-            "⚠️ Error al cargar, reintentando en 600ms (intento ${intento + 1})...",
-          );
-          await Future.delayed(const Duration(milliseconds: 600));
-          await cargarServiciosPorCliente(
-            idCliente,
-            intento: intento + 1,
-            maxIntentos: maxIntentos,
-          );
-        }
       }
-    } catch (e, stackTrace) {
+    } catch (e, stack) {
       _error = "Error interno: $e";
-      print("🔥 EXCEPCIÓN FLUTTER: $e");
-      print(stackTrace);
-
-      if (intento < maxIntentos) {
-        print(
-          "⚠️ Excepción, reintentando en 600ms (intento ${intento + 1})...",
-        );
-        await Future.delayed(const Duration(milliseconds: 600));
-        await cargarServiciosPorCliente(
-          idCliente,
-          intento: intento + 1,
-          maxIntentos: maxIntentos,
-        );
-      }
+      print("🔥 Excepción en Flutter: $e");
+      print(stack);
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -153,34 +104,61 @@ class ServicioProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      print("📤 Enviando servicio: ${jsonEncode(servicio.toJson())}"); // DEBUG
 
       final response = await http.post(
         Uri.parse('${ApiService.baseUrl}/servicios'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: await _getHeaders(),
         body: jsonEncode(servicio.toJson()),
       );
 
+      print("📨 Crear Status: ${response.statusCode}"); // DEBUG
+
       if (response.statusCode == 201) {
-        // Recargamos la lista del cliente actual para ver el cambio
+        print("✅ Servicio creado, recargando lista...");
+        // Recargamos la lista
         await cargarServiciosPorCliente(servicio.idCliente);
         return true;
       } else {
+        print("❌ Error Crear Body: ${response.body}");
         final resp = jsonDecode(response.body);
         _error = resp['message'] ?? "Error al crear servicio";
         return false;
       }
     } catch (e) {
+      print("🔥 Error conexión crear: $e");
       _error = "Error de conexión: $e";
       return false;
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  // --- 4. ACTUALIZAR NOMBRE ---
+  Future<bool> actualizarNombreServicio(
+    int idServicio,
+    String nuevoNombre,
+  ) async {
+    try {
+      final response = await http.put(
+        Uri.parse('${ApiService.baseUrl}/servicios/$idServicio/nombre'),
+        headers: await _getHeaders(),
+        body: jsonEncode({'nombre_servicio': nuevoNombre}),
+      );
+
+      if (response.statusCode == 200) {
+        final index = _servicios.indexWhere((s) => s.idServicio == idServicio);
+        if (index != -1) {
+          // Recargamos usando el ID de cliente que ya tenemos en memoria
+          await cargarServiciosPorCliente(_servicios[index].idCliente);
+        }
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print("Error actualizando nombre: $e");
+      return false;
     }
   }
 }

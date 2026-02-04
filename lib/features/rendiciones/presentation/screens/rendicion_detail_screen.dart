@@ -599,6 +599,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
           const SizedBox(height: 10),
 
           // LISTA DE GASTOS
+          // LISTA DE GASTOS
           Expanded(
             child: provider.isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -610,12 +611,13 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final gasto = gastos[index];
-                      if (gasto.idGasto == null) return SizedBox.shrink();
+                      if (gasto.idGasto == null) return const SizedBox.shrink();
 
                       final bool tieneEvidencia = gasto.fotos.isNotEmpty;
                       final bool esRechazado = gasto.estado == 'Rechazado';
                       final String? comentario = gasto.comentario;
 
+                      // Datos para badges visuales (Solo lectura)
                       final String extension = tieneEvidencia
                           ? (gasto.fotos[0].extension).toUpperCase()
                           : '';
@@ -624,6 +626,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                       final Color colorEstado = esRechazado
                           ? Colors.red
                           : (tieneEvidencia ? Colors.green : Colors.orange);
+
                       final Color colorFondo = esRechazado
                           ? Colors.red.shade50
                           : (tieneEvidencia
@@ -632,25 +635,66 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
 
                       return Slidable(
                         key: ValueKey(gasto.idGasto),
-                        enabled: esEditable,
+                        // El slidable se habilita si se puede editar O si hay algo que ver
+                        enabled: esEditable || tieneEvidencia,
+
+                        // ACCIONES A LA DERECHA (Swipe hacia la izquierda)
                         endActionPane: ActionPane(
                           motion: const ScrollMotion(),
-                          extentRatio: 0.3,
+                          extentRatio:
+                              0.75, // Ajustamos espacio para 3 botones máx
                           children: [
-                            SlidableAction(
-                              onPressed: (_) =>
-                                  _confirmarBorrarGasto(gasto.idGasto!),
-                              backgroundColor: Colors.red,
-                              foregroundColor: Colors.white,
-                              icon: Icons.delete,
-                              label: 'Borrar',
-                              borderRadius: const BorderRadius.only(
-                                topRight: Radius.circular(12),
-                                bottomRight: Radius.circular(12),
+                            // 1. BOTÓN VER (Solo si tiene evidencia)
+                            if (tieneEvidencia)
+                              SlidableAction(
+                                onPressed: (_) =>
+                                    _verEvidencia(context, gasto.fotos[0]),
+                                backgroundColor: Colors.indigo,
+                                foregroundColor: Colors.white,
+                                icon: Icons.visibility,
+                                label: 'Ver',
                               ),
-                            ),
+
+                            // 2. BOTÓN DINÁMICO (Subir o Borrar Archivo) - Solo si es editable
+                            if (esEditable)
+                              SlidableAction(
+                                onPressed: (_) {
+                                  if (tieneEvidencia) {
+                                    _borrarArchivo(gasto.idGasto!);
+                                  } else {
+                                    _adjuntarEvidencia(gasto.idGasto!);
+                                  }
+                                },
+                                backgroundColor: tieneEvidencia
+                                    ? Colors.deepOrange
+                                    : Colors.blue,
+                                foregroundColor: Colors.white,
+                                icon: tieneEvidencia
+                                    ? Icons.image_not_supported
+                                    : Icons.camera_alt,
+                                label: tieneEvidencia
+                                    ? 'Borrar img'
+                                    : 'Subir img',
+                              ),
+
+                            // 3. BOTÓN BORRAR GASTO COMPLETO - Solo si es editable
+                            if (esEditable)
+                              SlidableAction(
+                                onPressed: (_) =>
+                                    _confirmarBorrarGasto(gasto.idGasto!),
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                                icon: Icons.delete,
+                                label: 'Borrar',
+                                borderRadius: const BorderRadius.only(
+                                  topRight: Radius.circular(12),
+                                  bottomRight: Radius.circular(12),
+                                ),
+                              ),
                           ],
                         ),
+
+                        // CONTENIDO DE LA TARJETA (Limpio de botones)
                         child: Card(
                           margin: EdgeInsets.zero,
                           elevation: tieneEvidencia ? 1 : 2,
@@ -668,15 +712,10 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 ListTile(
-                                  isThreeLine: true,
-                                  onLongPress: esEditable
-                                      ? () => _confirmarBorrarGasto(
-                                          gasto.idGasto!,
-                                        )
-                                      : null,
                                   contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 16,
                                   ),
+                                  // Icono Izquierdo (Estado)
                                   leading: Container(
                                     padding: const EdgeInsets.all(10),
                                     decoration: BoxDecoration(
@@ -691,6 +730,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                       size: 24,
                                     ),
                                   ),
+                                  // Título (Detalle del gasto)
                                   title: Text(
                                     gasto.detalle,
                                     style: const TextStyle(
@@ -698,6 +738,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                       fontSize: 15,
                                     ),
                                   ),
+                                  // Subtítulo (Fecha, Tipo Doc y Badges visuales)
                                   subtitle: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
@@ -708,175 +749,47 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                       ),
                                       const SizedBox(height: 8),
 
-                                      // --- BADGES + BOTÓN DE VER ARCHIVO ---
+                                      // BADGES INFORMATIVOS (Ya no son botones)
                                       Row(
                                         children: [
-                                          // Badge Estado
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 3,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: colorEstado,
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              esRechazado
-                                                  ? "RECHAZADO"
-                                                  : (tieneEvidencia
-                                                        ? "EVIDENCIA OK"
-                                                        : "FALTA FOTO"),
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
+                                          // Badge Estado Texto
+                                          _buildBadge(
+                                            text: esRechazado
+                                                ? "RECHAZADO"
+                                                : (tieneEvidencia
+                                                      ? "EVIDENCIA OK"
+                                                      : "FALTA FOTO"),
+                                            color: colorEstado,
                                           ),
 
-                                          // Badge Tipo Archivo
+                                          // Badge Tipo Archivo (PDF/JPG)
                                           if (tieneEvidencia) ...[
                                             const SizedBox(width: 6),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 3,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: esPdf
-                                                    ? Colors.red.shade700
-                                                    : Colors.blue.shade600,
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                              ),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(
-                                                    esPdf
-                                                        ? Icons.picture_as_pdf
-                                                        : Icons.image,
-                                                    color: Colors.white,
-                                                    size: 10,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    extension,
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 10,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
+                                            _buildBadge(
+                                              text: extension,
+                                              color: esPdf
+                                                  ? Colors.red.shade700
+                                                  : Colors.blue.shade600,
+                                              icon: esPdf
+                                                  ? Icons.picture_as_pdf
+                                                  : Icons.image,
                                             ),
-
-                                            // --- NUEVO BOTÓN "VER" AQUÍ ---
-                                            const SizedBox(width: 8),
-                                            InkWell(
-                                              onTap: () => _verEvidencia(
-                                                context,
-                                                gasto.fotos[0],
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                              child: Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 2,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  border: Border.all(
-                                                    color: Colors.grey,
-                                                  ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(6),
-                                                  color: Colors.white,
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    const Icon(
-                                                      Icons.visibility,
-                                                      size: 12,
-                                                      color: Colors.black87,
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                    const Text(
-                                                      "VER",
-                                                      style: TextStyle(
-                                                        fontSize: 10,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: Colors.black87,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            // -------------------------------
                                           ],
                                         ],
                                       ),
                                     ],
                                   ),
-                                  trailing: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        _formatMoney(gasto.monto),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                      if (esEditable)
-                                        InkWell(
-                                          borderRadius: BorderRadius.circular(
-                                            20,
-                                          ),
-                                          onTap: () {
-                                            if (!tieneEvidencia) {
-                                              _adjuntarEvidencia(
-                                                gasto.idGasto!,
-                                              );
-                                            } else {
-                                              _borrarArchivo(gasto.idGasto!);
-                                            }
-                                          },
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(4.0),
-                                            child: Icon(
-                                              tieneEvidencia
-                                                  ? Icons.delete_forever
-                                                  : Icons.camera_alt,
-                                              color: tieneEvidencia
-                                                  ? Colors.red.shade400
-                                                  : colorEstado,
-                                              size: 26,
-                                            ),
-                                          ),
-                                        )
-                                      else if (!esEditable)
-                                        const Padding(
-                                          padding: EdgeInsets.all(4.0),
-                                          child: Icon(
-                                            Icons.lock_outline,
-                                            size: 18,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                    ],
+                                  // Trailing: Solo el Monto
+                                  trailing: Text(
+                                    _formatMoney(gasto.monto),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
                                   ),
                                 ),
+
+                                // Comentario de rechazo (si existe)
                                 if (esRechazado &&
                                     comentario != null &&
                                     comentario.isNotEmpty) ...[
@@ -920,6 +833,38 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                       );
                     },
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Widget auxiliar para las etiquetas de colores (Badges)
+  Widget _buildBadge({
+    required String text,
+    required Color color,
+    IconData? icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, color: Colors.white, size: 10),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
