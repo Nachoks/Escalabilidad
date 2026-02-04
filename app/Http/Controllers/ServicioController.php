@@ -123,9 +123,30 @@ class ServicioController extends Controller
         return response()->json($servicios);
     }
 
-    // NOTA: Eliminé 'agregarOc' y 'agregarHas' de este controlador porque:
-    // 1. Ya creamos 'OcClienteController' y 'HasGuiaController' para manejar eso mejor.
-    // 2. La lógica de agregar HAS ya no depende del servicio directo, sino de la OC.
-    // Si tu frontend antiguo llamaba a estas rutas viejas, fallará. 
-    // Pero como ya actualizamos el frontend para usar las nuevas rutas, esto está perfecto.
+    // 6. ACTUALIZAR SOLO NOMBRE DEL SERVICIO
+    public function updateNombre(Request $request, $id)
+    {
+        $servicio = Servicio::findOrFail($id);
+
+        $request->validate([
+            'nombre_servicio' => 'required|string|max:255',
+        ]);
+
+        try {
+            $servicio->update([
+                'nombre_servicio' => $request->nombre_servicio,
+            ]);
+
+            return response()->json([
+                'success' => true, 
+                'message' => 'Nombre del servicio actualizado', 
+                'data' => $servicio
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false, 
+                'message' => 'Error al actualizar: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

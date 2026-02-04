@@ -81,7 +81,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [ServicioController::class, 'store']);
         Route::get('/cliente/{id}', [ServicioController::class, 'byCliente']);
         Route::put('/{id}/info', [ServicioController::class, 'updateInfo']);
-        
+        Route::put('/{id}/nombre', [ServicioController::class, 'updateNombre']);
         // Cambios de Estado
         Route::put('/{id}/finalizar', [ServicioController::class, 'finalizar']);
         Route::put('/{id}/reactivar', [ServicioController::class, 'reactivar']); // <--- AQUÍ ESTÁ LA RUTA QUE FALTABA

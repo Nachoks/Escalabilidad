@@ -73,7 +73,23 @@ class DatabaseSeeder extends Seeder
 
             // Asignar rol de Conductor
             $usuario->roles()->attach($rolConductor->id_tipo_usuario);
-        }
+            $this->call(EmpresaTableSeeder::class);
+        $this->call(AreasEmpresaTableSeeder::class);
+        $this->call(TipoUsuarioTableSeeder::class);
+        $this->call(UsuariosTableSeeder::class);
+        $this->call(UsuarioRolTableSeeder::class);
+        $this->call(PersonalTableSeeder::class);
+        $this->call(VehiculoTableSeeder::class);
+        $this->call(ClienteTableSeeder::class);
+        $this->call(ServicioTableSeeder::class);
+        $this->call(OcClienteTableSeeder::class);
+        $this->call(HasGuiaTableSeeder::class);
+        $this->call(HasGuiaArchivosTableSeeder::class);
+        $this->call(RendicionTableSeeder::class);
+        $this->call(GastoTableSeeder::class);
+        $this->call(GastoArchivoTableSeeder::class);
+        $this->call(RegistrosTableSeeder::class);
+    }
 
         // 4. Crear Usuario Administrador
         $personalAdmin = Personal::create([
