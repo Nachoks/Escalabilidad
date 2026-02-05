@@ -289,6 +289,288 @@ class HasGuiaTableSeeder extends Seeder
                 'id_oc_cliente' => 61,
                 'cod_has_guia' => '1019106260',
             ),
+            45 => 
+            array (
+                'id_has_guia' => 46,
+                'id_oc_cliente' => 64,
+                'cod_has_guia' => '1019061973',
+            ),
+            46 => 
+            array (
+                'id_has_guia' => 47,
+                'id_oc_cliente' => 66,
+                'cod_has_guia' => '1019716759',
+            ),
+            47 => 
+            array (
+                'id_has_guia' => 48,
+                'id_oc_cliente' => 68,
+                'cod_has_guia' => '1019603965',
+            ),
+            48 => 
+            array (
+                'id_has_guia' => 49,
+                'id_oc_cliente' => 69,
+                'cod_has_guia' => '1019237598',
+            ),
+            49 => 
+            array (
+                'id_has_guia' => 50,
+                'id_oc_cliente' => 70,
+                'cod_has_guia' => '1019240460',
+            ),
+            50 => 
+            array (
+                'id_has_guia' => 51,
+                'id_oc_cliente' => 70,
+                'cod_has_guia' => '1019253815',
+            ),
+            51 => 
+            array (
+                'id_has_guia' => 52,
+                'id_oc_cliente' => 71,
+                'cod_has_guia' => '1019711467',
+            ),
+            52 => 
+            array (
+                'id_has_guia' => 53,
+                'id_oc_cliente' => 72,
+                'cod_has_guia' => '1019400071',
+            ),
+            53 => 
+            array (
+                'id_has_guia' => 54,
+                'id_oc_cliente' => 72,
+                'cod_has_guia' => '1019400075',
+            ),
+            54 => 
+            array (
+                'id_has_guia' => 55,
+                'id_oc_cliente' => 73,
+                'cod_has_guia' => '1019690001',
+            ),
+            55 => 
+            array (
+                'id_has_guia' => 56,
+                'id_oc_cliente' => 74,
+                'cod_has_guia' => '1020320895',
+            ),
+            56 => 
+            array (
+                'id_has_guia' => 57,
+                'id_oc_cliente' => 75,
+                'cod_has_guia' => '1019851145',
+            ),
+            57 => 
+            array (
+                'id_has_guia' => 58,
+                'id_oc_cliente' => 76,
+                'cod_has_guia' => '1020033824',
+            ),
+            58 => 
+            array (
+                'id_has_guia' => 59,
+                'id_oc_cliente' => 77,
+                'cod_has_guia' => '1019730915',
+            ),
+            59 => 
+            array (
+                'id_has_guia' => 60,
+                'id_oc_cliente' => 78,
+                'cod_has_guia' => '1020079942',
+            ),
+            60 => 
+            array (
+                'id_has_guia' => 61,
+                'id_oc_cliente' => 80,
+                'cod_has_guia' => '1020325901',
+            ),
+            61 => 
+            array (
+                'id_has_guia' => 62,
+                'id_oc_cliente' => 81,
+                'cod_has_guia' => '1020092382',
+            ),
+            62 => 
+            array (
+                'id_has_guia' => 63,
+                'id_oc_cliente' => 81,
+                'cod_has_guia' => '1020092446',
+            ),
+            63 => 
+            array (
+                'id_has_guia' => 64,
+                'id_oc_cliente' => 86,
+                'cod_has_guia' => '1021138603',
+            ),
+            64 => 
+            array (
+                'id_has_guia' => 65,
+                'id_oc_cliente' => 90,
+                'cod_has_guia' => '1021299866',
+            ),
+            65 => 
+            array (
+                'id_has_guia' => 66,
+                'id_oc_cliente' => 91,
+                'cod_has_guia' => '1020973417',
+            ),
+            66 => 
+            array (
+                'id_has_guia' => 67,
+                'id_oc_cliente' => 92,
+                'cod_has_guia' => '1021212715',
+            ),
+            67 => 
+            array (
+                'id_has_guia' => 68,
+                'id_oc_cliente' => 92,
+                'cod_has_guia' => '1021212834',
+            ),
+            68 => 
+            array (
+                'id_has_guia' => 69,
+                'id_oc_cliente' => 93,
+                'cod_has_guia' => '1021338352',
+            ),
+            69 => 
+            array (
+                'id_has_guia' => 70,
+                'id_oc_cliente' => 95,
+                'cod_has_guia' => '4901951983',
+            ),
+            70 => 
+            array (
+                'id_has_guia' => 71,
+                'id_oc_cliente' => 105,
+                'cod_has_guia' => '1018340342',
+            ),
+            71 => 
+            array (
+                'id_has_guia' => 72,
+                'id_oc_cliente' => 106,
+                'cod_has_guia' => '1017771896',
+            ),
+            72 => 
+            array (
+                'id_has_guia' => 73,
+                'id_oc_cliente' => 107,
+                'cod_has_guia' => '1018098968',
+            ),
+            73 => 
+            array (
+                'id_has_guia' => 74,
+                'id_oc_cliente' => 108,
+                'cod_has_guia' => '0179',
+            ),
+            74 => 
+            array (
+                'id_has_guia' => 75,
+                'id_oc_cliente' => 109,
+                'cod_has_guia' => '0188',
+            ),
+            75 => 
+            array (
+                'id_has_guia' => 76,
+                'id_oc_cliente' => 110,
+                'cod_has_guia' => '1019600657',
+            ),
+            76 => 
+            array (
+                'id_has_guia' => 77,
+                'id_oc_cliente' => 111,
+                'cod_has_guia' => '1021290067',
+            ),
+            77 => 
+            array (
+                'id_has_guia' => 79,
+                'id_oc_cliente' => 112,
+                'cod_has_guia' => '1021251233',
+            ),
+            78 => 
+            array (
+                'id_has_guia' => 80,
+                'id_oc_cliente' => 113,
+                'cod_has_guia' => '1021262166',
+            ),
+            79 => 
+            array (
+                'id_has_guia' => 81,
+                'id_oc_cliente' => 135,
+                'cod_has_guia' => '1000160532',
+            ),
+            80 => 
+            array (
+                'id_has_guia' => 82,
+                'id_oc_cliente' => 136,
+                'cod_has_guia' => 'EP1: 1000185232',
+            ),
+            81 => 
+            array (
+                'id_has_guia' => 83,
+                'id_oc_cliente' => 148,
+                'cod_has_guia' => 'FC 326',
+            ),
+            82 => 
+            array (
+                'id_has_guia' => 84,
+                'id_oc_cliente' => 149,
+                'cod_has_guia' => 'FC 311',
+            ),
+            83 => 
+            array (
+                'id_has_guia' => 85,
+                'id_oc_cliente' => 150,
+                'cod_has_guia' => 'FC 463',
+            ),
+            84 => 
+            array (
+                'id_has_guia' => 86,
+                'id_oc_cliente' => 155,
+                'cod_has_guia' => 'FC277',
+            ),
+            85 => 
+            array (
+                'id_has_guia' => 87,
+                'id_oc_cliente' => 155,
+                'cod_has_guia' => 'FC282',
+            ),
+            86 => 
+            array (
+                'id_has_guia' => 88,
+                'id_oc_cliente' => 156,
+                'cod_has_guia' => 'FC 325',
+            ),
+            87 => 
+            array (
+                'id_has_guia' => 89,
+                'id_oc_cliente' => 158,
+                'cod_has_guia' => 'FC 312',
+            ),
+            88 => 
+            array (
+                'id_has_guia' => 91,
+                'id_oc_cliente' => 161,
+                'cod_has_guia' => 'EP 00041184',
+            ),
+            89 => 
+            array (
+                'id_has_guia' => 92,
+                'id_oc_cliente' => 162,
+                'cod_has_guia' => 'F333',
+            ),
+            90 => 
+            array (
+                'id_has_guia' => 93,
+                'id_oc_cliente' => 163,
+                'cod_has_guia' => 'F334',
+            ),
+            91 => 
+            array (
+                'id_has_guia' => 94,
+                'id_oc_cliente' => 165,
+                'cod_has_guia' => 'F352',
+            ),
         ));
         
         
