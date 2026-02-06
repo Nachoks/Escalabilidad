@@ -7,7 +7,6 @@ import 'package:somnolence_app/features/admin/presentation/providers/servicio_pr
 import 'package:somnolence_app/features/admin/presentation/screens/servicio_detalle_screen.dart';
 import 'package:somnolence_app/features/admin/presentation/widgets/add_servicio_dialog.dart';
 import 'package:somnolence_app/features/admin/presentation/widgets/edit_nombre_servicio_dialog.dart';
-import 'package:somnolence_app/features/admin/data/models/servicio_model.dart';
 
 class GestionServiciosScreen extends StatefulWidget {
   final ClienteModel cliente;
