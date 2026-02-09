@@ -153,9 +153,6 @@ class RendicionPdfBuilder {
 
       for (final archivo in gasto.fotos) {
         try {
-          // CONSTRUCCIÓN DE LA URL SEGÚN TU API.PHP
-          // Ruta en api.php: Route::get('evidencia/{ruta}', ...)
-          // Ejemplo URL: https://tudominio.com/api/evidencia/001/gastos/foto.jpg
           final String imageUrl =
               '${ApiService.baseUrl}/evidencia/${archivo.rutaRelativa}';
 
@@ -210,9 +207,6 @@ class RendicionPdfBuilder {
                             ),
                             pw.Text("Fecha: ${gasto.fecha}"),
                             pw.Text("Monto: ${fmtMoney(gasto.monto)}"),
-                            pw.Text(
-                              "Archivo Original: ${archivo.nombreOriginal}",
-                            ),
                           ],
                         ),
                       ),

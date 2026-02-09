@@ -34,16 +34,25 @@ class RendicionModel {
   });
 
   factory RendicionModel.fromJson(Map<String, dynamic> json) {
-    // Lógica para encontrar el nombre
     String nombreEncontrado = 'Usuario ${json['id_usuario']}';
 
     if (json['usuario'] != null) {
-      if (json['usuario']['nombre_usuario'] != null) {
-        nombreEncontrado = json['usuario']['nombre_usuario'];
-      } else if (json['usuario']['name'] != null) {
-        nombreEncontrado = json['usuario']['name'];
-      } else if (json['usuario']['nombre'] != null) {
+      // CAMBIO: Prioridad absoluta al Nombre + Apellido
+      if (json['usuario']['nombre'] != null) {
         nombreEncontrado = json['usuario']['nombre'];
+
+        // Si hay apellido, lo concatenamos
+        if (json['usuario']['apellido'] != null) {
+          nombreEncontrado += ' ${json['usuario']['apellido']}';
+        }
+      }
+      // Si no tiene nombre/apellido, probamos 'name' (común en Laravel)
+      else if (json['usuario']['name'] != null) {
+        nombreEncontrado = json['usuario']['name'];
+      }
+      // Última opción: nombre de usuario (nickname)
+      else if (json['usuario']['nombre_usuario'] != null) {
+        nombreEncontrado = json['usuario']['nombre_usuario'];
       }
     }
 
@@ -54,17 +63,14 @@ class RendicionModel {
       montoEntregado:
           int.tryParse(json['monto_entregado']?.toString() ?? '0') ?? 0,
       estado: json['estado'] ?? 'Borrador',
-      centroCosto:
-          json['centro_costo'], // A veces viene directo, a veces dentro de servicio
+      centroCosto: json['centro_costo'],
       idServicio: int.tryParse(json['id_servicio']?.toString() ?? '0') ?? 0,
       idUsuario: int.tryParse(json['id_usuario']?.toString() ?? '0'),
-      nombreUsuario: nombreEncontrado,
+      nombreUsuario:
+          nombreEncontrado, // <--- Aquí se asigna el nombre corregido
       totalGastado: int.tryParse(json['total_gastado']?.toString() ?? '0') ?? 0,
       saldo: int.tryParse(json['saldo']?.toString() ?? '0') ?? 0,
       rutaComprobante: json['ruta_comprobante'],
-
-      // 2. ¡ESTA ES LA LÍNEA QUE FALTABA!
-      // Convierte el JSON anidado en un objeto ServicioModel real
       servicio: json['servicio'] != null
           ? ServicioModel.fromJson(json['servicio'])
           : null,

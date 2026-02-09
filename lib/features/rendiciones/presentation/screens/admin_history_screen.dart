@@ -170,14 +170,14 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
             onSelected: (value) {
               if (value == 'hoy') _filtrarHoy();
               if (value == 'mes') _filtrarEsteMes();
-              if (value == 'anio') _filtrarEsteAnio();
+              if (value == 'año') _filtrarEsteAnio();
               if (value == 'custom') _seleccionarRangoPersonalizado();
               if (value == 'limpiar') _limpiarFiltroFecha();
             },
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
               const PopupMenuItem(value: 'hoy', child: Text('📅 Hoy')),
               const PopupMenuItem(value: 'mes', child: Text('📆 Este Mes')),
-              const PopupMenuItem(value: 'anio', child: Text('🗓️ Este Año')),
+              const PopupMenuItem(value: 'año', child: Text('🗓️ Este Año')),
               const PopupMenuDivider(),
               const PopupMenuItem(
                 value: 'custom',

@@ -53,7 +53,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text("Eliminar Orden de Compra"),
         content: Text(
-          "¿Estás seguro de eliminar la OC '${oc.codOcCliente}'?\n\n⚠️ Esto eliminará también todas sus Guías HAS asociadas.",
+          "¿Estás seguro de eliminar la OC '${oc.codOcCliente}'?\n\n Esto eliminará también todas sus Guías HAS asociadas.",
         ),
         actions: [
           TextButton(

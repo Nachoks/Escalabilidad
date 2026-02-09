@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_cached_pdfview/flutter_cached_pdfview.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -89,10 +90,9 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
         : AppConstants.apiUrl;
 
     final urlString = "$apiUrl/evidencia/$rutaLimpia";
-    // EncodeFull es vital para espacios
     final urlImagen = Uri.encodeFull(urlString);
 
-    print("Abriendo imagen: $urlImagen");
+    print("Abriendo evidencia: $urlImagen");
 
     final ext = archivo.extension?.toLowerCase() ?? 'jpg';
     final bool esPdf = ext == 'pdf';
@@ -108,7 +108,9 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
             Container(
               width: double.infinity,
               constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.7,
+                maxHeight:
+                    MediaQuery.of(context).size.height *
+                    0.8, // Aumenté un poco la altura
               ),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -120,7 +122,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                   Padding(
                     padding: const EdgeInsets.all(12.0),
                     child: Text(
-                      "Evidencia Adjunta",
+                      esPdf ? "Documento PDF" : "Evidencia Adjunta",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -130,24 +132,20 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                   ),
                   const Divider(height: 1),
                   Expanded(
+                    // --- CAMBIO PRINCIPAL AQUÍ ---
                     child: esPdf
-                        ? const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.picture_as_pdf,
-                                size: 80,
-                                color: Colors.red,
-                              ),
-                              SizedBox(height: 16),
-                              Text(
-                                "Documento PDF",
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
+                        ? const PDF(
+                            enableSwipe: true,
+                            swipeHorizontal: true,
+                            autoSpacing: false,
+                            pageFling: false,
+                          ).fromUrl(
+                            urlImagen,
+                            placeholder: (progress) =>
+                                Center(child: Text('$progress %')),
+                            errorWidget: (error) => Center(
+                              child: Text("Error al cargar PDF: $error"),
+                            ),
                           )
                         : InteractiveViewer(
                             panEnabled: true,
@@ -156,11 +154,8 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                             child: Image.network(
                               urlImagen,
                               fit: BoxFit.contain,
-                              // AGREGAMOS HEADERS PARA EVITAR ERRORES 403/406
                               headers: const {
                                 'User-Agent': 'SomnolenceApp/1.0',
-                                'Accept':
-                                    'image/jpeg,image/png,application/pdf',
                               },
                               loadingBuilder: (ctx, child, progress) {
                                 if (progress == null) return child;
@@ -169,28 +164,15 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                 );
                               },
                               errorBuilder: (context, error, stackTrace) {
-                                print("Error carga imagen: $error");
-                                return Column(
+                                return const Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    const Icon(
+                                    Icon(
                                       Icons.broken_image,
                                       size: 50,
                                       color: Colors.grey,
                                     ),
-                                    const SizedBox(height: 10),
-                                    const Text(
-                                      "No se pudo cargar la imagen",
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(fontSize: 12),
-                                    ),
-                                    Text(
-                                      urlImagen,
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
+                                    Text("Error al cargar imagen"),
                                   ],
                                 );
                               },
@@ -336,18 +318,20 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     if (ruta == null) return;
 
     String rutaLimpia = ruta.replaceAll('\\', '/');
-    if (rutaLimpia.startsWith('public/'))
+    if (rutaLimpia.startsWith('public/')) {
       rutaLimpia = rutaLimpia.replaceFirst('public/', '');
+    }
     if (rutaLimpia.startsWith('/')) rutaLimpia = rutaLimpia.substring(1);
 
     final apiUrl = AppConstants.apiUrl.endsWith('/')
         ? AppConstants.apiUrl.substring(0, AppConstants.apiUrl.length - 1)
         : AppConstants.apiUrl;
 
-    final urlFinal = Uri.encodeFull("$apiUrl/evidencia/$rutaLimpia");
+    final urlFinal = "$apiUrl/evidencia/$rutaLimpia";
+    final urlCodificada = Uri.encodeFull(urlFinal);
     final bool esPdf = rutaLimpia.toLowerCase().endsWith('.pdf');
 
-    print("Viendo comprobante: $urlFinal");
+    print("Viendo comprobante: $urlCodificada");
 
     showDialog(
       context: context,
@@ -359,9 +343,9 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
           children: [
             Container(
               width: double.infinity,
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.8,
-              ),
+              height:
+                  MediaQuery.of(context).size.height *
+                  0.85, // Altura para ver bien el PDF
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
@@ -369,7 +353,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
               child: Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.all(15.0),
+                    padding: const EdgeInsets.all(12.0),
                     child: Text(
                       "Comprobante de Pago",
                       style: TextStyle(
@@ -382,43 +366,44 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                   const Divider(height: 1),
                   Expanded(
                     child: esPdf
-                        ? const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.picture_as_pdf,
-                                size: 80,
-                                color: Colors.red,
-                              ),
-                              Text(
-                                "Documento PDF",
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
+                        ? const PDF(
+                            enableSwipe: true,
+                            swipeHorizontal: true,
+                            autoSpacing: false,
+                            pageFling: false,
+                          ).fromUrl(
+                            urlCodificada,
+                            placeholder: (progress) =>
+                                Center(child: Text('$progress %')),
+                            errorWidget: (error) =>
+                                Center(child: Text("Error PDF: $error")),
                           )
-                        : Image.network(
-                            urlFinal,
-                            fit: BoxFit.contain,
-                            // HEADERS TAMBIÉN AQUÍ
-                            headers: const {
-                              'User-Agent': 'SomnolenceApp/1.0',
-                              'Accept': 'image/jpeg,image/png,application/pdf',
-                            },
-                            loadingBuilder: (_, child, prog) => prog == null
-                                ? child
-                                : const Center(
-                                    child: CircularProgressIndicator(),
+                        : InteractiveViewer(
+                            panEnabled: true,
+                            minScale: 0.5,
+                            maxScale: 4,
+                            child: Image.network(
+                              urlCodificada,
+                              fit: BoxFit.contain,
+                              headers: const {
+                                'User-Agent': 'SomnolenceApp/1.0',
+                              },
+                              loadingBuilder: (_, child, prog) => prog == null
+                                  ? child
+                                  : const Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                              errorBuilder: (_, __, ___) => const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.broken_image,
+                                    size: 50,
+                                    color: Colors.grey,
                                   ),
-                            errorBuilder: (_, __, ___) => const Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.broken_image,
-                                  size: 50,
-                                  color: Colors.grey,
-                                ),
-                                Text("No se pudo cargar la imagen"),
-                              ],
+                                  Text("No se pudo cargar la imagen"),
+                                ],
+                              ),
                             ),
                           ),
                   ),
@@ -428,15 +413,16 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
             Positioned(
               top: 0,
               right: 0,
-              child: IconButton(
-                onPressed: () => Navigator.pop(ctx),
-                icon: Container(
-                  padding: const EdgeInsets.all(4),
+              child: GestureDetector(
+                onTap: () => Navigator.pop(ctx),
+                child: Container(
+                  margin: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(6),
                   decoration: const BoxDecoration(
                     color: Colors.black54,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 20),
+                  child: const Icon(Icons.close, color: Colors.white, size: 24),
                 ),
               ),
             ),
@@ -674,7 +660,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                     : Icons.camera_alt,
                                 label: tieneEvidencia
                                     ? 'Borrar img'
-                                    : 'Subir img',
+                                    : 'Subir respaldo',
                               ),
 
                             // 3. BOTÓN BORRAR GASTO COMPLETO - Solo si es editable

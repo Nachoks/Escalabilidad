@@ -217,34 +217,36 @@ class PerfilScreen extends StatelessWidget {
                       const SizedBox(height: 40),
 
                       // BOTÓN DE ACCIÓN (Contraseña)
-                      SizedBox(
-                        width: double.infinity,
-                        height: 55,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              barrierDismissible: false,
-                              builder: (context) =>
-                                  const ChangePasswordDialog(),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.redAccent,
-                            elevation:
-                                0, // Plano para verse más limpio en fondo gris
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              side: BorderSide(color: Colors.red.shade200),
+                      SafeArea(
+                        child: Container(
+                          width: double.infinity,
+                          height: 55,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (context) =>
+                                    const ChangePasswordDialog(),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.redAccent,
+                              elevation:
+                                  0, // Plano para verse más limpio en fondo gris
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                side: BorderSide(color: Colors.red.shade200),
+                              ),
                             ),
-                          ),
-                          icon: const Icon(Icons.lock_reset_rounded),
-                          label: const Text(
-                            "Cambiar Contraseña",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                            icon: const Icon(Icons.lock_reset_rounded),
+                            label: const Text(
+                              "Cambiar Contraseña",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),

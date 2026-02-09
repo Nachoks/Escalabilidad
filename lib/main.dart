@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
 // Importa tus servicios y providers
-import 'package:somnolence_app/core/services/notification_service.dart'; // <--- EL NUEVO SERVICIO
+import 'package:somnolence_app/core/services/notification_service.dart';
 import 'package:somnolence_app/core/api/api_service.dart';
-
 import 'package:somnolence_app/features/admin/presentation/providers/admin_users_provider.dart';
 import 'package:somnolence_app/features/admin/presentation/providers/cliente_provider.dart';
 import 'package:somnolence_app/features/admin/presentation/providers/servicio_provider.dart';
@@ -14,9 +13,6 @@ import 'package:somnolence_app/features/auth/data/models/user_model.dart';
 import 'package:somnolence_app/features/dashboard/presentation/screens/home_dashboard_screen.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/gasto_provider.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/rendiciones_provider.dart';
-
-// OJO: Importa OneSignal para verificar el ID en el Splash si quieres,
-// o usa NotificationService.getOneSignalId()
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 
 void main() async {

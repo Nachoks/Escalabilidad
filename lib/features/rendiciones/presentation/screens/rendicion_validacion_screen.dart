@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_cached_pdfview/flutter_cached_pdfview.dart';
 import 'package:provider/provider.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/core/constants/app_constants.dart';
@@ -49,46 +50,41 @@ class _RendicionValidacionScreenState extends State<RendicionValidacionScreen> {
   }
 
   void _verEvidencia(BuildContext context, dynamic archivo) {
-    // 1. OBTENER RUTA Y LIMPIARLA
-    String rutaRelativa = archivo.rutaRelativa;
+    String rutaLimpia = archivo.rutaRelativa.replaceAll('\\', '/');
 
-    // --- CORRECCIÓN CRÍTICA ---
-    // Reemplazar TODAS las barras invertidas de Windows (\) por barras web (/)
-    rutaRelativa = rutaRelativa.replaceAll('\\', '/');
-
-    // Si por error se guardó con "public/" al inicio, lo quitamos
-    if (rutaRelativa.startsWith('public/')) {
-      rutaRelativa = rutaRelativa.replaceFirst('public/', '');
+    if (rutaLimpia.startsWith('public/')) {
+      rutaLimpia = rutaLimpia.replaceFirst('public/', '');
     }
-    // Quitamos slash inicial si existe
-    if (rutaRelativa.startsWith('/')) {
-      rutaRelativa = rutaRelativa.substring(1);
+    if (rutaLimpia.startsWith('/')) {
+      rutaLimpia = rutaLimpia.substring(1);
     }
 
-    // 2. CONSTRUIR URL
-    // Asegúrate que tu apiUrl en AppConstants no tenga "/" al final.
-    // La URL final debe verse como: .../api/evidencia/006/gastos/foto.jpg
-    final urlImagen = "${AppConstants.apiUrl}/evidencia/$rutaRelativa";
+    final apiUrl = AppConstants.apiUrl.endsWith('/')
+        ? AppConstants.apiUrl.substring(0, AppConstants.apiUrl.length - 1)
+        : AppConstants.apiUrl;
 
-    print("URL FINAL PARA FLUTTER: $urlImagen");
+    final urlString = "$apiUrl/evidencia/$rutaLimpia";
+    final urlImagen = Uri.encodeFull(urlString);
 
-    final bool esPdf = archivo.extension == 'pdf';
+    print("Abriendo evidencia: $urlImagen");
+
+    final ext = archivo.extension?.toLowerCase() ?? 'jpg';
+    final bool esPdf = ext == 'pdf';
 
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        backgroundColor:
-            Colors.transparent, // Fondo transparente para efecto moderno
+        backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.all(10),
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // CONTENIDO
             Container(
               width: double.infinity,
-              // Altura dinámica hasta un máximo
               constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.7,
+                maxHeight:
+                    MediaQuery.of(context).size.height *
+                    0.8, // Aumenté un poco la altura
               ),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -97,11 +93,10 @@ class _RendicionValidacionScreenState extends State<RendicionValidacionScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Cabecera del Dialog
                   Padding(
                     padding: const EdgeInsets.all(12.0),
                     child: Text(
-                      "Evidencia Adjunta",
+                      esPdf ? "Documento PDF" : "Evidencia Adjunta",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -110,95 +105,57 @@ class _RendicionValidacionScreenState extends State<RendicionValidacionScreen> {
                     ),
                   ),
                   const Divider(height: 1),
-
-                  // Cuerpo: Imagen o Icono PDF
                   Expanded(
+                    // --- CAMBIO PRINCIPAL AQUÍ ---
                     child: esPdf
-                        ? Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.picture_as_pdf,
-                                size: 80,
-                                color: Colors.red,
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                "Documento PDF",
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                ),
-                                child: Text(
-                                  archivo.nombreOriginal,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(color: Colors.grey),
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              // Nota: Para abrir PDF real se requiere 'url_launcher'
-                              const Text(
-                                "(Visualización de PDF disponible en versión Web)",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.blueGrey,
-                                ),
-                              ),
-                            ],
+                        ? const PDF(
+                            enableSwipe: true,
+                            swipeHorizontal: true,
+                            autoSpacing: false,
+                            pageFling: false,
+                          ).fromUrl(
+                            urlImagen,
+                            placeholder: (progress) =>
+                                Center(child: Text('$progress %')),
+                            errorWidget: (error) => Center(
+                              child: Text("Error al cargar PDF: $error"),
+                            ),
                           )
                         : InteractiveViewer(
-                            // Permite hacer Zoom con los dedos
                             panEnabled: true,
                             minScale: 0.5,
                             maxScale: 4,
                             child: Image.network(
                               urlImagen,
                               fit: BoxFit.contain,
+                              headers: const {
+                                'User-Agent': 'SomnolenceApp/1.0',
+                              },
                               loadingBuilder: (ctx, child, progress) {
                                 if (progress == null) return child;
-                                return Center(
-                                  child: CircularProgressIndicator(
-                                    value: progress.expectedTotalBytes != null
-                                        ? progress.cumulativeBytesLoaded /
-                                              progress.expectedTotalBytes!
-                                        : null,
-                                  ),
+                                return const Center(
+                                  child: CircularProgressIndicator(),
                                 );
                               },
-                              errorBuilder: (ctx, error, stackTrace) => Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(
-                                    Icons.broken_image,
-                                    size: 50,
-                                    color: Colors.grey,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  const Text("No se pudo cargar la imagen"),
-                                  // Útil para depurar: Muestra la URL que intentó cargar
-                                  Text(
-                                    urlImagen,
-                                    style: const TextStyle(
-                                      fontSize: 10,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.broken_image,
+                                      size: 50,
                                       color: Colors.grey,
                                     ),
-                                  ),
-                                ],
-                              ),
+                                    Text("Error al cargar imagen"),
+                                  ],
+                                );
+                              },
                             ),
                           ),
                   ),
                 ],
               ),
             ),
-
-            // BOTÓN CERRAR FLOTANTE (Estilo Instagram/Facebook)
             Positioned(
               top: 0,
               right: 0,
