@@ -162,10 +162,12 @@ class _EditUserDialogState extends State<EditUserDialog> {
 
               ..._rolesDisponibles.map((rol) {
                 final isSelected = _rolesSeleccionados.contains(rol);
+                final bool esRolProtegido =
+                    (widget.user.id == 2 && rol == 'Administrador');
                 return CheckboxListTile(
                   title: Text(rol),
-                  value: isSelected,
-                  activeColor: AppColors.primary,
+                  value: esRolProtegido ? true : isSelected,
+                  activeColor: esRolProtegido ? Colors.grey : AppColors.primary,
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   secondary: Icon(

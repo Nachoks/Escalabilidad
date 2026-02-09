@@ -189,6 +189,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
     final bool esConductor = user.esConductor;
     final bool esAdmin = user.esAdmin;
+    final bool esValidador = user.esValidador;
 
     // ------------------------------------------------------
     // CONSTRUCCIÓN DE LA LISTA DE BOTONES SEGÚN EL ROL
@@ -214,39 +215,36 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     }
 
     // 3. LÓGICA DE RENDICIONES (Diferenciada)
-    if (esAdmin) {
-      // --- VISTA ADMIN / VALIDADOR ---
+    if (esAdmin || esValidador) {
+      // SOLO ADMIN ve Usuarios y Clientes (Opcional: Si quieres que el validador NO vea esto, déjalo dentro de un if(esAdmin) interno)
+      if (esAdmin) {
+        menuItems.add({
+          'title': 'Usuarios',
+          'icon': Icons.manage_accounts_outlined,
+          'color': Colors.brown,
+          'page': const GestionUsuariosScreen(),
+        });
 
-      // A. Gestión de Usuarios
-      menuItems.add({
-        'title': 'Usuarios',
-        'icon': Icons.manage_accounts_outlined,
-        'color': Colors.brown,
-        'page': const GestionUsuariosScreen(),
-      });
+        menuItems.add({
+          'title': 'Clientes y Servicios',
+          'icon': Icons.business_center_outlined,
+          'color': Colors.amber.shade800,
+          'page': const GestionClientesScreen(),
+        });
+      }
 
-      // B. Clientes y Servicios
+      // C. RENDICIONES (Botón Agrupado) - VISIBLE PARA AMBOS
       menuItems.add({
-        'title': 'Clientes y Servicios',
-        'icon': Icons.business_center_outlined,
-        'color': Colors.amber.shade800,
-        'page': const GestionClientesScreen(),
-      });
-
-      // C. RENDICIONES (Botón Agrupado)
-      // Este botón NO navega, abre el Popup (_mostrarMenuRendicionesAdmin)
-      menuItems.add({
-        'title': 'Rendiciones', // Nombre genérico
-        'icon': Icons.folder_shared_outlined, // Icono de agrupación
+        'title': 'Rendiciones',
+        'icon': Icons.folder_shared_outlined,
         'color': Colors.blueGrey,
-        'badgeCount': pendientes, // El contador se ve aquí afuera
-        'isAction': true, // Bandera para indicar que es una acción custom
+        'badgeCount': pendientes,
+        'isAction': true,
         'action': (BuildContext ctx) =>
             _mostrarMenuRendicionesAdmin(ctx, pendientes),
       });
     } else {
       // --- VISTA NORMAL (Solo Rendidor/Conductor) ---
-      // Ellos ven su botón directo
       menuItems.add({
         'title': 'Mis Rendiciones',
         'icon': Icons.receipt_long_outlined,
