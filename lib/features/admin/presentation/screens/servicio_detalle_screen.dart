@@ -88,7 +88,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
 
     // 2. Llamada a la API
     // Asegúrate de haber agregado 'eliminarOc' en tu ApiService
-    final success = await ApiService.eliminarOc(oc.idOcCliente!);
+    final success = await ApiService.eliminarOc(oc.idOcCliente);
 
     if (!mounted) return;
 
