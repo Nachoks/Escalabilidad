@@ -48,7 +48,7 @@ class PersonalTableSeeder extends Seeder
                 'apellido_personal' => 'Arenas',
                 'rut' => '14.567.890-1',
                 'id_empresa' => 1,
-                'correo' =>'camilo.arenas.c@iaaspa.cl',
+                'correo' => 'camilo.arenas.c@iaaspa.cl',
                 'created_at' => '2026-02-03 19:34:10',
                 'updated_at' => '2026-02-03 19:34:10',
             ),
@@ -169,9 +169,9 @@ class PersonalTableSeeder extends Seeder
                 'apellido_personal' => 'Tester',
                 'rut' => '10.111.222-3',
                 'id_empresa' => 1,
-                'correo' => NULL,
+                'correo' => 'Sin@correo.cl',
                 'created_at' => '2026-02-03 19:34:13',
-                'updated_at' => '2026-02-03 19:34:13',
+                'updated_at' => '2026-02-10 13:06:49',
             ),
         ));
         

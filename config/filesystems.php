@@ -66,7 +66,7 @@ return [
         ],
         'nas_rendiciones' => [
             'driver' => 'local',
-            'root'   => '\\\\Iaanas-01\\db-registros\\Sistema de Rendiciones 2', // Tu nueva ruta
+            'root'   => '\\\\Iaanas-01\\db-registros\\Sistema de Rendiciones', // Tu nueva ruta
             'visibility' => 'public',
             'throw'  => false,
         ],
@@ -84,6 +84,10 @@ return [
                     'private' => 0700,
                 ],
             ],
+        ],
+        'backups' => [
+            'driver' => 'local',
+            'root' => '\\\\Iaanas-01\\db-registros\\Sistema de Rendiciones\\Backup', // Se guardarán en la carpeta storage/app/backups
         ],
 
     ],

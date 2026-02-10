@@ -1917,6 +1917,19 @@ class ServicioTableSeeder extends Seeder
                 'facturacion' => 'No facturado',
                 'correlativo' => 1,
             ),
+            146 => 
+            array (
+                'id_servicio' => 148,
+                'nombre_servicio' => 'IAA interno',
+                'id_cliente' => 1,
+                'id_area' => 1,
+                'centro_costo' => '00-1-001',
+                'fecha_inicio' => NULL,
+                'fecha_termino' => NULL,
+                'estado_servicio' => 'Activo',
+                'facturacion' => 'No facturado',
+                'correlativo' => 1,
+            ),
         ));
         
         
