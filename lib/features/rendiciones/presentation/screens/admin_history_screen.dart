@@ -102,6 +102,16 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
     return "\$${amount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}";
   }
 
+  String _formatearFecha(String fechaString) {
+    if (fechaString.isEmpty) return "";
+    try {
+      final DateTime fecha = DateTime.parse(fechaString);
+      return DateFormat('dd-MM-yyyy').format(fecha);
+    } catch (e) {
+      return fechaString;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<RendicionesProvider>();
@@ -326,7 +336,7 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  "Estado: ${item.estado} • ${item.fecha}",
+                                  "Estado: ${item.estado} • ${_formatearFecha(item.fecha)}",
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: Colors.black87,

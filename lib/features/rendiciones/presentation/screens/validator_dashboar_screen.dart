@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/rendiciones/data/models/rendicion_model.dart';
@@ -37,6 +38,16 @@ class _ValidatorDashboardScreenState extends State<ValidatorDashboardScreen>
 
   String _formatMoney(int amount) {
     return "\$${amount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}";
+  }
+
+  String _formatearFecha(String fechaString) {
+    if (fechaString.isEmpty) return "";
+    try {
+      final DateTime fecha = DateTime.parse(fechaString);
+      return DateFormat('dd-MM-yyyy').format(fecha);
+    } catch (e) {
+      return fechaString;
+    }
   }
 
   // --- LÓGICA DE PAGO ---
@@ -328,7 +339,7 @@ class _ValidatorDashboardScreenState extends State<ValidatorDashboardScreen>
                               ],
                             )
                           : Text(
-                              item.fecha,
+                              _formatearFecha(item.fecha),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey[600],

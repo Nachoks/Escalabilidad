@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_cached_pdfview/flutter_cached_pdfview.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -309,6 +310,16 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     );
     if (confirmar == true && mounted) {
       await context.read<GastoProvider>().eliminarGastoCompleto(idGasto);
+    }
+  }
+
+  String _formatearFecha(String fechaString) {
+    if (fechaString.isEmpty) return "";
+    try {
+      final DateTime fecha = DateTime.parse(fechaString);
+      return DateFormat('dd-MM-yyyy').format(fecha);
+    } catch (e) {
+      return fechaString;
     }
   }
 
@@ -731,7 +742,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                     children: [
                                       const SizedBox(height: 4),
                                       Text(
-                                        "${gasto.fecha} • ${gasto.tipoDocumento}",
+                                        "${_formatearFecha(gasto.fecha)} • ${gasto.tipoDocumento}",
                                       ),
                                       const SizedBox(height: 8),
 

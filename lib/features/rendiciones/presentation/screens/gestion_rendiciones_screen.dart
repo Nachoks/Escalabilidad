@@ -101,6 +101,19 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
     return "\$${amount.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}";
   }
 
+  String _formatearFecha(String fechaString) {
+    if (fechaString.isEmpty) return "";
+    try {
+      // 1. Parsear el string original (YYYY-MM-DD)
+      final DateTime fecha = DateTime.parse(fechaString);
+      // 2. Formatear al nuevo estilo (DD-MM-YYYY)
+      return DateFormat('dd-MM-yyyy').format(fecha);
+    } catch (e) {
+      // Si falla (por ejemplo si el backend manda algo raro), devolvemos el original
+      return fechaString;
+    }
+  }
+
   // --- WIDGET SALDO ---
   Widget _buildSaldoWidget(int montoEntregado, int totalGastado) {
     final int saldoMatematico = montoEntregado - totalGastado;
@@ -372,12 +385,13 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
                 ],
               ),
               child: Row(
-                mainAxisSize: MainAxisSize.min, // Ocupa solo lo necesario
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.filter_list, size: 14, color: AppColors.primary),
                   const SizedBox(width: 8),
                   Text(
-                    "${DateFormat('dd/MM/yyyy').format(_rangoFechas!.start)} - ${DateFormat('dd/MM/yyyy').format(_rangoFechas!.end)}",
+                    // CAMBIO AQUÍ: Se puso 'dd-MM-yyyy' en lugar de 'dd/MM/yyyy'
+                    "${DateFormat('dd-MM-yyyy').format(_rangoFechas!.start)} - ${DateFormat('dd-MM-yyyy').format(_rangoFechas!.end)}",
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
@@ -555,8 +569,9 @@ class _GestionRendicionesScreenState extends State<GestionRendicionesScreen> {
                                         MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
-                                        rendicion
-                                            .fecha, // Fecha original pequeña a la izquierda
+                                        _formatearFecha(
+                                          rendicion.fecha,
+                                        ), // Fecha original pequeña a la izquierda
                                         style: TextStyle(
                                           color: Colors.grey[600],
                                           fontSize: 12,

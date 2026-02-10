@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_cached_pdfview/flutter_cached_pdfview.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/core/constants/app_constants.dart';
@@ -47,6 +48,16 @@ class _RendicionValidacionScreenState extends State<RendicionValidacionScreen> {
   // Guardar comentario
   void _setComentario(int idGasto, String texto) {
     _comentarios[idGasto] = texto;
+  }
+
+  String _formatearFecha(String fechaString) {
+    if (fechaString.isEmpty) return "";
+    try {
+      final DateTime fecha = DateTime.parse(fechaString);
+      return DateFormat('dd-MM-yyyy').format(fecha);
+    } catch (e) {
+      return fechaString;
+    }
   }
 
   void _verEvidencia(BuildContext context, dynamic archivo) {
@@ -371,7 +382,7 @@ class _RendicionValidacionScreenState extends State<RendicionValidacionScreen> {
                         ),
                         const SizedBox(height: 5),
                         Text(
-                          "${gasto.fecha} • ${gasto.tipoDocumento}",
+                          "${_formatearFecha(gasto.fecha)} • ${gasto.tipoDocumento}",
                           style: TextStyle(
                             color: Colors.grey[600],
                             fontSize: 12,

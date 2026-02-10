@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart'; // <--- IMPORTANTE
+import 'package:intl/intl.dart';
 import 'package:somnolence_app/core/api/api_service.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/admin/data/models/servicio_model.dart';
@@ -37,6 +38,16 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
       setState(() {
         updateFn();
       });
+    }
+  }
+
+  String _formatearFecha(String fechaString) {
+    if (fechaString.isEmpty) return "";
+    try {
+      final DateTime fecha = DateTime.parse(fechaString);
+      return DateFormat('dd-MM-yyyy').format(fecha);
+    } catch (e) {
+      return fechaString;
     }
   }
 
@@ -271,10 +282,13 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
               textAlign: TextAlign.center,
             ),
             const Divider(),
-            _rowInfo("Fecha Inicio:", servicioActual.fechaInicio ?? "---"),
+            _rowInfo(
+              "Fecha Inicio:",
+              _formatearFecha(servicioActual.fechaInicio ?? "---"),
+            ),
             _rowInfo(
               "Fecha Término:",
-              servicioActual.fechaTermino ?? "En curso",
+              _formatearFecha(servicioActual.fechaTermino ?? "---"),
             ),
             const SizedBox(height: 8),
             _rowInfo(
@@ -536,7 +550,9 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     ListTile(
-                      title: Text(nuevaFecha ?? "Toca para elegir fecha"),
+                      title: Text(
+                        _formatearFecha(nuevaFecha ?? "Toca para elegir fecha"),
+                      ),
                       leading: const Icon(Icons.calendar_today),
                       enabled: !isSaving,
                       onTap: () async {
@@ -668,7 +684,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                 const SizedBox(height: 20),
                 ListTile(
                   tileColor: Colors.grey[100],
-                  title: Text(fechaFin ?? "Seleccionar Fecha Término"),
+                  title: Text(_formatearFecha(fechaFin ?? "---")),
                   trailing: const Icon(Icons.event_busy, color: Colors.red),
                   enabled: !isSaving,
                   onTap: () async {
