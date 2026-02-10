@@ -222,7 +222,7 @@ class _LoginContentState extends State<_LoginContent> {
                   Container(
                     margin: const EdgeInsets.only(top: 10),
                     child: Text(
-                      'Versión 1.0',
+                      'Versión 1.1',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.grey[400], fontSize: 12),
                     ),

@@ -39,17 +39,22 @@ class _EditUserDialogState extends State<EditUserDialog> {
   @override
   void initState() {
     super.initState();
+
     // 1. Separar Nombre y Apellido
     String nombre = '';
     String apellido = '';
-    final parts = widget.user.nombreCompleto.split(' ');
-    if (parts.isNotEmpty) {
+
+    // Validación por si nombreCompleto viene null o vacío (aunque no debería)
+    final nombreCompleto = widget.user.nombreCompleto.trim();
+    if (nombreCompleto.isNotEmpty) {
+      final parts = nombreCompleto.split(' ');
       nombre = parts[0];
       if (parts.length > 1) {
         apellido = parts.sublist(1).join(' ');
       }
     }
 
+    // Inicializar Controladores
     _nombreCtrl = TextEditingController(text: nombre);
     _apellidoCtrl = TextEditingController(text: apellido);
     _rutCtrl = TextEditingController(text: widget.user.rut);
@@ -64,13 +69,30 @@ class _EditUserDialogState extends State<EditUserDialog> {
         _rolesSeleccionados.add('Administrador');
       } else {
         // Capitalizar: 'conductor' -> 'Conductor'
-        final rolCapitalizado =
-            rolUsuario[0].toUpperCase() + rolUsuario.substring(1).toLowerCase();
-        if (_rolesDisponibles.contains(rolCapitalizado)) {
-          _rolesSeleccionados.add(rolCapitalizado);
+        // Nos aseguramos de que el string no esté vacío antes de operar
+        if (rolUsuario.isNotEmpty) {
+          final rolCapitalizado =
+              rolUsuario[0].toUpperCase() +
+              rolUsuario.substring(1).toLowerCase();
+
+          // Solo lo agregamos si existe en la lista de roles disponibles de la App
+          if (_rolesDisponibles.contains(rolCapitalizado)) {
+            _rolesSeleccionados.add(rolCapitalizado);
+          }
         }
       }
     }
+
+    // --- FIX CRÍTICO: FORZAR ROL ADMINISTRADOR AL USUARIO ID 2 ---
+    // Si estamos editando al usuario intocable (ID 2), nos aseguramos
+    // de que la lista interna tenga 'Administrador'.
+    // Esto es vital porque si no lo tiene, al guardar se enviaría una lista sin él.
+    if (widget.user.id == 2) {
+      if (!_rolesSeleccionados.contains('Administrador')) {
+        _rolesSeleccionados.add('Administrador');
+      }
+    }
+    // -------------------------------------------------------------
   }
 
   @override

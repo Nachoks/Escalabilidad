@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart'; // <--- 1. IMPORTANTE: Para usar kIsWeb
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -6,14 +7,20 @@ class NotificationService {
   static const String oneSignalAppId = "e5cdf0ea-ed14-4bd4-a2e4-e0daee698f53";
 
   static Future<void> init() async {
-    // 1. Configurar Logs de OneSignal (para depurar si hace falta)
+    // 2. BLOQUE DE SEGURIDAD PARA WEB
+    // Si estamos en web, salimos inmediatamente para no ejecutar código nativo
+    if (kIsWeb) {
+      print("⚠️ OneSignal desactivado en Web para evitar errores de plugin.");
+      return;
+    }
+
+    // 1. Configurar Logs de OneSignal
     OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
 
     // 2. Inicializar OneSignal
     OneSignal.initialize(oneSignalAppId);
 
-    // 3. ¡EL TRUCO! Crear el canal de notificación manualmente en Android.
-    // Esto obliga a Android 13/14 a mostrar el menú de notificaciones en Ajustes.
+    // 3. Crear el canal de notificación manualmente en Android.
     await _crearCanalAndroid();
 
     // 4. Solicitar Permiso al usuario
@@ -22,6 +29,9 @@ class NotificationService {
 
   /// Crea el canal "onesignal_default_channel" manualmente usando flutter_local_notifications
   static Future<void> _crearCanalAndroid() async {
+    // Seguridad extra: Si por alguna razón se llama a esto en web, salimos.
+    if (kIsWeb) return;
+
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
         FlutterLocalNotificationsPlugin();
 
@@ -35,15 +45,15 @@ class NotificationService {
     // Inicializamos el plugin local
     await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
-    // Definimos el canal (DEBE coincidir con el ID que OneSignal usa por defecto)
+    // Definimos el canal
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       'onesignal_default_channel',
-      'Notificaciones Generales', // Nombre visible en Ajustes
+      'Notificaciones Generales',
       description: 'Avisos importantes de la aplicación',
       importance: Importance.high,
     );
 
-    // Creamos el canal físicamente en el sistema
+    // Creamos el canal
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
@@ -53,6 +63,9 @@ class NotificationService {
 
   /// Método auxiliar para obtener el ID del usuario (Player ID)
   static Future<String?> getOneSignalId() async {
+    // 3. SEGURIDAD: En web no hay Player ID, devolvemos null
+    if (kIsWeb) return null;
+
     return OneSignal.User.pushSubscription.id;
   }
 }

@@ -428,6 +428,7 @@ class _ValidatorDashboardScreenState extends State<ValidatorDashboardScreen>
                       ),
                     ],
                   ),
+                  const Divider(height: 24),
                 ],
               ),
             ),

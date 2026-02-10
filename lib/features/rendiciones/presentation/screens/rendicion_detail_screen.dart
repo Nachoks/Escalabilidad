@@ -592,7 +592,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                 : gastos.isEmpty
                 ? const Center(child: Text("No hay gastos registrados"))
                 : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
                     itemCount: gastos.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
