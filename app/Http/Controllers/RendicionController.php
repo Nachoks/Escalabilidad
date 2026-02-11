@@ -224,8 +224,9 @@ class RendicionController extends Controller
     {
         $rendiciones = Rendicion::whereIn('estado', ['Pendiente de Validación', 'Aprobada'])
                         ->with([
-                            'servicio:id_servicio,nombre_servicio,centro_costo', 
-                            'usuario:id_usuario,nombre_usuario'
+                            'servicio:id_servicio,nombre_servicio,centro_costo',
+                            // CAMBIO: Cargamos 'usuario' y también su 'personal'
+                            'usuario.personal' 
                         ])
                         ->withSum('gastos', 'monto') 
                         ->orderBy('fecha', 'asc') 
@@ -327,27 +328,33 @@ class RendicionController extends Controller
      */
     public function pagar(Request $request, $id)
     {
+        // 1. Validamos (el reporte PDF es opcional para no romper si falla la generación, pero recomendado)
         $request->validate([
             'comprobante' => 'required|file|mimes:jpg,jpeg,png,pdf|max:10240',
+            'reporte_pdf' => 'nullable|file|mimes:pdf|max:10240',
         ]);
 
         try {
             DB::beginTransaction();
 
             $rendicion = Rendicion::withSum('gastos', 'monto')->findOrFail($id);
+            
+            // Definir ruta base en NAS
+            $carpetaRendicion = str_pad($rendicion->id_rendicion, 3, '0', STR_PAD_LEFT);
+            $pathDestino = $carpetaRendicion . '/pago'; 
 
+            // --- A. PROCESAR COMPROBANTE DE PAGO (OBLIGATORIO) ---
             if ($request->hasFile('comprobante')) {
                 $file = $request->file('comprobante');
                 $extension = $file->getClientOriginalExtension();
                 $pesoKb = round($file->getSize() / 1024, 2);
-
-                $carpetaRendicion = str_pad($rendicion->id_rendicion, 3, '0', STR_PAD_LEFT);
-                $pathDestino = $carpetaRendicion . '/pago'; 
                 $nombreFisico = 'PAGO_' . time() . '.' . $extension;
 
+                // Guardar físico
                 $file->storeAs($pathDestino, $nombreFisico, 'nas_rendiciones');
                 $rutaRelativa = $pathDestino . '/' . $nombreFisico;
 
+                // Guardar en BD (Tabla Registros)
                 $registro = new Registro(); 
                 $registro->id_rendicion = $id;
                 $registro->id_usuario_pagador = Auth::id();
@@ -359,39 +366,65 @@ class RendicionController extends Controller
                 $registro->extension = $extension;
                 $registro->peso_kb = $pesoKb;
                 $registro->save();
-
-                $rendicion->estado = 'Pagada';
-                $rendicion->save();
-
-                DB::commit();
-
-                // --- NOTIFICAR PAGO ---
-                try {
-                    OneSignalService::enviar(
-                        [$rendicion->id_usuario], 
-                        "¡Rendición Pagada! 💰", 
-                        "Tu rendición #{$rendicion->id_rendicion} ha sido pagada. Puedes ver el comprobante en la App.", 
-                        [
-                            'id_rendicion' => $rendicion->id_rendicion, 
-                            'tipo' => 'pago_realizado'
-                        ]
-                    );
-                } catch (\Exception $e) {
-                    \Log::error("Error enviando notificación OneSignal al pagar: " . $e->getMessage());
-                }
-
-                return response()->json([
-                    'success' => true, 
-                    'message' => 'Pago registrado correctamente',
-                    'ruta' => $rutaRelativa
-                ]);
             } else {
-                return response()->json(['message' => 'No se recibió el archivo'], 400);
+                return response()->json(['message' => 'No se recibió el comprobante'], 400);
             }
+
+            // --- B. PROCESAR REPORTE PDF AUTOMÁTICO (OPCIONAL) ---
+            if ($request->hasFile('reporte_pdf')) {
+                $pdfFile = $request->file('reporte_pdf');
+                // Nombre estandarizado para el reporte
+                $pdfName = 'REPORTE_DETALLE_' . $rendicion->id_rendicion . '_' . time() . '.pdf';
+                
+                // Guardar físico
+                $pdfFile->storeAs($pathDestino, $pdfName, 'nas_rendiciones');
+                $rutaPdf = $pathDestino . '/' . $pdfName;
+
+                // Guardar en BD (Como otro registro asociado a la misma rendición)
+                $registroPdf = new Registro();
+                $registroPdf->id_rendicion = $id;
+                $registroPdf->id_usuario_pagador = Auth::id();
+                $registroPdf->fecha_pago = now();
+                $registroPdf->monto_pagado = 0; // Informativo, ya se registró en el comprobante
+                $registroPdf->nombre_original = 'Reporte Automático Generado.pdf';
+                $registroPdf->nombre_fisico = $pdfName;
+                $registroPdf->ruta_relativa = $rutaPdf;
+                $registroPdf->extension = 'pdf';
+                $registroPdf->peso_kb = round($pdfFile->getSize() / 1024, 2);
+                $registroPdf->save();
+            }
+
+            // Actualizar estado final
+            $rendicion->estado = 'Pagada';
+            $rendicion->save();
+
+            DB::commit();
+
+            // --- NOTIFICAR ---
+            try {
+                OneSignalService::enviar(
+                    [$rendicion->id_usuario], 
+                    "¡Rendición Pagada! 💰", 
+                    "Tu rendición #{$rendicion->id_rendicion} ha sido pagada y el reporte generado.", 
+                    [
+                        'id_rendicion' => $rendicion->id_rendicion, 
+                        'tipo' => 'pago_realizado'
+                    ]
+                );
+            } catch (\Exception $e) {
+                \Log::error("Error enviando notificación OneSignal al pagar: " . $e->getMessage());
+            }
+
+            return response()->json([
+                'success' => true, 
+                'message' => 'Pago y reporte registrados correctamente',
+                'ruta_comprobante' => $rutaRelativa ?? null
+            ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
             
+            // Limpieza básica si falla (borrar el comprobante si se alcanzó a subir)
             if (isset($pathDestino) && isset($nombreFisico)) {
                 Storage::disk('nas_rendiciones')->delete($pathDestino . '/' . $nombreFisico);
             }

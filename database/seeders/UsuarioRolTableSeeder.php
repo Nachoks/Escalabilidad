@@ -159,6 +159,27 @@ class UsuarioRolTableSeeder extends Seeder
                 'created_at' => NULL,
                 'updated_at' => NULL,
             ),
+            20 => 
+            array (
+                'id_usuario' => 11,
+                'id_tipo_usuario' => 1,
+                'created_at' => NULL,
+                'updated_at' => NULL,
+            ),
+            21 => 
+            array (
+                'id_usuario' => 11,
+                'id_tipo_usuario' => 3,
+                'created_at' => NULL,
+                'updated_at' => NULL,
+            ),
+            22 => 
+            array (
+                'id_usuario' => 11,
+                'id_tipo_usuario' => 4,
+                'created_at' => NULL,
+                'updated_at' => NULL,
+            ),
         ));
         
         

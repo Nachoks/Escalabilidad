@@ -50,6 +50,11 @@ class User extends Authenticatable
         ];
     }
 
+    // -----------------------------------------------------------------------
+    // [NUEVO] 1. Agregamos estos atributos virtuales al JSON siempre
+    // -----------------------------------------------------------------------
+    protected $appends = ['nombre', 'apellido'];
+
     public function personal()
     {
         return $this->belongsTo(Personal::class, 'id_personal', 'id_personal');
@@ -66,5 +71,23 @@ class User extends Authenticatable
             'id_usuario',       
             'id_tipo_usuario'   
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // [NUEVO] 2. Métodos mágicos para obtener nombre y apellido desde Personal
+    // -----------------------------------------------------------------------
+    
+    // Esto crea el atributo virtual 'nombre'
+    public function getNombreAttribute()
+    {
+        // Si existe la relación 'personal', devuelve 'nombre_personal', si no, null
+        return $this->personal ? $this->personal->nombre_personal : null;
+    }
+
+    // Esto crea el atributo virtual 'apellido'
+    public function getApellidoAttribute()
+    {
+        // Si existe la relación 'personal', devuelve 'apellido_personal', si no, null
+        return $this->personal ? $this->personal->apellido_personal : null;
     }
 }

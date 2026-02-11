@@ -3,7 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Schema; // <--- ESTO ES VITAL
 
 class DatabaseSeeder extends Seeder
 {
@@ -12,60 +12,43 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Desactivar revisión de claves foráneas
-        // Esto permite limpiar las tablas sin que la base de datos reclame por relaciones
+        // 1. Desactivar protección de claves foráneas
         Schema::disableForeignKeyConstraints();
 
-        // 2. Llamar a los seeders UNA SOLA VEZ
+        // 2. Llamar a los seeders generados por iseed
+        // El orden ideal es: Tablas padres -> Tablas hijas
         $this->call([
-            // --- Maestros principales ---
-            EmpresaTableSeeder::class,
-            AreasEmpresaTableSeeder::class,
-            TipoUsuarioTableSeeder::class,
+            // Maestros principales
+            EmpresaTableSeeder::class,       
+            AreasEmpresaTableSeeder::class,  
+            TipoUsuarioTableSeeder::class,   
             
-            // --- Personal y Usuarios ---
-            PersonalTableSeeder::class,
-            UsuariosTableSeeder::class,    // Ojo: verifica si tu archivo se llama UsersTableSeeder o UsuariosTableSeeder
-            UsuarioRolTableSeeder::class,
+            // Personal y Usuarios (Aquí va tu admin intocable que iseed respaldó)
+            PersonalTableSeeder::class,      
+            UsuariosTableSeeder::class,     
+            UsuarioRolTableSeeder::class,    
             
-            // --- Activos y Clientes ---
+            // Activos y Clientes
             VehiculoTableSeeder::class,
             ClienteTableSeeder::class,
             
-            // --- Operación ---
+            // Operación
             ServicioTableSeeder::class,
             OcClienteTableSeeder::class,
             HasGuiaTableSeeder::class,
             HasGuiaArchivosTableSeeder::class,
             
-            // --- Finanzas ---
+            // Finanzas (Rendiciones y Gastos)
             RendicionTableSeeder::class,
             GastoTableSeeder::class,
             GastoArchivoTableSeeder::class,
             
-            // --- Otros ---
+            // Otros
             RegistrosTableSeeder::class,
         ]);
 
-        // 3. Reactivar las claves foráneas para seguridad futura
+        // 3. Volver a activar la protección
         Schema::enableForeignKeyConstraints();
-        
-        // ¡¡AQUÍ NO DEBES PONER NADA MÁS!!
-        $this->call(EmpresaTableSeeder::class);
-        $this->call(AreasEmpresaTableSeeder::class);
-        $this->call(TipoUsuarioTableSeeder::class);
-        $this->call(UsuariosTableSeeder::class);
-        $this->call(UsuarioRolTableSeeder::class);
-        $this->call(PersonalTableSeeder::class);
-        $this->call(VehiculoTableSeeder::class);
-        $this->call(ClienteTableSeeder::class);
-        $this->call(ServicioTableSeeder::class);
-        $this->call(OcClienteTableSeeder::class);
-        $this->call(HasGuiaTableSeeder::class);
-        $this->call(HasGuiaArchivosTableSeeder::class);
-        $this->call(RendicionTableSeeder::class);
-        $this->call(GastoTableSeeder::class);
-        $this->call(GastoArchivoTableSeeder::class);
-        $this->call(RegistrosTableSeeder::class);
+
     }
 }
