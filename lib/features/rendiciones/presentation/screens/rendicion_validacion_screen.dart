@@ -301,30 +301,37 @@ class _RendicionValidacionScreenState extends State<RendicionValidacionScreen> {
         foregroundColor: Colors.white,
       ),
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
+          // <-- Agrega const si puedes
           color: Colors.white,
           boxShadow: [
             BoxShadow(
               color: Colors.black12,
               blurRadius: 5,
-              offset: const Offset(0, -2),
+              offset: Offset(0, -2),
             ),
           ],
         ),
-        child: ElevatedButton(
-          onPressed: _finalizarRevision,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+        // CAMBIO AQUÍ: Envolvemos el padding y el botón en un SafeArea
+        child: SafeArea(
+          child: Padding(
+            // Movi el padding adentro del SafeArea
+            padding: const EdgeInsets.all(16),
+            child: ElevatedButton(
+              onPressed: _finalizarRevision,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                "FINALIZAR REVISIÓN",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
             ),
-          ),
-          child: const Text(
-            "FINALIZAR REVISIÓN",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
         ),
       ),

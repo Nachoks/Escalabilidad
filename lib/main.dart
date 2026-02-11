@@ -41,6 +41,8 @@ void main() async {
   );
 }
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -49,11 +51,18 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Registro Control de Conduccion',
+      navigatorKey: navigatorKey, // <--- Esto permite la navegación global
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFF35F34)),
         useMaterial3: true,
       ),
-      home: const SplashScreen(),
+      home: const SplashScreen(), // Pantalla inicial
+      // --- AGREGA ESTO ---
+      // Definimos los nombres de las rutas para que AuthService las encuentre
+      routes: {
+        '/login': (context) => const LoginScreen(),
+        '/home': (context) => const HomeDashboardScreen(),
+      },
     );
   }
 }
@@ -83,26 +92,44 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     if (isLoggedIn) {
-      final userData = await ApiService.getUsuarioLocal();
-      if (userData != null && userData.isNotEmpty) {
-        final user = User.fromJson(userData);
-        final authProvider = context.read<AuthProvider>();
-        authProvider.setUser(user);
+      // Validamos con el servidor
+      final tokenEsValido = await ApiService.verificarTokenValido();
 
-        // Guardar el dispositivo en el Backend
-        final osId = OneSignal.User.pushSubscription.id;
-        if (osId != null) {
-          // Asegúrate de que este método exista en tu AuthProvider
-          await authProvider.registrarDispositivoEnBackend(user.id.toString());
+      if (!mounted) return;
+
+      if (tokenEsValido) {
+        // --- TODO OK ---
+        final userData = await ApiService.getUsuarioLocal();
+        if (userData != null && userData.isNotEmpty) {
+          final user = User.fromJson(userData);
+          final authProvider = context.read<AuthProvider>();
+          authProvider.setUser(user);
+
+          final osId = OneSignal.User.pushSubscription.id;
+          if (osId != null) {
+            authProvider.registrarDispositivoEnBackend(user.id.toString());
+          }
+
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const HomeDashboardScreen(),
+            ),
+          );
+        } else {
+          _irAlLogin();
         }
-
-        if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeDashboardScreen()),
-        );
       } else {
-        _irAlLogin();
+        // --- TOKEN INVÁLIDO (MIGRATE:FRESH) ---
+        print("🚨 Token inválido. Ejecutando Logout...");
+
+        // CORRECCIÓN AQUÍ:
+        // Solo llamamos al logout. NO llamamos a _irAlLogin() después.
+        // AuthService.logout() ya tiene la redirección interna con navigatorKey.
+        await ApiService.logout();
+
+        // ¡NO AGREGUES NADA MÁS AQUÍ!
       }
     } else {
       _irAlLogin();

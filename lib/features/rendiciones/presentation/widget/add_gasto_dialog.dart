@@ -78,7 +78,7 @@ class _AddGastoDialogState extends State<AddGastoDialog> {
   @override
   void initState() {
     super.initState();
-    _fechaController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    _fechaController.text = DateFormat('dd-MM-yyyy').format(DateTime.now());
   }
 
   Future<void> _guardar() async {
@@ -102,17 +102,29 @@ class _AddGastoDialogState extends State<AddGastoDialog> {
       detalleFinalParaBD = _detalleSeleccionado;
     }
 
-    // ---------------------------------------------------------
-    // CORRECCIÓN PRINCIPAL: Limpiar los puntos antes de enviar
-    // Transforma "20.000" en "20000"
-    // ---------------------------------------------------------
+    // 3. CONVERSIÓN DE FECHA (Nuevo paso)
+    // El controller tiene "29-09-2025", pero la BD necesita "2025-09-29"
+    String fechaParaBD = _fechaController.text;
+    try {
+      // Leemos el formato chileno
+      final DateTime fechaObj = DateFormat(
+        'dd-MM-yyyy',
+      ).parse(_fechaController.text);
+      // Lo convertimos a formato internacional (MySQL)
+      fechaParaBD = DateFormat('yyyy-MM-dd').format(fechaObj);
+    } catch (e) {
+      print("Error al formatear fecha: $e");
+      // Si falla, enviamos lo que había por defecto para no romper el flujo
+    }
+
+    // 4. Limpiar los puntos del monto ("20.000" -> "20000")
     String montoLimpio = _montoController.text.replaceAll('.', '');
 
-    // Enviamos a la BD los valores limpios
+    // Enviamos a la BD
     final success = await context.read<GastoProvider>().crearGasto(
       idRendicion: widget.idRendicion,
-      fecha: _fechaController.text,
-      monto: montoLimpio, // <--- Usamos la variable limpia aquí
+      fecha: fechaParaBD, // <--- AQUÍ USAMOS LA FECHA YA CONVERTIDA
+      monto: montoLimpio,
       numDocumento: _numDocController.text,
       tipoDoc: tipoFinalParaBD,
       detalle: detalleFinalParaBD,
@@ -161,7 +173,7 @@ class _AddGastoDialogState extends State<AddGastoDialog> {
                     );
                     if (picked != null) {
                       _fechaController.text = DateFormat(
-                        'yyyy-MM-dd',
+                        'dd-MM-yyyy',
                       ).format(picked);
                     }
                   },

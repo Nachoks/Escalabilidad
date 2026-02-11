@@ -1,10 +1,15 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:somnolence_app/core/api/api_service.dart';
 import 'package:somnolence_app/core/constants/app_constants.dart';
 import 'package:somnolence_app/core/services/auth_services.dart';
+import 'package:somnolence_app/features/rendiciones/data/models/gasto_model.dart';
 import 'package:somnolence_app/features/rendiciones/data/models/rendicion_model.dart';
+import 'package:somnolence_app/features/rendiciones/presentation/utils/rendicion_pdf_builder.dart';
+import 'package:http_parser/http_parser.dart';
 
 class RendicionesProvider extends ChangeNotifier {
   final ApiService _apiService = ApiService();
@@ -285,17 +290,77 @@ class RendicionesProvider extends ChangeNotifier {
 
     try {
       final token = await AuthService.getToken();
-      final url = Uri.parse(
+
+      // 1. OBTENER DETALLE PARA GENERAR EL PDF
+      // Necesitamos la info completa (gastos, fotos) para armar el reporte
+      final urlDetalle = Uri.parse(
+        '${AppConstants.apiUrl}/rendiciones/$idRendicion',
+      );
+      final responseDetalle = await http.get(
+        urlDetalle,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (responseDetalle.statusCode != 200) {
+        print("Error al obtener detalle para reporte PDF");
+        // Continuamos igual para no bloquear el pago, pero sin PDF
+      }
+
+      Uint8List? pdfBytes;
+      String pdfName = 'Reporte_Generico.pdf';
+
+      if (responseDetalle.statusCode == 200) {
+        final data = json.decode(responseDetalle.body);
+        final rendicionCompleta = RendicionModel.fromJson(data);
+
+        // Asumiendo que 'gastos' viene dentro del JSON principal o lo traes aparte
+        // Ajusta esto según tu estructura real si es necesario
+        List<GastoModel> listaGastos = [];
+        if (data['gastos'] != null) {
+          listaGastos = (data['gastos'] as List)
+              .map((e) => GastoModel.fromJson(e))
+              .toList();
+        }
+
+        // Generamos el PDF en memoria
+        pdfBytes = await RendicionPdfBuilder.generarBytes(
+          rendicion: rendicionCompleta,
+          gastos: listaGastos,
+        );
+
+        // Nombre con el formato solicitado: Rendicion_ID_DD-MM-YYYY.pdf
+        final fechaHoy = DateFormat('dd-MM-yyyy').format(DateTime.now());
+        pdfName = 'Rendicion_${idRendicion}_$fechaHoy.pdf';
+      }
+
+      // 2. SUBIR AL SERVIDOR (Comprobante + PDF)
+      final urlPago = Uri.parse(
         '${AppConstants.apiUrl}/admin/rendiciones/$idRendicion/pagar',
       );
 
-      var request = http.MultipartRequest('POST', url);
+      var request = http.MultipartRequest('POST', urlPago);
       request.headers['Authorization'] = 'Bearer $token';
       request.headers['Accept'] = 'application/json';
 
+      // A. Comprobante (Obligatorio - Foto/PDF del usuario)
       request.files.add(
         await http.MultipartFile.fromPath('comprobante', filePath),
       );
+
+      // B. Reporte PDF (Opcional - Generado automáticamente)
+      if (pdfBytes != null) {
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'reporte_pdf',
+            pdfBytes,
+            filename: pdfName, // <--- Aquí va el nombre solicitado
+            contentType: MediaType('application', 'pdf'),
+          ),
+        );
+      }
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);

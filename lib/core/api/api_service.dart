@@ -3,7 +3,9 @@ import 'dart:async';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:somnolence_app/core/constants/app_constants.dart';
 import 'package:somnolence_app/features/admin/data/models/has_guia_model.dart';
+import 'package:somnolence_app/main.dart';
 
 class ApiService {
   static const String baseUrl = 'https://iaaspa.synology.me:8090/api';
@@ -74,23 +76,40 @@ class ApiService {
 
   // Logout
   static Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // 1. Intentar avisar al servidor (Best Effort)
     try {
-      final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
       if (token != null) {
-        await http.post(
-          Uri.parse('$baseUrl/logout'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-        );
+        // No esperamos el await mucho tiempo o ignoramos error si el token ya no existe
+        await http
+            .post(
+              Uri.parse('$baseUrl/logout'),
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $token',
+              },
+            )
+            .timeout(
+              const Duration(seconds: 2),
+            ); // Timeout corto para no trabar la app
       }
-      await prefs.remove('token');
-      await prefs.remove('usuario');
     } catch (e) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
+      print(
+        "Error avisando logout al servidor (posiblemente token ya vencido): $e",
+      );
+    } finally {
+      // 2. Limpieza Local (OBLIGATORIO)
+      // Esto se ejecuta sí o sí, haya error en el servidor o no.
+      await prefs.clear(); // O remove('token') y remove('usuario')
+
+      // 3. Redirección Forzada (LA CLAVE)
+      // Usamos la llave global para navegar sin contexto
+      navigatorKey.currentState?.pushNamedAndRemoveUntil(
+        '/login', // Asegúrate que esta ruta esté definida en tu main.dart
+        (route) => false, // Elimina todas las pantallas anteriores de la pila
+      );
     }
   }
 
@@ -108,6 +127,42 @@ class ApiService {
     return null;
   }
 
+  // Verificar si el token es válido en el servidor (no solo que exista localmente)
+  static Future<bool> verificarTokenValido() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      if (token == null) return false;
+
+      // Hacemos una petición ligera, por ejemplo a /user o /perfil
+      // Ajusta la URL a una ruta que requiera autenticación en tu backend
+      final url = Uri.parse('${AppConstants.apiUrl}/user');
+
+      final response = await http
+          .get(
+            url,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Accept': 'application/json',
+            },
+          )
+          .timeout(
+            const Duration(seconds: 5),
+          ); // Timeout corto para no demorar el inicio
+
+      if (response.statusCode == 200) {
+        return true; // El token es real y el servidor lo acepta
+      } else {
+        return false; // El token existe localmente pero el servidor lo rechaza (401)
+      }
+    } catch (e) {
+      // Si hay error de conexión (servidor apagado), asumimos false por seguridad
+      // o true si quieres permitir modo offline (depende de tu negocio)
+      print("Error verificando token: $e");
+      return false;
+    }
+  }
   // =============================================================
   // MÉTODOS DE NEGOCIO
   // =============================================================

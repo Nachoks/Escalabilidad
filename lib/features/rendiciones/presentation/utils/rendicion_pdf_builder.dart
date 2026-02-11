@@ -9,21 +9,26 @@ import 'package:somnolence_app/features/rendiciones/data/models/rendicion_model.
 import 'package:somnolence_app/features/rendiciones/data/models/gasto_model.dart';
 
 class RendicionPdfBuilder {
-  static Future<void> imprimirRendicion(
-    RendicionModel rendicion,
-    List<GastoModel> gastos,
-  ) async {
+  // --- 1. Generar Bytes del PDF (Para enviar al Backend o Imprimir) ---
+  static Future<Uint8List> generarBytes({
+    required RendicionModel rendicion,
+    required List<GastoModel> gastos,
+  }) async {
     final pdf = pw.Document();
 
-    // 1. Cargar Logo
+    // A. Cargar Logo
     final logoImage = await imageFromAssetBundle('assets/images/icon.png');
 
-    // 2. Formatos
+    // B. Formatos
     final numberFormat = NumberFormat.decimalPattern('es_CL');
     String fmtMoney(int amount) => "\$ ${numberFormat.format(amount)}";
-    final String fechaReporte = DateFormat('dd/MM/yyyy').format(DateTime.now());
 
-    // 3. Cálculos
+    // CORRECCIÓN: Ahora usamos esta variable en el encabezado
+    final String fechaReporte = DateFormat(
+      'dd/MM/yyyy HH:mm',
+    ).format(DateTime.now());
+
+    // C. Cálculos
     int totalGastado = gastos.fold(0, (sum, item) => sum + item.monto);
     int saldo = rendicion.montoEntregado - totalGastado;
 
@@ -38,26 +43,59 @@ class RendicionPdfBuilder {
             pw.Header(
               level: 0,
               child: pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
+                  // Logo
                   pw.Container(
-                    width: 60,
-                    height: 60,
+                    width: 50,
+                    height: 50,
                     child: pw.Image(logoImage),
                   ),
+                  pw.SizedBox(width: 15),
+
+                  // Título
                   pw.Expanded(
-                    child: pw.Center(
-                      child: pw.Text(
-                        "COMPROBANTE DE RENDICIÓN",
-                        textAlign: pw.TextAlign.center,
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          "COMPROBANTE DE RENDICIÓN",
+                          style: pw.TextStyle(
+                            fontSize: 16,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                        pw.Text(
+                          "Escalabilidad E.I.R.L.", // O el nombre de tu empresa
+                          style: const pw.TextStyle(
+                            fontSize: 10,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Fecha de Reporte (AQUÍ USAMOS LA VARIABLE)
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Text(
+                        "Fecha Emisión:",
                         style: pw.TextStyle(
-                          fontSize: 18,
+                          fontSize: 8,
+                          color: PdfColors.grey600,
+                        ),
+                      ),
+                      pw.Text(
+                        fechaReporte,
+                        style: pw.TextStyle(
+                          fontSize: 10,
                           fontWeight: pw.FontWeight.bold,
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                  pw.SizedBox(width: 60),
                 ],
               ),
             ),
@@ -67,7 +105,7 @@ class RendicionPdfBuilder {
             pw.Container(
               padding: const pw.EdgeInsets.all(10),
               decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: PdfColors.grey),
+                border: pw.Border.all(color: PdfColors.grey400),
                 borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
               ),
               child: pw.Column(
@@ -75,7 +113,7 @@ class RendicionPdfBuilder {
                   _buildDataRow("ID Rendición:", "#${rendicion.idRendicion}"),
                   _buildDataRow("Responsable:", rendicion.nombreUsuario),
                   _buildDataRow("Propósito:", rendicion.proposito),
-                  pw.Divider(),
+                  pw.Divider(color: PdfColors.grey300),
                   _buildDataRow(
                     "Monto Asignado:",
                     fmtMoney(rendicion.montoEntregado),
@@ -99,21 +137,19 @@ class RendicionPdfBuilder {
               ),
               headerStyle: pw.TextStyle(
                 fontWeight: pw.FontWeight.bold,
-                fontSize: 10,
+                fontSize: 9,
               ),
-              cellStyle: const pw.TextStyle(fontSize: 10),
+              cellStyle: const pw.TextStyle(fontSize: 9),
               headers: <String>['Fecha', 'Detalle', 'Tipo', 'Doc.', 'Monto'],
-              data: gastos
-                  .map(
-                    (g) => [
-                      g.fecha,
-                      g.detalle,
-                      g.tipoDocumento,
-                      g.numDocumento ?? 'S/N',
-                      fmtMoney(g.monto),
-                    ],
-                  )
-                  .toList(),
+              data: gastos.map((g) {
+                return [
+                  g.fecha, // Asumimos que viene formateada dd-mm-yyyy o yyyy-mm-dd
+                  g.detalle,
+                  g.tipoDocumento,
+                  g.numDocumento ?? 'S/N',
+                  fmtMoney(g.monto),
+                ];
+              }).toList(),
             ),
             pw.SizedBox(height: 20),
 
@@ -135,6 +171,7 @@ class RendicionPdfBuilder {
                     style: pw.TextStyle(
                       color: saldo < 0 ? PdfColors.red : PdfColors.green,
                       fontWeight: pw.FontWeight.bold,
+                      fontSize: 12,
                     ),
                   ),
                 ],
@@ -146,17 +183,16 @@ class RendicionPdfBuilder {
     );
 
     // --- SECCIÓN 2: EVIDENCIA FOTOGRÁFICA ---
-
     for (final gasto in gastos) {
-      // Validamos si tiene fotos (usando tu modelo GastoModel y GastoArchivo)
       if (gasto.fotos.isEmpty) continue;
 
       for (final archivo in gasto.fotos) {
         try {
-          final String imageUrl =
-              '${ApiService.baseUrl}/evidencia/${archivo.rutaRelativa}';
+          // Normalizamos ruta para evitar dobles slash
+          String rutaLimpia = archivo.rutaRelativa.replaceAll('\\', '/');
+          if (rutaLimpia.startsWith('/')) rutaLimpia = rutaLimpia.substring(1);
 
-          print("📥 Descargando imagen PDF: $imageUrl");
+          final String imageUrl = '${ApiService.baseUrl}/evidencia/$rutaLimpia';
 
           final response = await http.get(Uri.parse(imageUrl));
 
@@ -164,7 +200,6 @@ class RendicionPdfBuilder {
             final Uint8List imageBytes = response.bodyBytes;
             final imageProvider = pw.MemoryImage(imageBytes);
 
-            // Nueva página por cada imagen
             pdf.addPage(
               pw.Page(
                 pageFormat: PdfPageFormat.a4,
@@ -173,29 +208,35 @@ class RendicionPdfBuilder {
                   return pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                     children: [
-                      // Encabezado del Anexo
                       pw.Header(
                         level: 1,
-                        child: pw.Text(
-                          "ANEXO - EVIDENCIA DE GASTO",
-                          style: pw.TextStyle(
-                            fontSize: 16,
-                            fontWeight: pw.FontWeight.bold,
-                            color: PdfColors.grey700,
-                          ),
+                        child: pw.Row(
+                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                          children: [
+                            pw.Text(
+                              "ANEXO - EVIDENCIA",
+                              style: pw.TextStyle(
+                                fontSize: 14,
+                                fontWeight: pw.FontWeight.bold,
+                                color: PdfColors.grey700,
+                              ),
+                            ),
+                            pw.Text(
+                              "ID Gasto: ${gasto.idGasto}",
+                              style: const pw.TextStyle(
+                                fontSize: 10,
+                                color: PdfColors.grey500,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       pw.SizedBox(height: 20),
 
-                      // Tarjeta con info del gasto
+                      // Información del Gasto asociado a la imagen
                       pw.Container(
-                        padding: const pw.EdgeInsets.all(10),
-                        decoration: pw.BoxDecoration(
-                          color: PdfColors.grey100,
-                          borderRadius: const pw.BorderRadius.all(
-                            pw.Radius.circular(4),
-                          ),
-                        ),
+                        padding: const pw.EdgeInsets.all(8),
+                        color: PdfColors.grey100,
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
@@ -205,14 +246,16 @@ class RendicionPdfBuilder {
                                 fontWeight: pw.FontWeight.bold,
                               ),
                             ),
-                            pw.Text("Fecha: ${gasto.fecha}"),
                             pw.Text("Monto: ${fmtMoney(gasto.monto)}"),
+                            pw.Text(
+                              "Documento: ${gasto.tipoDocumento} ${gasto.numDocumento ?? ''}",
+                            ),
                           ],
                         ),
                       ),
                       pw.SizedBox(height: 20),
 
-                      // La Imagen
+                      // Imagen
                       pw.Expanded(
                         child: pw.Center(
                           child: pw.Image(
@@ -226,45 +269,53 @@ class RendicionPdfBuilder {
                 },
               ),
             );
-          } else {
-            print(
-              "❌ Error al descargar imagen ($imageUrl): ${response.statusCode}",
-            );
           }
         } catch (e) {
-          print("🔥 Excepción al procesar imagen para PDF: $e");
+          print("Error agregando imagen al PDF: $e");
         }
       }
     }
 
-    // Guardar y Mostrar PDF
+    return pdf.save();
+  }
+
+  // --- 2. Método para Imprimir/Compartir desde el celular ---
+  static Future<void> imprimirRendicion(
+    RendicionModel rendicion,
+    List<GastoModel> gastos,
+  ) async {
+    final bytes = await generarBytes(rendicion: rendicion, gastos: gastos);
+
+    final String fechaNombre = DateFormat('dd-MM-yyyy').format(DateTime.now());
     final String nombreArchivo =
-        'Rendicion_${rendicion.idRendicion}_$fechaReporte.pdf'.replaceAll(
-          '/',
-          '-',
-        );
+        'Rendicion_${rendicion.idRendicion}_$fechaNombre.pdf';
 
     await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
+      onLayout: (PdfPageFormat format) async => bytes,
       name: nombreArchivo,
     );
   }
 
+  // --- Widgets Auxiliares ---
   static pw.Widget _buildDataRow(
     String label,
     String value, {
     bool isBold = false,
   }) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 2),
+      padding: const pw.EdgeInsets.symmetric(vertical: 3),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
-          pw.Text(label, style: const pw.TextStyle(color: PdfColors.grey700)),
+          pw.Text(
+            label,
+            style: const pw.TextStyle(color: PdfColors.grey700, fontSize: 10),
+          ),
           pw.Text(
             value,
             style: pw.TextStyle(
               fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+              fontSize: 10,
             ),
           ),
         ],
