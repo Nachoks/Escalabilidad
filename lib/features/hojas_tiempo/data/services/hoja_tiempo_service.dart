@@ -116,4 +116,20 @@ class HojaTiempoService {
     }
     throw Exception('Error al cargar el detalle de la hoja');
   }
+
+  Future<bool> guardarDia(int idHojaDiaria, Map<String, dynamic> data) async {
+    final url = Uri.parse('$_baseUrl/hoja-tiempo/dia/$idHojaDiaria/guardar');
+    final response = await http.post(
+      url,
+      headers: await _getHeaders(),
+      body: jsonEncode(data),
+    );
+
+    if (response.statusCode == 200) {
+      return true;
+    } else {
+      debugPrint("Error al guardar día: ${response.body}");
+      throw Exception('Error al guardar el día');
+    }
+  }
 }

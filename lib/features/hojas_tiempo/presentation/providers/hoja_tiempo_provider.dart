@@ -79,4 +79,28 @@ class HojaTiempoProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<bool> actualizarDia(
+    int idHojaDiaria,
+    Map<String, dynamic> data,
+  ) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final exito = await _service.guardarDia(idHojaDiaria, data);
+
+      // Si se guardó bien, recargamos la semana para ver el día actualizado
+      if (exito && _hojaSeleccionada != null) {
+        await cargarDetalleHoja(_hojaSeleccionada!.idHojaSemana!);
+      }
+      return exito;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 }

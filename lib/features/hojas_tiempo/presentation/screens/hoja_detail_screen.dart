@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
+import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/hoja_dia_screen.dart';
 import '../providers/hoja_tiempo_provider.dart';
 
 class HojaDetailScreen extends StatefulWidget {
@@ -170,7 +171,14 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                                 size: 16,
                               ),
                               onTap: () {
-                                // TODO: Navegar a la pantalla para editar el día
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => HojaDiaEditScreen(
+                                      dia: dia,
+                                    ), // <-- ¡AQUÍ ESTÁ EL ERROR!
+                                  ),
+                                );
                               },
                             ),
                           );
