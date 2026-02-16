@@ -19,10 +19,10 @@ class HojaTiempoActividad extends Model
         'descripcion',
         'horas_habiles',
         'horas_no_habiles',
-        'horas_festivas'
+        'horas_festivas',
     ];
 
-    // Relación hacia el Padre (El Día)
+    // Relación hacia el padre (Día)
     public function dia()
     {
         return $this->belongsTo(HojaTiempoDiaria::class, 'id_hoja_diaria', 'id_hoja_diaria');

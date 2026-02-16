@@ -29,18 +29,25 @@ Route::get('/ping', function () {
 // Acceso a imágenes de evidencia (Ruta pública controlada)
 Route::get('evidencia/{ruta}', [GastoController::class, 'verEvidencia'])
     ->where('ruta', '.*');
-Route::post('/hoja-tiempo/crear', [HojaTiempoController::class, 'crearSemana']);
-Route::post('/hoja-tiempo/mis-hojas', [HojaTiempoController::class, 'misHojas']);
-Route::get('/hoja-tiempo/{id}/detalle', [HojaTiempoController::class, 'detalleHoja']);
-Route::post('/hoja-tiempo/dia/{id}/guardar', [HojaTiempoController::class, 'guardarDia']);
-Route::get('/dropdowns/clientes', [HojaTiempoController::class, 'getClientes']);
-Route::get('/dropdowns/clientes/{id}/servicios', [HojaTiempoController::class, 'getServiciosPorCliente']);
-Route::get('/dropdowns/servicios/{id}/ocs', [HojaTiempoController::class, 'getOcsPorServicio']);
+
 /*
 |--------------------------------------------------------------------------
 | RUTAS PROTEGIDAS (Requieren Token Bearer)
 |--------------------------------------------------------------------------
 */
+    // Dropdowns para el Modal
+    Route::prefix('dropdowns')->group(function () {
+        Route::get('/clientes', [HojaTiempoController::class, 'getClientes']);
+        Route::get('/clientes/{id_cliente}/servicios', [HojaTiempoController::class, 'getServiciosPorCliente']);
+        Route::get('/servicios/{id_servicio}/ocs', [HojaTiempoController::class, 'getOcsPorServicio']);
+    });
+
+    Route::prefix('hoja-tiempo')->group(function () {
+        Route::post('/crear', [HojaTiempoController::class, 'crearSemana']);
+        Route::post('/mis-hojas', [HojaTiempoController::class, 'misHojas']);
+        Route::get('/{id_hoja_semana}/detalle', [HojaTiempoController::class, 'detalleHoja']);
+        Route::post('/dia/{id_hoja_diaria}/guardar', [HojaTiempoController::class, 'guardarDia']);
+    });
 Route::middleware('auth:sanctum')->group(function () {
 
     // =================================================================
@@ -143,7 +150,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/rendiciones/{id}/finalizar', [RendicionController::class, 'finalizarValidacion']);
         Route::patch('/gastos/{id}/evaluar', [GastoController::class, 'evaluarGasto']);
     });
-    
+
 
 
 });

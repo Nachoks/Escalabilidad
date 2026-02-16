@@ -19,16 +19,16 @@ class HojaTiempoDiaria extends Model
         'tipo_dia',
         'horario_inicio',
         'horario_fin',
-        'viaje_horas'
+        'viaje_horas',
     ];
 
-    // Relación hacia el Padre (La Semana)
+    // Relación hacia el padre (Semana)
     public function semana()
     {
         return $this->belongsTo(HojaTiempoSemana::class, 'id_hoja_semana', 'id_hoja_semana');
     }
 
-    // Relación hacia los Hijos (Las Actividades o Tramos de trabajo)
+    // Relación hacia los nietos (Actividades)
     public function actividades()
     {
         return $this->hasMany(HojaTiempoActividad::class, 'id_hoja_diaria', 'id_hoja_diaria');

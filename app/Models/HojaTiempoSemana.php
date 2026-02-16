@@ -9,45 +9,37 @@ class HojaTiempoSemana extends Model
 {
     use HasFactory;
 
-    // 1. Especificar nombre de tabla y llave primaria personalizada
     protected $table = 'hojas_tiempo_semanas';
     protected $primaryKey = 'id_hoja_semana';
 
-    // 2. Campos permitidos para guardar masivamente
     protected $fillable = [
         'id_usuario',
         'id_servicio',
         'id_oc_cliente',
+        'numero_hct',
+        'nombre_comprobante',
         'centro_costo',
         'numero_semana',
         'fecha_inicio',
         'fecha_fin',
-        'estado'
+        'estado',
     ];
 
-    // ================= RELACIONES HACIA ARRIBA =================
-
-    public function usuario()
+    // Relación hacia los días (1 Semana tiene 7 Días)
+    public function dias()
     {
-        // NOTA: Cambia "User::class" por "Personal::class" o el modelo que uses para tus usuarios
-        return $this->belongsTo(User::class, 'id_usuario', 'id_usuario');
+        return $this->hasMany(HojaTiempoDiaria::class, 'id_hoja_semana', 'id_hoja_semana');
     }
 
+    // Relación hacia el Servicio (Para poder traer el nombre y correlativo fácilmente)
     public function servicio()
     {
         return $this->belongsTo(Servicio::class, 'id_servicio', 'id_servicio');
     }
 
+    // Relación hacia la OC
     public function ocCliente()
     {
         return $this->belongsTo(OcCliente::class, 'id_oc_cliente', 'id_oc_cliente');
-    }
-
-    // ================= RELACIONES HACIA ABAJO =================
-
-    public function dias()
-    {
-        // Una semana tiene 7 días
-        return $this->hasMany(HojaTiempoDiaria::class, 'id_hoja_semana', 'id_hoja_semana');
     }
 }
