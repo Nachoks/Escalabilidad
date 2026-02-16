@@ -14,6 +14,9 @@ import 'package:somnolence_app/features/rendiciones/presentation/screens/gestion
 import 'package:somnolence_app/features/rendiciones/presentation/screens/validator_dashboar_screen.dart';
 import 'control_salida_screen.dart';
 
+// --- NUEVA IMPORTACIÓN PARA HOJAS DE TIEMPO ---
+import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/hojas_list_screen.dart';
+
 class HomeDashboardScreen extends StatefulWidget {
   const HomeDashboardScreen({super.key});
 
@@ -196,6 +199,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       'page': const PerfilScreen(),
     });
 
+    // --- NUEVO BOTÓN: HOJAS DE TIEMPO (Para todos) ---
+    menuItems.add({
+      'title': 'Hojas de Tiempo',
+      'icon': Icons.access_time,
+      'color': Colors.deepPurple,
+      'page': const HojasListScreen(),
+    });
+
     // 2. CONTROL SALIDA (Solo si es conductor)
     if (esConductor) {
       menuItems.add({
@@ -208,7 +219,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
     // 3. LÓGICA DE RENDICIONES (Diferenciada)
     if (esAdmin || esValidador) {
-      // SOLO ADMIN ve Usuarios y Clientes (Opcional: Si quieres que el validador NO vea esto, déjalo dentro de un if(esAdmin) interno)
+      // SOLO ADMIN ve Usuarios y Clientes
       if (esAdmin) {
         menuItems.add({
           'title': 'Usuarios',

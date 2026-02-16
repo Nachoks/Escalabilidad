@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // <-- IMPORTANTE
 import 'package:somnolence_app/core/api/api_service.dart';
 import 'package:somnolence_app/features/auth/data/models/user_model.dart';
 // IMPORTANTE: Redirigimos al Dashboard, NO al test directo
@@ -25,7 +26,18 @@ class _LoginContentState extends State<_LoginContent> {
   final _formKey = GlobalKey<FormState>();
   final _usuarioController = TextEditingController();
   final _passwordController = TextEditingController();
+
+  // Instancia de Secure Storage
+  final _storage = const FlutterSecureStorage();
+
   bool _obscurePassword = true;
+  bool _recordarCredenciales = false; // <-- ESTADO DEL CHECKBOX
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarCredencialesGuardadas(); // Cargar al iniciar la pantalla
+  }
 
   @override
   void dispose() {
@@ -34,20 +46,48 @@ class _LoginContentState extends State<_LoginContent> {
     super.dispose();
   }
 
+  // --- LÓGICA PARA LEER CREDENCIALES ---
+  Future<void> _cargarCredencialesGuardadas() async {
+    try {
+      String? usuarioGuardado = await _storage.read(key: 'saved_username');
+      String? passwordGuardada = await _storage.read(key: 'saved_password');
+
+      if (usuarioGuardado != null && passwordGuardada != null) {
+        setState(() {
+          _usuarioController.text = usuarioGuardado;
+          _passwordController.text = passwordGuardada;
+          _recordarCredenciales = true;
+        });
+      }
+    } catch (e) {
+      print("Error leyendo credenciales seguras: $e");
+    }
+  }
+
+  // --- LÓGICA DE INICIO DE SESIÓN ---
   void _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = context.read<AuthProvider>();
 
+    final usuario = _usuarioController.text.trim();
+    final password = _passwordController.text;
+
     // 1. Ejecutar Login
-    final success = await authProvider.login(
-      _usuarioController.text.trim(),
-      _passwordController.text,
-    );
+    final success = await authProvider.login(usuario, password);
 
     if (!mounted) return;
 
     if (success) {
+      // 2. GUARDAR O BORRAR CREDENCIALES
+      if (_recordarCredenciales) {
+        await _storage.write(key: 'saved_username', value: usuario);
+        await _storage.write(key: 'saved_password', value: password);
+      } else {
+        await _storage.delete(key: 'saved_username');
+        await _storage.delete(key: 'saved_password');
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('¡Bienvenido!'),
@@ -139,6 +179,8 @@ class _LoginContentState extends State<_LoginContent> {
                     style: TextStyle(color: Colors.grey, fontSize: 16),
                   ),
                   const SizedBox(height: 40),
+
+                  // CAMPO USUARIO
                   TextFormField(
                     controller: _usuarioController,
                     enabled: !isLoading,
@@ -155,6 +197,8 @@ class _LoginContentState extends State<_LoginContent> {
                     validator: (v) => v!.isEmpty ? 'Ingresa tu usuario' : null,
                   ),
                   const SizedBox(height: 20),
+
+                  // CAMPO CONTRASEÑA
                   TextFormField(
                     controller: _passwordController,
                     enabled: !isLoading,
@@ -181,7 +225,44 @@ class _LoginContentState extends State<_LoginContent> {
                     validator: (v) =>
                         v!.isEmpty ? 'Ingresa tu contraseña' : null,
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 10),
+
+                  // CHECKBOX RECORDAR CONTRASEÑA
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _recordarCredenciales,
+                        activeColor: const Color(0xFFF35F34),
+                        onChanged: isLoading
+                            ? null
+                            : (bool? value) {
+                                setState(() {
+                                  _recordarCredenciales = value ?? false;
+                                });
+                              },
+                      ),
+                      GestureDetector(
+                        onTap: isLoading
+                            ? null
+                            : () {
+                                setState(() {
+                                  _recordarCredenciales =
+                                      !_recordarCredenciales;
+                                });
+                              },
+                        child: Text(
+                          "Recordar credenciales",
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // BOTÓN INGRESAR
                   SizedBox(
                     height: 50,
                     child: ElevatedButton(

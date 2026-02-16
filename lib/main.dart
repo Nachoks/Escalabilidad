@@ -11,6 +11,7 @@ import 'package:somnolence_app/features/auth/presentation/providers/auth_provide
 import 'package:somnolence_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:somnolence_app/features/auth/data/models/user_model.dart';
 import 'package:somnolence_app/features/dashboard/presentation/screens/home_dashboard_screen.dart';
+import 'package:somnolence_app/features/hojas_tiempo/presentation/providers/hoja_tiempo_provider.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/gasto_provider.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/rendiciones_provider.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
@@ -32,6 +33,7 @@ void main() async {
         ),
         ChangeNotifierProvider(create: (_) => RendicionesProvider()),
         ChangeNotifierProvider(create: (_) => GastoProvider()),
+        ChangeNotifierProvider(create: (_) => HojaTiempoProvider()),
       ],
       child: const MyApp(),
     ),
