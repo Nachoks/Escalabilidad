@@ -463,7 +463,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
 
     final bool puedeImprimir =
         widget.soloLectura ||
-        ['Pagada', 'Aprobada'].contains(widget.rendicion.estado);
+        ['Enviada', 'Pagada', 'Aprobada'].contains(widget.rendicion.estado);
 
     return Scaffold(
       backgroundColor: AppColors.background,

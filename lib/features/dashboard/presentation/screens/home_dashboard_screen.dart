@@ -41,10 +41,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     }
   }
 
-  /// ------------------------------------------------------------
-  /// MENÚ DESPLEGABLE (POPUP) PARA EL ADMIN
-  /// Aquí aparecen los 3 botones agrupados
-  /// ------------------------------------------------------------
   void _mostrarMenuRendicionesAdmin(BuildContext context, int pendientes) {
     showModalBottomSheet(
       context: context,
@@ -190,10 +186,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     final bool esConductor = user.esConductor;
     final bool esAdmin = user.esAdmin;
     final bool esValidador = user.esValidador;
-
-    // ------------------------------------------------------
-    // CONSTRUCCIÓN DE LA LISTA DE BOTONES SEGÚN EL ROL
-    // ------------------------------------------------------
     final List<Map<String, dynamic>> menuItems = [];
 
     // 1. MI PERFIL (Para todos)
@@ -366,16 +358,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                                         RoleHelper.getIconForRole(rol),
                                         color: Colors.white70,
                                         size: 14,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        rol.toUpperCase(),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 0.5,
-                                        ),
                                       ),
                                     ],
                                   ),

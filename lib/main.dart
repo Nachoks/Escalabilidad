@@ -18,10 +18,7 @@ import 'package:onesignal_flutter/onesignal_flutter.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = MyHttpOverrides();
-  // 1. INICIALIZAR NOTIFICACIONES (Aquí ocurre la magia del canal)
   await NotificationService.init();
-
-  // 2. Inicializar API
   await ApiService.inicializarConexion();
 
   runApp(
@@ -57,8 +54,6 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const SplashScreen(), // Pantalla inicial
-      // --- AGREGA ESTO ---
-      // Definimos los nombres de las rutas para que AuthService las encuentre
       routes: {
         '/login': (context) => const LoginScreen(),
         '/home': (context) => const HomeDashboardScreen(),
@@ -81,7 +76,6 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _iniciarApp() async {
-    // Damos un tiempo para que OneSignal termine de conectar
     await Future.delayed(const Duration(seconds: 3));
     _checkSession();
   }
@@ -98,7 +92,6 @@ class _SplashScreenState extends State<SplashScreen> {
       if (!mounted) return;
 
       if (tokenEsValido) {
-        // --- TODO OK ---
         final userData = await ApiService.getUsuarioLocal();
         if (userData != null && userData.isNotEmpty) {
           final user = User.fromJson(userData);
@@ -123,13 +116,7 @@ class _SplashScreenState extends State<SplashScreen> {
       } else {
         // --- TOKEN INVÁLIDO (MIGRATE:FRESH) ---
         print("🚨 Token inválido. Ejecutando Logout...");
-
-        // CORRECCIÓN AQUÍ:
-        // Solo llamamos al logout. NO llamamos a _irAlLogin() después.
-        // AuthService.logout() ya tiene la redirección interna con navigatorKey.
         await ApiService.logout();
-
-        // ¡NO AGREGUES NADA MÁS AQUÍ!
       }
     } else {
       _irAlLogin();
