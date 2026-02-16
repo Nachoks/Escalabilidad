@@ -1,4 +1,5 @@
 class HojaTiempoSemana {
+  final String? nombreCliente;
   final int? idHojaSemana;
   final int idUsuario;
   final int idServicio;
@@ -31,6 +32,7 @@ class HojaTiempoSemana {
     this.servicio,
     this.ocCliente,
     this.dias,
+    this.nombreCliente,
   });
 
   factory HojaTiempoSemana.fromJson(Map<String, dynamic> json) {
@@ -47,6 +49,7 @@ class HojaTiempoSemana {
       fechaFin: json['fecha_fin'],
       estado: json['estado'] ?? 'Borrador',
       servicio: json['servicio'],
+      nombreCliente: json['nombre_cliente'] ?? 'Cliente Desconocido',
       ocCliente:
           json['oc_cliente'], // Ojo: en Laravel la relación se llama ocCliente, pero a veces Eloquent lo pasa a snake_case en JSON.
       dias: json['dias'] != null

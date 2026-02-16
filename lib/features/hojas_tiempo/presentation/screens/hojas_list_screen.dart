@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/auth/presentation/providers/auth_provider.dart';
+import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/hoja_detail_screen.dart';
 import '../providers/hoja_tiempo_provider.dart';
 import '../widgets/modal_crear_semana.dart';
 
@@ -39,7 +40,7 @@ class _HojasListScreenState extends State<HojasListScreen> {
       appBar: AppBar(
         title: const Text(
           "Mis Hojas de Tiempo",
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         backgroundColor: AppColors.primary,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -105,7 +106,14 @@ class _HojasListScreenState extends State<HojasListScreen> {
                     children: [
                       const SizedBox(height: 8),
                       Text(
-                        "Servicio: $nombreServicio",
+                        "Cliente: ${hoja.nombreCliente}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      Text(
+                        "$nombreServicio",
                         style: TextStyle(
                           color: Colors.grey[800],
                           fontWeight: FontWeight.w500,
@@ -114,12 +122,12 @@ class _HojasListScreenState extends State<HojasListScreen> {
                       Text(
                         "Periodo: ${_formatFecha(hoja.fechaInicio)} al ${_formatFecha(hoja.fechaFin)}",
                         style: TextStyle(
-                          color: Colors.grey[800],
-                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
-                        "Semana del año: ${hoja.numeroSemana}",
+                        "Semana: ${hoja.numeroSemana}",
                         style: TextStyle(
                           color: Colors.grey[800],
                           fontWeight: FontWeight.w500,
@@ -150,7 +158,16 @@ class _HojasListScreenState extends State<HojasListScreen> {
                     ),
                   ),
                   onTap: () {
-                    // TODO: Navegar a HojaDetailScreen
+                    if (hoja.idHojaSemana != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => HojaDetailScreen(
+                            idHojaSemana: hoja.idHojaSemana!,
+                          ),
+                        ),
+                      );
+                    }
                   },
                 ),
               );

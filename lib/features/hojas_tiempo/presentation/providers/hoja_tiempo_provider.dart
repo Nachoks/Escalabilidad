@@ -4,6 +4,8 @@ import '../../data/services/hoja_tiempo_service.dart';
 
 class HojaTiempoProvider extends ChangeNotifier {
   final HojaTiempoService _service = HojaTiempoService();
+  HojaTiempoSemana? _hojaSeleccionada;
+  HojaTiempoSemana? get hojaSeleccionada => _hojaSeleccionada;
 
   List<HojaTiempoSemana> _hojas = [];
   bool _isLoading = false;
@@ -56,6 +58,22 @@ class HojaTiempoProvider extends ChangeNotifier {
     } catch (e) {
       _errorMessage = e.toString().replaceAll("Exception: ", "");
       return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> cargarDetalleHoja(int idHojaSemana) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      _hojaSeleccionada = await _service.obtenerDetalleHoja(idHojaSemana);
+    } catch (e) {
+      _errorMessage = "Error al cargar los 7 días";
+      debugPrint(e.toString());
     } finally {
       _isLoading = false;
       notifyListeners();

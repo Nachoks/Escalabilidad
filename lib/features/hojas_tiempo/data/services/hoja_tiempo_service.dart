@@ -105,4 +105,15 @@ class HojaTiempoService {
       throw Exception(errorData['message'] ?? 'Error al crear la semana');
     }
   }
+
+  Future<HojaTiempoSemana> obtenerDetalleHoja(int idHojaSemana) async {
+    final url = Uri.parse('$_baseUrl/hoja-tiempo/$idHojaSemana/detalle');
+    final response = await http.get(url, headers: await _getHeaders());
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body)['data'];
+      return HojaTiempoSemana.fromJson(data);
+    }
+    throw Exception('Error al cargar el detalle de la hoja');
+  }
 }
