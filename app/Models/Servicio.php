@@ -61,4 +61,9 @@ class Servicio extends Model
     {
         return $this->hasMany(Rendicion::class, 'id_servicio', 'id_servicio');
     }
+    
+    public function hojasDeTiempo()
+    {
+        return $this->hasMany(HojaTiempoSemana::class, 'id_servicio', 'id_servicio');
+    }
 }

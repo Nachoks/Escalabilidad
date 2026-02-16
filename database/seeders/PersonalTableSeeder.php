@@ -45,12 +45,12 @@ class PersonalTableSeeder extends Seeder
             array (
                 'id_personal' => 3,
                 'nombre_personal' => 'Camilo',
-                'apellido_personal' => 'Arenas',
+                'apellido_personal' => 'Arenas Caiceo',
                 'rut' => '14.567.890-1',
                 'id_empresa' => 1,
                 'correo' => 'camilo.arenas.c@iaaspa.cl',
                 'created_at' => '2026-02-03 19:34:10',
-                'updated_at' => '2026-02-03 19:34:10',
+                'updated_at' => '2026-02-13 00:57:21',
             ),
             3 => 
             array (

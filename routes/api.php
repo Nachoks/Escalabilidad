@@ -14,6 +14,7 @@ use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\VehiculoController;
 use App\Http\Controllers\ViajeController;
+use App\Http\Controllers\HojaTiempoController;
 
 /*
 |--------------------------------------------------------------------------
@@ -25,12 +26,16 @@ Route::post('/viajes/registrar', [ViajeController::class, 'registrar']);
 Route::get('/ping', function () {
     return response()->json(['status' => 'ok']);
 });
-
 // Acceso a imágenes de evidencia (Ruta pública controlada)
 Route::get('evidencia/{ruta}', [GastoController::class, 'verEvidencia'])
     ->where('ruta', '.*');
-
-
+Route::post('/hoja-tiempo/crear', [HojaTiempoController::class, 'crearSemana']);
+Route::post('/hoja-tiempo/mis-hojas', [HojaTiempoController::class, 'misHojas']);
+Route::get('/hoja-tiempo/{id}/detalle', [HojaTiempoController::class, 'detalleHoja']);
+Route::post('/hoja-tiempo/dia/{id}/guardar', [HojaTiempoController::class, 'guardarDia']);
+Route::get('/dropdowns/clientes', [HojaTiempoController::class, 'getClientes']);
+Route::get('/dropdowns/clientes/{id}/servicios', [HojaTiempoController::class, 'getServiciosPorCliente']);
+Route::get('/dropdowns/servicios/{id}/ocs', [HojaTiempoController::class, 'getOcsPorServicio']);
 /*
 |--------------------------------------------------------------------------
 | RUTAS PROTEGIDAS (Requieren Token Bearer)
@@ -138,6 +143,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/rendiciones/{id}/finalizar', [RendicionController::class, 'finalizarValidacion']);
         Route::patch('/gastos/{id}/evaluar', [GastoController::class, 'evaluarGasto']);
     });
+    
+
 
 });
 
