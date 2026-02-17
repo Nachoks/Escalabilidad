@@ -246,4 +246,45 @@ class HojaTiempoController extends Controller
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
+
+    public function pendientesAdmin()
+{
+    $hojas = \App\Models\HojaTiempoSemana::select('hojas_tiempo_semanas.*', 'cliente.nombre_cliente')
+        ->join('servicio', 'hojas_tiempo_semanas.id_servicio', '=', 'servicio.id_servicio')
+        ->join('cliente', 'servicio.id_cliente', '=', 'cliente.id_cliente')
+        ->with(['servicio', 'ocCliente'])
+        ->where('hojas_tiempo_semanas.estado', 'Enviada')
+        ->orderBy('hojas_tiempo_semanas.updated_at', 'asc')
+        ->get();
+
+    return response()->json(['success' => true, 'data' => $hojas]);
+}
+
+public function evaluarHoja(Request $request, $id)
+{
+    $request->validate([
+        'estado' => 'required|in:Aprobada,Rechazada',
+        'observacion' => 'nullable|string'
+    ]);
+
+    try {
+        $hoja = \App\Models\HojaTiempoSemana::findOrFail($id);
+        $hoja->estado = $request->estado;
+        
+        if ($request->filled('observacion')) {
+            $hoja->observacion = $request->observacion;
+        }
+
+        $hoja->save();
+
+        return response()->json([
+            'success' => true, 
+            'message' => 'Hoja evaluada',
+            'data' => $hoja
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+    }
+}
 }

@@ -56,6 +56,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/usuarios/{id}/estado', [AdminController::class, 'cambiarEstadoUsuario']);
         Route::get('/empresas', [AdminController::class, 'listarEmpresas']);
         Route::get('/areas', [AreaController::class, 'index']);
+        
+        // --- AQUÍ ESTÁ LA CORRECCIÓN ---
+        Route::prefix('hoja-tiempo')->group(function () {
+            Route::get('/pendientes', [HojaTiempoController::class, 'pendientesAdmin']);
+            Route::post('/{id}/evaluar', [HojaTiempoController::class, 'evaluarHoja']);
+        });
     });
     
     // Dropdowns y Utilitarios
@@ -137,8 +143,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/rendiciones/{id}/finalizar', [RendicionController::class, 'finalizarValidacion']);
         Route::patch('/gastos/{id}/evaluar', [GastoController::class, 'evaluarGasto']);
     });
-    Route::post('/hoja-tiempo/{id}/enviar', [HojaTiempoController::class, 'enviarSemana']);
-        Route::prefix('dropdowns')->group(function () {
+
+    Route::prefix('dropdowns')->group(function () {
         Route::get('/clientes', [HojaTiempoController::class, 'getClientes']);
         Route::get('/clientes/{id_cliente}/servicios', [HojaTiempoController::class, 'getServiciosPorCliente']);
         Route::get('/servicios/{id_servicio}/ocs', [HojaTiempoController::class, 'getOcsPorServicio']);
