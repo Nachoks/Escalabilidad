@@ -86,12 +86,10 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
     return diff / 60.0;
   }
 
-  // --- NUEVA LÓGICA: DETECCIÓN DE CRUCE DE HORARIOS ---
   bool _haySuperposicion(TimeOfDay nuevoInicio, TimeOfDay nuevoFin) {
     int nuevoInMin = nuevoInicio.hour * 60 + nuevoInicio.minute;
     int nuevoFinMin = nuevoFin.hour * 60 + nuevoFin.minute;
 
-    // Si cruza la medianoche, sumamos 24h
     if (nuevoFinMin <= nuevoInMin) nuevoFinMin += 1440;
 
     for (var act in _actividades) {
@@ -100,8 +98,6 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
 
       if (existFinMin <= existInMin) existFinMin += 1440;
 
-      // REGLA: Si el inicio del nuevo es menor al fin del existente,
-      // Y el fin del nuevo es mayor al inicio del existente -> CHOCAN
       if (nuevoInMin < existFinMin && nuevoFinMin > existInMin) {
         return true;
       }
@@ -151,10 +147,11 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
     );
     if (picked != null) {
       setState(() {
-        if (isInicio)
+        if (isInicio) {
           _horarioInicio = picked;
-        else
+        } else {
           _horarioFin = picked;
+        }
       });
     }
   }
@@ -165,7 +162,7 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
     final descController = TextEditingController();
 
     bool errorDescripcion = false;
-    String? errorCruce; // Variable para mostrar el error de choque de horas
+    String? errorCruce;
 
     showDialog(
       context: context,
@@ -186,12 +183,12 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
               );
               if (picked != null) {
                 setModalState(() {
-                  if (isInicio)
+                  if (isInicio) {
                     inicio = picked;
-                  else
+                  } else {
                     fin = picked;
-                  errorCruce =
-                      null; // Si el usuario cambia la hora, borramos el error previo
+                  }
+                  errorCruce = null;
                 });
                 setState(() {});
               }
@@ -259,8 +256,6 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                         ),
                       ],
                     ),
-
-                    // --- MOSTRAR MENSAJE DE ERROR SI CHOCAN LAS HORAS ---
                     if (errorCruce != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
@@ -273,7 +268,6 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                           ),
                         ),
                       ),
-
                     const SizedBox(height: 16),
                     TextField(
                       controller: descController,
@@ -303,7 +297,6 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                     backgroundColor: AppColors.primary,
                   ),
                   onPressed: () {
-                    // Validación 1: Descripción obligatoria
                     if (descController.text.trim().isEmpty) {
                       setModalState(() => errorDescripcion = true);
                       return;
@@ -311,16 +304,14 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                       setModalState(() => errorDescripcion = false);
                     }
 
-                    // Validación 2: Superposición de horas
                     if (_haySuperposicion(inicio, fin)) {
                       setModalState(() {
                         errorCruce =
                             "Este horario se cruza con un tramo ya registrado.";
                       });
-                      return; // Detiene el guardado, no cierra el modal
+                      return;
                     }
 
-                    // Si pasa las validaciones, se guarda
                     setState(() {
                       _actividades.add(
                         ActividadTramo(
@@ -330,7 +321,7 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                         ),
                       );
                     });
-                    Navigator.pop(context); // Cierra el modal
+                    Navigator.pop(context);
                   },
                   child: const Text(
                     "Agregar",
@@ -397,6 +388,52 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
     }
   }
 
+  // --- NUEVO MÉTODO: CUADRO DE CONFIRMACIÓN AL VOLVER ---
+  Future<bool?> _mostrarDialogoConfirmacionSalida() {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange.shade800),
+            const SizedBox(width: 8),
+            Text(
+              "¿Descartar cambios?",
+              style: TextStyle(
+                color: Colors.orange.shade900,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          "¿Estás seguro de que deseas volver? Todos los datos de este día que no hayas guardado se perderán.",
+          style: TextStyle(color: Colors.black87),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false), // No salir
+            child: const Text("Cancelar", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () => Navigator.pop(context, true), // Sí, salir
+            child: const Text(
+              "Salir sin guardar",
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     double sumHabiles = 0;
@@ -412,357 +449,368 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
       sumTotal += _calcularHorasBrutas(a.horaInicio, a.horaFin);
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          "Día: ${widget.dia.fecha.day}/${widget.dia.fecha.month}",
-          style: const TextStyle(color: Colors.white),
+    // Usamos WillPopScope para interceptar el botón de retroceso físico y el de la AppBar
+    return WillPopScope(
+      onWillPop: () async {
+        // Mostramos el popup de confirmación
+        final salir = await _mostrarDialogoConfirmacionSalida();
+        // Si salir es 'true', permite el pop; de lo contrario lo bloquea.
+        return salir ?? false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            "Día: ${widget.dia.fecha.day}/${widget.dia.fecha.month}",
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          backgroundColor: AppColors.primary,
+          iconTheme: const IconThemeData(color: Colors.white),
         ),
-        backgroundColor: AppColors.primary,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Configuración del Día",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Configuración del Día",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      labelText: "Lugar",
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      decoration: InputDecoration(
+                        labelText: "Lugar",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                        ),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                      ),
-                    ),
-                    value: _lugar,
-                    items: ['OFICINA', 'TERRENO', 'DESCANSO']
-                        .map(
-                          (e) => DropdownMenuItem(
-                            value: e,
-                            child: Text(
-                              e,
-                              style: const TextStyle(fontSize: 14),
+                      value: _lugar,
+                      items: ['OFICINA', 'TERRENO', 'DESCANSO']
+                          .map(
+                            (e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(
+                                e,
+                                style: const TextStyle(fontSize: 14),
+                              ),
                             ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (val) => setState(() => _lugar = val!),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      labelText: "Tipo Día",
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                      ),
+                          )
+                          .toList(),
+                      onChanged: (val) => setState(() => _lugar = val!),
                     ),
-                    value: _tipoDia,
-                    items: ['HABIL', 'NO_HABIL', 'FERIADO']
-                        .map(
-                          (e) => DropdownMenuItem(
-                            value: e,
-                            child: Text(
-                              e.replaceAll('_', ' '),
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (val) => setState(() => _tipoDia = val!),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      decoration: InputDecoration(
+                        labelText: "Tipo Día",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                        ),
+                      ),
+                      value: _tipoDia,
+                      items: ['HABIL', 'NO_HABIL', 'FERIADO']
+                          .map(
+                            (e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(
+                                e.replaceAll('_', ' '),
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (val) => setState(() => _tipoDia = val!),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
 
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.05),
-                border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                borderRadius: BorderRadius.circular(10),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.05),
+                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Horario Base (Normal)",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => _seleccionarHorarioBase(true),
+                            child: InputDecorator(
+                              decoration: const InputDecoration(
+                                labelText: "Entrada",
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
+                              ),
+                              child: Text(
+                                _formatTime(_horarioInicio),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Text("-", style: TextStyle(fontSize: 20)),
+                        ),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => _seleccionarHorarioBase(false),
+                            child: InputDecorator(
+                              decoration: const InputDecoration(
+                                labelText: "Salida",
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
+                              ),
+                              child: Text(
+                                _formatTime(_horarioFin),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 16),
+
+              TextFormField(
+                controller: _viajeController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: "Horas de Viaje (Ej: 1.5)",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  prefixIcon: const Icon(Icons.directions_car),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        "Resumen de Horas (Trabajo)",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _BuildResumenItem("Hábiles", sumHabiles, Colors.blue),
+                          _BuildResumenItem(
+                            "No Hábiles",
+                            sumNoHabiles,
+                            Colors.orange,
+                          ),
+                          _BuildResumenItem("Feriado", sumFestivas, Colors.red),
+                          _BuildResumenItem("Total", sumTotal, Colors.green),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Divider(thickness: 2),
+              ),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    "Horario Base (Normal)",
+                    "Tramos de Trabajo",
                     style: TextStyle(
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: AppColors.primary,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => _seleccionarHorarioBase(true),
-                          child: InputDecorator(
-                            decoration: const InputDecoration(
-                              labelText: "Entrada",
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
-                              ),
-                            ),
-                            child: Text(
-                              _formatTime(_horarioInicio),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text("-", style: TextStyle(fontSize: 20)),
-                      ),
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => _seleccionarHorarioBase(false),
-                          child: InputDecorator(
-                            decoration: const InputDecoration(
-                              labelText: "Salida",
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
-                              ),
-                            ),
-                            child: Text(
-                              _formatTime(_horarioFin),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: _mostrarPopupActividad,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text("Agregar"),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 10),
 
-            TextFormField(
-              controller: _viajeController,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              decoration: InputDecoration(
-                labelText: "Horas de Viaje (Ej: 1.5)",
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                prefixIcon: const Icon(Icons.directions_car),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(10),
-                      ),
-                    ),
-                    child: const Text(
-                      "Resumen de Horas (Trabajo)",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _BuildResumenItem("Hábiles", sumHabiles, Colors.blue),
-                        _BuildResumenItem(
-                          "No Hábiles",
-                          sumNoHabiles,
-                          Colors.orange,
-                        ),
-                        _BuildResumenItem("Feriado", sumFestivas, Colors.red),
-                        _BuildResumenItem("Total", sumTotal, Colors.green),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Divider(thickness: 2),
-            ),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  "Tramos de Trabajo",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: _mostrarPopupActividad,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text("Agregar"),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-
-            if (_actividades.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Text(
-                  "No hay actividades. Presiona 'Agregar' para registrar tu trabajo.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ),
-
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _actividades.length,
-              itemBuilder: (context, index) {
-                final act = _actividades[index];
-                final desglose = _desglosarHorasTramo(
-                  act.horaInicio,
-                  act.horaFin,
-                );
-
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(
+              if (_actividades.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(10),
-                    side: BorderSide(color: Colors.grey.shade200),
                   ),
-                  elevation: 0,
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 4,
-                    ),
-                    title: Row(
-                      children: [
-                        Text(
-                          "${_formatTime(act.horaInicio)} - ${_formatTime(act.horaFin)}",
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        const Spacer(),
-                        if (desglose['habiles']! > 0)
-                          _Badge(
-                            "${desglose['habiles']!.toStringAsFixed(1)}h",
-                            Colors.blue,
-                          ),
-                        if (desglose['noHabiles']! > 0)
-                          _Badge(
-                            "${desglose['noHabiles']!.toStringAsFixed(1)}h",
-                            Colors.orange,
-                          ),
-                        if (desglose['festivas']! > 0)
-                          _Badge(
-                            "${desglose['festivas']!.toStringAsFixed(1)}h",
-                            Colors.red,
-                          ),
-                      ],
-                    ),
-                    subtitle: Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(act.descripcion),
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _eliminarActividad(index),
-                    ),
+                  child: const Text(
+                    "No hay actividades. Presiona 'Agregar' para registrar tu trabajo.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey),
                   ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
+                ),
 
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _actividades.length,
+                itemBuilder: (context, index) {
+                  final act = _actividades[index];
+                  final desglose = _desglosarHorasTramo(
+                    act.horaInicio,
+                    act.horaFin,
+                  );
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    elevation: 0,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
+                      title: Row(
+                        children: [
+                          Text(
+                            "${_formatTime(act.horaInicio)} - ${_formatTime(act.horaFin)}",
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const Spacer(),
+                          if (desglose['habiles']! > 0)
+                            _Badge(
+                              "${desglose['habiles']!.toStringAsFixed(1)}h",
+                              Colors.blue,
+                            ),
+                          if (desglose['noHabiles']! > 0)
+                            _Badge(
+                              "${desglose['noHabiles']!.toStringAsFixed(1)}h",
+                              Colors.orange,
+                            ),
+                          if (desglose['festivas']! > 0)
+                            _Badge(
+                              "${desglose['festivas']!.toStringAsFixed(1)}h",
+                              Colors.red,
+                            ),
+                        ],
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(act.descripcion),
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _eliminarActividad(index),
+                      ),
+                    ),
+                  );
+                },
               ),
+            ],
+          ),
+        ),
+        bottomNavigationBar: SafeArea(
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: _isSaving ? null : _guardarCambios,
+              child: _isSaving
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text(
+                      "GUARDAR DÍA",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
             ),
-            onPressed: _isSaving ? null : _guardarCambios,
-            child: _isSaving
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Text(
-                    "GUARDAR DÍA",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
           ),
         ),
       ),

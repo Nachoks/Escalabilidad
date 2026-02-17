@@ -52,7 +52,6 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
     return diff / 60.0;
   }
 
-  // --- NUEVA FUNCIÓN: POPUP PARA ENVIAR CON OBSERVACIÓN ---
   void _mostrarDialogoEnvio(BuildContext context, int idHoja) {
     final TextEditingController obsController = TextEditingController();
     bool isSubmitting = false;
@@ -99,7 +98,7 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      hintText: "Ej: Vehículo averiado el martes...",
+                      hintText: "Ej: Corregí las horas del martes...",
                     ),
                   ),
                 ],
@@ -221,11 +220,11 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                 TimeOfDay tFin = _parseTime(act.horaFin);
                 double totalTramo = _calcularHorasBrutas(tInicio, tFin);
 
-                if (tipoDia == 'FERIADO')
+                if (tipoDia == 'FERIADO') {
                   sumFestivas += totalTramo;
-                else if (tipoDia == 'NO_HABIL')
+                } else if (tipoDia == 'NO_HABIL') {
                   sumNoHabiles += totalTramo;
-                else {
+                } else {
                   int tramoI = tInicio.hour * 60 + tInicio.minute;
                   int tramoF = tFin.hour * 60 + tFin.minute;
                   if (tramoF < tramoI) tramoF += 1440;
@@ -252,8 +251,28 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
 
           double sumTotalTrabajo = sumHabiles + sumNoHabiles + sumFestivas;
 
-          // Verificamos si la hoja ya está enviada/aprobada para ocultar el botón
-          bool modoLectura = hoja.estado != 'Borrador';
+          // --- NUEVA LÓGICA DE LECTURA ---
+          // Solo bloqueamos la edición si está Enviada o Aprobada.
+          // Si está en Borrador o Rechazada, el loco puede editar.
+          bool modoLectura =
+              (hoja.estado == 'Enviada' || hoja.estado == 'Aprobada');
+
+          // Colores del Badge del Header
+          Color colorEstado;
+          IconData iconEstado;
+          if (hoja.estado == 'Aprobada') {
+            colorEstado = Colors.green;
+            iconEstado = Icons.check_circle;
+          } else if (hoja.estado == 'Rechazada') {
+            colorEstado = Colors.red;
+            iconEstado = Icons.cancel;
+          } else if (hoja.estado == 'Enviada') {
+            colorEstado = Colors.blue;
+            iconEstado = Icons.access_time_filled;
+          } else {
+            colorEstado = Colors.orange;
+            iconEstado = Icons.edit_document;
+          }
 
           return Column(
             children: [
@@ -299,18 +318,13 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    "${hoja.centroCosto}",
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.grey.shade700,
-                                    ),
-                                  ),
-                                ],
+                              Text(
+                                "${hoja.centroCosto}",
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey.shade700,
+                                ),
                               ),
                             ],
                           ),
@@ -322,29 +336,17 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: modoLectura
-                                ? Colors.green.shade50
-                                : Colors.orange.shade50,
+                            color: colorEstado.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: modoLectura
-                                  ? Colors.green.shade300
-                                  : Colors.orange.shade300,
+                              color: colorEstado.withOpacity(0.5),
                               width: 1.5,
                             ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                modoLectura
-                                    ? Icons.check_circle
-                                    : Icons.edit_document,
-                                size: 18,
-                                color: modoLectura
-                                    ? Colors.green.shade800
-                                    : Colors.orange.shade800,
-                              ),
+                              Icon(iconEstado, size: 18, color: colorEstado),
                               const SizedBox(width: 6),
                               Text(
                                 hoja.estado.toUpperCase(),
@@ -352,9 +354,7 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                                   fontWeight: FontWeight.w900,
                                   fontSize: 13,
                                   letterSpacing: 0.5,
-                                  color: modoLectura
-                                      ? Colors.green.shade800
-                                      : Colors.orange.shade800,
+                                  color: colorEstado,
                                 ),
                               ),
                             ],
@@ -365,6 +365,52 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                   ],
                 ),
               ),
+
+              // --- 1.5 ALERTA DE RECHAZO ---
+              if (hoja.estado == 'Rechazada' &&
+                  hoja.observacion != null &&
+                  hoja.observacion!.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    border: Border.all(color: Colors.red.shade300),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.red.shade800,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Motivo del Rechazo:",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red.shade800,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              hoja.observacion!,
+                              style: TextStyle(
+                                color: Colors.red.shade900,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
               // --- 2. TABLA DE RESUMEN SEMANAL ---
               Container(
@@ -418,7 +464,7 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                           ),
                           _BuildResumenItem("Feriado", sumFestivas, Colors.red),
                           _BuildResumenItem(
-                            "Trabajo",
+                            "Total",
                             sumTotalTrabajo,
                             Colors.green,
                           ),
@@ -470,7 +516,12 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                               ),
                               leading: CircleAvatar(
                                 backgroundColor: dia.tipoDia == 'HABIL'
-                                    ? AppColors.primary
+                                    ? Colors.blue
+                                    : dia.tipoDia == 'NO_HABIL'
+                                    ? Colors
+                                          .orange // Usamos naranjo/amarillo para mejor contraste con el texto blanco
+                                    : dia.tipoDia == 'FERIADO'
+                                    ? Colors.red
                                     : Colors.grey,
                                 child: Text(
                                   dia.fecha.day.toString(),
@@ -494,7 +545,7 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                                   Text("${dia.tipoDia} • ${dia.lugar}"),
                                   if (cantidadActividades > 0)
                                     Text(
-                                      "$cantidadActividades actividad(es) registrada(s)",
+                                      "$cantidadActividades actividad(es)",
                                       style: const TextStyle(
                                         color: Colors.green,
                                         fontWeight: FontWeight.w500,
@@ -537,12 +588,15 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
         },
       ),
 
-      // --- 4. BOTÓN INFERIOR FIJO (Se oculta si ya se envió) ---
+      // --- 4. BOTÓN INFERIOR FIJO ---
       bottomNavigationBar: Consumer<HojaTiempoProvider>(
         builder: (context, provider, child) {
           final hoja = provider.hojaSeleccionada;
-          if (hoja == null || hoja.estado != 'Borrador') {
-            return const SizedBox.shrink(); // Si no es borrador, ocultamos el botón
+
+          // Solo mostramos el botón si es Borrador o fue Rechazada
+          if (hoja == null ||
+              (hoja.estado != 'Borrador' && hoja.estado != 'Rechazada')) {
+            return const SizedBox.shrink();
           }
 
           return SafeArea(
@@ -568,9 +622,11 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                 ),
                 onPressed: () =>
                     _mostrarDialogoEnvio(context, hoja.idHojaSemana!),
-                child: const Text(
-                  "ENVIAR A VALIDAR",
-                  style: TextStyle(
+                child: Text(
+                  hoja.estado == 'Rechazada'
+                      ? "REENVIAR A VALIDAR"
+                      : "ENVIAR A VALIDAR",
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

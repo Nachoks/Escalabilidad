@@ -135,27 +135,48 @@ class _HojasListScreenState extends State<HojasListScreen> {
                       ),
                     ],
                   ),
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: hoja.estado == 'Borrador'
-                          ? Colors.orange.withOpacity(0.2)
-                          : Colors.green.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      hoja.estado,
-                      style: TextStyle(
-                        color: hoja.estado == 'Borrador'
-                            ? Colors.orange[800]
-                            : Colors.green[800],
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
+                  trailing: Builder(
+                    builder: (context) {
+                      Color colorFondo;
+                      Color colorTexto;
+
+                      switch (hoja.estado.toLowerCase()) {
+                        case 'aprobada':
+                          colorFondo = Colors.green.withOpacity(0.2);
+                          colorTexto = Colors.green[800]!;
+                          break;
+                        case 'rechazada':
+                          colorFondo = Colors.red.withOpacity(0.2);
+                          colorTexto = Colors.red[800]!;
+                          break;
+                        case 'enviada':
+                          colorFondo = Colors.blue.withOpacity(0.2);
+                          colorTexto = Colors.blue[800]!;
+                          break;
+                        default: // Borrador
+                          colorFondo = Colors.orange.withOpacity(0.2);
+                          colorTexto = Colors.orange[800]!;
+                      }
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorFondo,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          hoja.estado.toUpperCase(),
+                          style: TextStyle(
+                            color: colorTexto,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                   onTap: () {
                     if (hoja.idHojaSemana != null) {

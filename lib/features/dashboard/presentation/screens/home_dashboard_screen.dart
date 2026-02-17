@@ -13,9 +13,8 @@ import 'package:somnolence_app/features/rendiciones/presentation/screens/admin_h
 import 'package:somnolence_app/features/rendiciones/presentation/screens/gestion_rendiciones_screen.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/screens/validator_dashboar_screen.dart';
 import 'control_salida_screen.dart';
-
-// --- NUEVA IMPORTACIÓN PARA HOJAS DE TIEMPO ---
 import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/hojas_list_screen.dart';
+import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/admin_hoja_pendientes_screen.dart'; // <--- AGREGAR ESTA LÍNEA
 
 class HomeDashboardScreen extends StatefulWidget {
   const HomeDashboardScreen({super.key});
@@ -133,6 +132,76 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     );
   }
 
+  void _mostrarMenuHojasTiempoAdmin(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Text(
+              "Gestión de Hojas de Tiempo",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // 1. Validar Hojas (Solo Admin)
+            _buildListItem(
+              icon: Icons.fact_check_outlined,
+              color: Colors.green,
+              text: "Evaluar Hojas Pendientes",
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AdminHojasPendientesScreen(),
+                  ),
+                );
+              },
+            ),
+            const Divider(),
+
+            // 2. Mis propias hojas (Como usuario normal)
+            _buildListItem(
+              icon: Icons.access_time,
+              color: Colors.deepPurple,
+              text: "Mis Hojas de Tiempo",
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HojasListScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Widget auxiliar para las filas del menú desplegable
   Widget _buildListItem({
     required IconData icon,
@@ -200,12 +269,24 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     });
 
     // --- NUEVO BOTÓN: HOJAS DE TIEMPO (Para todos) ---
-    menuItems.add({
-      'title': 'Hojas de Tiempo',
-      'icon': Icons.access_time,
-      'color': Colors.deepPurple,
-      'page': const HojasListScreen(),
-    });
+    if (esAdmin) {
+      // Vista agrupada para el Admin
+      menuItems.add({
+        'title': 'Hojas de Tiempo',
+        'icon': Icons.access_time,
+        'color': Colors.deepPurple,
+        'isAction': true,
+        'action': (BuildContext ctx) => _mostrarMenuHojasTiempoAdmin(ctx),
+      });
+    } else {
+      // Vista directa para trabajadores
+      menuItems.add({
+        'title': 'Hojas de Tiempo',
+        'icon': Icons.access_time,
+        'color': Colors.deepPurple,
+        'page': const HojasListScreen(),
+      });
+    }
 
     // 2. CONTROL SALIDA (Solo si es conductor)
     if (esConductor) {

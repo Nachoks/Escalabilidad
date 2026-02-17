@@ -12,6 +12,7 @@ class HojaTiempoSemana {
   final String fechaFin;
   final String estado;
   final String? nombreServicio;
+  final String? observacion; // <--- CAMPO AGREGADO AQUÍ
 
   // Relaciones
   final Map<String, dynamic>? servicio;
@@ -31,6 +32,7 @@ class HojaTiempoSemana {
     required this.fechaInicio,
     required this.fechaFin,
     required this.estado,
+    this.observacion, // <--- CAMPO AGREGADO AQUÍ
     this.servicio,
     this.ocCliente,
     this.dias,
@@ -50,11 +52,11 @@ class HojaTiempoSemana {
       fechaInicio: json['fecha_inicio'],
       fechaFin: json['fecha_fin'],
       estado: json['estado'] ?? 'Borrador',
+      observacion: json['observacion'], // <--- CAMPO AGREGADO AQUÍ
       servicio: json['servicio'],
       nombreCliente: json['nombre_cliente'] ?? 'Cliente Desconocido',
       nombreServicio: json['nombre_servicio'],
-      ocCliente:
-          json['oc_cliente'], // Ojo: en Laravel la relación se llama ocCliente, pero a veces Eloquent lo pasa a snake_case en JSON.
+      ocCliente: json['oc_cliente'],
       dias: json['dias'] != null
           ? (json['dias'] as List)
                 .map((i) => HojaTiempoDiaria.fromJson(i))
@@ -111,12 +113,19 @@ class HojaTiempoActividad {
   final String horaInicio;
   final String horaFin;
   final String descripcion;
+  // <--- CAMPOS AGREGADOS AQUÍ --->
+  final double horasHabiles;
+  final double horasNoHabiles;
+  final double horasFestivas;
 
   HojaTiempoActividad({
     required this.idActividad,
     required this.horaInicio,
     required this.horaFin,
     required this.descripcion,
+    this.horasHabiles = 0.0,
+    this.horasNoHabiles = 0.0,
+    this.horasFestivas = 0.0,
   });
 
   factory HojaTiempoActividad.fromJson(Map<String, dynamic> json) {
@@ -125,6 +134,13 @@ class HojaTiempoActividad {
       horaInicio: json['hora_inicio'],
       horaFin: json['hora_fin'],
       descripcion: json['descripcion'],
+      // <--- MAPEANDO LOS NUEVOS CAMPOS --->
+      horasHabiles:
+          double.tryParse(json['horas_habiles']?.toString() ?? '0') ?? 0.0,
+      horasNoHabiles:
+          double.tryParse(json['horas_no_habiles']?.toString() ?? '0') ?? 0.0,
+      horasFestivas:
+          double.tryParse(json['horas_festivas']?.toString() ?? '0') ?? 0.0,
     );
   }
 }
