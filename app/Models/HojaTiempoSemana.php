@@ -23,6 +23,7 @@ class HojaTiempoSemana extends Model
         'fecha_inicio',
         'fecha_fin',
         'estado',
+        'observacion',
     ];
 
     // Relación hacia los días (1 Semana tiene 7 Días)

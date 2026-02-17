@@ -154,9 +154,11 @@ class HojaTiempoController extends Controller
 
     public function detalleHoja($id_hoja_semana)
     {
-        // Trae la semana, con sus días, y las actividades de cada día. Todo en 1 consulta eficiente.
-        $hoja = HojaTiempoSemana::with(['servicio', 'ocCliente', 'dias.actividades'])
-            ->where('id_hoja_semana', $id_hoja_semana)
+        // Hacemos JOIN con 'servicio' para traer 'nombre_servicio' a la capa principal del JSON
+        $hoja = HojaTiempoSemana::select('hojas_tiempo_semanas.*', 'servicio.nombre_servicio')
+            ->join('servicio', 'hojas_tiempo_semanas.id_servicio', '=', 'servicio.id_servicio')
+            ->with(['ocCliente', 'dias.actividades']) // Mantenemos las relaciones de días y OC
+            ->where('hojas_tiempo_semanas.id_hoja_semana', $id_hoja_semana)
             ->first();
 
         if (!$hoja) {
@@ -216,6 +218,31 @@ class HojaTiempoController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function enviarSemana(Request $request, $id_hoja_semana)
+    {
+        $request->validate([
+            'observacion' => 'nullable|string'
+        ]);
+
+        try {
+            $hoja = \App\Models\HojaTiempoSemana::findOrFail($id_hoja_semana);
+            
+            // Cambiamos el estado y guardamos la observación
+            $hoja->estado = 'Enviada';
+            $hoja->observacion = $request->observacion;
+            $hoja->save();
+
+            return response()->json([
+                'success' => true, 
+                'message' => 'Hoja de tiempo enviada a validación correctamente',
+                'data' => $hoja
+            ]);
+
+        } catch (\Exception $e) {
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }

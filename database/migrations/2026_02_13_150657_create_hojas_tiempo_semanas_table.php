@@ -34,6 +34,7 @@ return new class extends Migration
             // DATOS CONGELADOS
             $table->string('centro_costo', 50)->nullable();
             $table->integer('numero_semana');
+            $table->text('observacion')->nullable();
             
             // PERIODO Y ESTADO
             $table->date('fecha_inicio'); // Lunes
@@ -44,6 +45,8 @@ return new class extends Migration
 
             // 4. REGLA DE UNICIDAD: Impide que un mismo servicio tenga dos veces la misma HCT
             $table->unique(['id_servicio', 'numero_hct'], 'uidx_servicio_hct');
+            
+
         });
     }
 

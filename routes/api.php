@@ -35,19 +35,6 @@ Route::get('evidencia/{ruta}', [GastoController::class, 'verEvidencia'])
 | RUTAS PROTEGIDAS (Requieren Token Bearer)
 |--------------------------------------------------------------------------
 */
-    // Dropdowns para el Modal
-    Route::prefix('dropdowns')->group(function () {
-        Route::get('/clientes', [HojaTiempoController::class, 'getClientes']);
-        Route::get('/clientes/{id_cliente}/servicios', [HojaTiempoController::class, 'getServiciosPorCliente']);
-        Route::get('/servicios/{id_servicio}/ocs', [HojaTiempoController::class, 'getOcsPorServicio']);
-    });
-
-    Route::prefix('hoja-tiempo')->group(function () {
-        Route::post('/crear', [HojaTiempoController::class, 'crearSemana']);
-        Route::post('/mis-hojas', [HojaTiempoController::class, 'misHojas']);
-        Route::get('/{id_hoja_semana}/detalle', [HojaTiempoController::class, 'detalleHoja']);
-        Route::post('/dia/{id_hoja_diaria}/guardar', [HojaTiempoController::class, 'guardarDia']);
-    });
 Route::middleware('auth:sanctum')->group(function () {
 
     // =================================================================
@@ -150,8 +137,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/rendiciones/{id}/finalizar', [RendicionController::class, 'finalizarValidacion']);
         Route::patch('/gastos/{id}/evaluar', [GastoController::class, 'evaluarGasto']);
     });
+    Route::post('/hoja-tiempo/{id}/enviar', [HojaTiempoController::class, 'enviarSemana']);
+        Route::prefix('dropdowns')->group(function () {
+        Route::get('/clientes', [HojaTiempoController::class, 'getClientes']);
+        Route::get('/clientes/{id_cliente}/servicios', [HojaTiempoController::class, 'getServiciosPorCliente']);
+        Route::get('/servicios/{id_servicio}/ocs', [HojaTiempoController::class, 'getOcsPorServicio']);
+    });
 
-
+    Route::prefix('hoja-tiempo')->group(function () {
+    Route::post('/crear', [HojaTiempoController::class, 'crearSemana']);
+    Route::post('/mis-hojas', [HojaTiempoController::class, 'misHojas']);
+    Route::get('/{id_hoja_semana}/detalle', [HojaTiempoController::class, 'detalleHoja']);
+    Route::post('/dia/{id_hoja_diaria}/guardar', [HojaTiempoController::class, 'guardarDia']);
+    Route::post('/{id}/enviar', [HojaTiempoController::class, 'enviarSemana']); // <--- Movida aquí adentro
+});
 
 });
 
