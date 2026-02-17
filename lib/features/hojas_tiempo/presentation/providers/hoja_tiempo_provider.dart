@@ -103,4 +103,24 @@ class HojaTiempoProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<bool> enviarSemana(int idHojaSemana, String observacion) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final exito = await _service.enviarSemana(idHojaSemana, observacion);
+      if (exito) {
+        // Recargamos el detalle para que la vista cambie a verde (Enviada)
+        await cargarDetalleHoja(idHojaSemana);
+      }
+      return exito;
+    } catch (e) {
+      _errorMessage = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 }

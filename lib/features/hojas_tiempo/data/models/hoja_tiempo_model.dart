@@ -11,6 +11,7 @@ class HojaTiempoSemana {
   final String fechaInicio;
   final String fechaFin;
   final String estado;
+  final String? nombreServicio;
 
   // Relaciones
   final Map<String, dynamic>? servicio;
@@ -26,6 +27,7 @@ class HojaTiempoSemana {
     this.nombreComprobante,
     this.centroCosto,
     this.numeroSemana,
+    this.nombreServicio,
     required this.fechaInicio,
     required this.fechaFin,
     required this.estado,
@@ -50,6 +52,7 @@ class HojaTiempoSemana {
       estado: json['estado'] ?? 'Borrador',
       servicio: json['servicio'],
       nombreCliente: json['nombre_cliente'] ?? 'Cliente Desconocido',
+      nombreServicio: json['nombre_servicio'],
       ocCliente:
           json['oc_cliente'], // Ojo: en Laravel la relación se llama ocCliente, pero a veces Eloquent lo pasa a snake_case en JSON.
       dias: json['dias'] != null

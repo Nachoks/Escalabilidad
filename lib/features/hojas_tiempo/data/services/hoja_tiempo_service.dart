@@ -14,12 +14,11 @@ class HojaTiempoService {
 
   Future<Map<String, String>> _getHeaders() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token') ?? '';
+    // CAMBIO AQUI: de 'auth_token' a 'token'
+    final token = prefs.getString('token') ?? '';
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      // Si dejaste las rutas públicas para probar, el token no estorba.
-      // Si las vuelves a proteger, esto es vital.
       if (token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
   }
@@ -131,5 +130,16 @@ class HojaTiempoService {
       debugPrint("Error al guardar día: ${response.body}");
       throw Exception('Error al guardar el día');
     }
+  }
+
+  Future<bool> enviarSemana(int idHojaSemana, String observacion) async {
+    final url = Uri.parse('$_baseUrl/hoja-tiempo/$idHojaSemana/enviar');
+    final response = await http.post(
+      url,
+      headers: await _getHeaders(),
+      body: jsonEncode({'observacion': observacion}),
+    );
+
+    return response.statusCode == 200;
   }
 }
