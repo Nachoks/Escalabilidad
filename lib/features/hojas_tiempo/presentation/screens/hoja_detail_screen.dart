@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
+import 'package:somnolence_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/hoja_dia_edit_screen.dart';
 import '../providers/hoja_tiempo_provider.dart';
+import '../utils/hoja_tiempo_semanal_pdf_builder.dart';
 
 class HojaDetailScreen extends StatefulWidget {
   final int idHojaSemana;
@@ -20,6 +23,35 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<HojaTiempoProvider>().cargarDetalleHoja(widget.idHojaSemana);
     });
+  }
+
+  Future<void> _generarPdfSemanal() async {
+    final provider = context.read<HojaTiempoProvider>();
+    final semana = provider.hojaSeleccionada;
+    final user = context.read<AuthProvider>().currentUser;
+    final nombreUsuario = user?.nombreCompleto ?? 'Usuario';
+
+    if (semana == null) return;
+
+    try {
+      // Usamos el NUEVO builder específico para semanal
+      final pdfBytes = await HojaTiempoSemanalPdfBuilder.buildPdfSemanal(
+        semana: semana,
+        nombreUsuario: nombreUsuario,
+      );
+
+      await Printing.layoutPdf(
+        onLayout: (format) async => pdfBytes,
+        name: 'Reporte_Semanal_S${semana.numeroSemana}.pdf',
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error al generar PDF Semanal: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   String _obtenerNombreDia(DateTime fecha) {
@@ -179,6 +211,13 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
           "Detalle de la Semana",
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.print),
+            tooltip: 'Imprimir Reporte Semanal',
+            onPressed: _generarPdfSemanal,
+          ),
+        ],
         backgroundColor: AppColors.primary,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -561,23 +600,25 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                                     ),
                                 ],
                               ),
-                              trailing: modoLectura
-                                  ? null
-                                  : const Icon(
-                                      Icons.arrow_forward_ios,
-                                      size: 16,
+                              trailing: const Icon(
+                                Icons.arrow_forward_ios,
+                                size: 16,
+                                color: Colors.grey,
+                              ), // Siempre mostramos la flecha
+
+                              onTap: () {
+                                // Navegamos SIEMPRE, pero pasamos el modoLectura
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => HojaDiaEditScreen(
+                                      dia: dia,
+                                      isReadOnly:
+                                          modoLectura, // <--- AQUÍ PASAMOS LA BANDERA
                                     ),
-                              onTap: modoLectura
-                                  ? null
-                                  : () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              HojaDiaEditScreen(dia: dia),
-                                        ),
-                                      );
-                                    },
+                                  ),
+                                );
+                              },
                             ),
                           );
                         },

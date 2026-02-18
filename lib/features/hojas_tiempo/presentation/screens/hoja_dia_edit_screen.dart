@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
+import 'package:printing/printing.dart';
+import 'package:somnolence_app/features/auth/presentation/providers/auth_provider.dart';
 import '../../data/models/hoja_tiempo_model.dart';
 import '../providers/hoja_tiempo_provider.dart';
+import '../utils/hoja_tiempo_pdf_builder.dart';
 
 class ActividadTramo {
   TimeOfDay horaInicio;
@@ -18,8 +21,13 @@ class ActividadTramo {
 
 class HojaDiaEditScreen extends StatefulWidget {
   final HojaTiempoDiaria dia;
+  final bool isReadOnly; // <--- NUEVA VARIABLE
 
-  const HojaDiaEditScreen({super.key, required this.dia});
+  const HojaDiaEditScreen({
+    super.key,
+    required this.dia,
+    this.isReadOnly = false, // Por defecto es falso (se puede editar)
+  });
 
   @override
   State<HojaDiaEditScreen> createState() => _HojaDiaEditScreenState();
@@ -70,8 +78,12 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
   }
 
   TimeOfDay _parseTime(String timeStr) {
-    final parts = timeStr.split(':');
-    return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+    try {
+      final parts = timeStr.split(':');
+      return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+    } catch (_) {
+      return const TimeOfDay(hour: 0, minute: 0);
+    }
   }
 
   String _formatTime(TimeOfDay time) {
@@ -86,28 +98,24 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
     return diff / 60.0;
   }
 
+  // --- LÓGICA COPIADA PARA CÁLCULOS (NECESARIA) ---
   bool _haySuperposicion(TimeOfDay nuevoInicio, TimeOfDay nuevoFin) {
     int nuevoInMin = nuevoInicio.hour * 60 + nuevoInicio.minute;
     int nuevoFinMin = nuevoFin.hour * 60 + nuevoFin.minute;
-
     if (nuevoFinMin <= nuevoInMin) nuevoFinMin += 1440;
 
     for (var act in _actividades) {
       int existInMin = act.horaInicio.hour * 60 + act.horaInicio.minute;
       int existFinMin = act.horaFin.hour * 60 + act.horaFin.minute;
-
       if (existFinMin <= existInMin) existFinMin += 1440;
 
-      if (nuevoInMin < existFinMin && nuevoFinMin > existInMin) {
-        return true;
-      }
+      if (nuevoInMin < existFinMin && nuevoFinMin > existInMin) return true;
     }
     return false;
   }
 
   Map<String, double> _desglosarHorasTramo(TimeOfDay tInicio, TimeOfDay tFin) {
     double total = _calcularHorasBrutas(tInicio, tFin);
-
     if (_tipoDia == 'FERIADO') {
       return {'habiles': 0, 'noHabiles': 0, 'festivas': total};
     } else if (_tipoDia == 'NO_HABIL') {
@@ -123,13 +131,11 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
 
       int overlapI = tramoI > horI ? tramoI : horI;
       int overlapF = tramoF < horF ? tramoF : horF;
-
       int overlapMins = overlapF - overlapI;
       if (overlapMins < 0) overlapMins = 0;
 
       double habiles = overlapMins / 60.0;
       double noHabiles = total - habiles;
-
       if (noHabiles < 0.01) noHabiles = 0;
 
       return {'habiles': habiles, 'noHabiles': noHabiles, 'festivas': 0};
@@ -137,6 +143,9 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
   }
 
   Future<void> _seleccionarHorarioBase(bool isInicio) async {
+    // Si es solo lectura, no hacemos nada
+    if (widget.isReadOnly) return;
+
     final picked = await showTimePicker(
       context: context,
       initialTime: isInicio ? _horarioInicio : _horarioFin,
@@ -147,20 +156,20 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
     );
     if (picked != null) {
       setState(() {
-        if (isInicio) {
+        if (isInicio)
           _horarioInicio = picked;
-        } else {
+        else
           _horarioFin = picked;
-        }
       });
     }
   }
 
   void _mostrarPopupActividad() {
+    if (widget.isReadOnly) return; // Bloqueo extra por seguridad
+
     TimeOfDay inicio = _horarioInicio;
     TimeOfDay fin = _horarioFin;
     final descController = TextEditingController();
-
     bool errorDescripcion = false;
     String? errorCruce;
 
@@ -183,11 +192,10 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
               );
               if (picked != null) {
                 setModalState(() {
-                  if (isInicio) {
+                  if (isInicio)
                     inicio = picked;
-                  } else {
+                  else
                     fin = picked;
-                  }
                   errorCruce = null;
                 });
                 setState(() {});
@@ -199,7 +207,7 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                 borderRadius: BorderRadius.circular(16),
               ),
               title: const Text(
-                "Nuevo Tramo de Trabajo",
+                "Nuevo Tramo",
                 style: TextStyle(
                   color: AppColors.primary,
                   fontWeight: FontWeight.bold,
@@ -208,7 +216,6 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
@@ -217,37 +224,32 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                             onTap: () => seleccionarHoraPopup(true),
                             child: InputDecorator(
                               decoration: const InputDecoration(
-                                labelText: "Hora Inicio",
+                                labelText: "Inicio",
                                 border: OutlineInputBorder(),
                               ),
                               child: Text(
                                 _formatTime(inicio),
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
-                                  fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
                           ),
                         ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text("-", style: TextStyle(fontSize: 24)),
-                        ),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: InkWell(
                             onTap: () => seleccionarHoraPopup(false),
                             child: InputDecorator(
                               decoration: const InputDecoration(
-                                labelText: "Hora Fin",
+                                labelText: "Fin",
                                 border: OutlineInputBorder(),
                               ),
                               child: Text(
                                 _formatTime(fin),
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
-                                  fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -263,7 +265,6 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                           errorCruce!,
                           style: const TextStyle(
                             color: Colors.red,
-                            fontWeight: FontWeight.bold,
                             fontSize: 12,
                           ),
                         ),
@@ -274,11 +275,8 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                       maxLines: 3,
                       decoration: InputDecoration(
                         labelText: "Descripción",
-                        alignLabelWithHint: true,
                         border: const OutlineInputBorder(),
-                        errorText: errorDescripcion
-                            ? 'La descripción es obligatoria'
-                            : null,
+                        errorText: errorDescripcion ? 'Requerido' : null,
                       ),
                     ),
                   ],
@@ -300,18 +298,11 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                     if (descController.text.trim().isEmpty) {
                       setModalState(() => errorDescripcion = true);
                       return;
-                    } else {
-                      setModalState(() => errorDescripcion = false);
                     }
-
                     if (_haySuperposicion(inicio, fin)) {
-                      setModalState(() {
-                        errorCruce =
-                            "Este horario se cruza con un tramo ya registrado.";
-                      });
+                      setModalState(() => errorCruce = "Horario ocupado");
                       return;
                     }
-
                     setState(() {
                       _actividades.add(
                         ActividadTramo(
@@ -337,12 +328,13 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
   }
 
   void _eliminarActividad(int index) {
-    setState(() {
-      _actividades.removeAt(index);
-    });
+    if (widget.isReadOnly) return;
+    setState(() => _actividades.removeAt(index));
   }
 
   Future<void> _guardarCambios() async {
+    if (widget.isReadOnly) return;
+
     setState(() => _isSaving = true);
     final provider = context.read<HojaTiempoProvider>();
 
@@ -366,14 +358,13 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
     };
 
     final exito = await provider.actualizarDia(widget.dia.idHojaDiaria, data);
-
     if (!mounted) return;
     setState(() => _isSaving = false);
 
     if (exito) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Día guardado correctamente"),
+          content: Text("Día guardado"),
           backgroundColor: Colors.green,
         ),
       );
@@ -381,66 +372,61 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(provider.errorMessage ?? "Error al guardar"),
+          content: Text(provider.errorMessage ?? "Error"),
           backgroundColor: Colors.red,
         ),
       );
     }
   }
 
-  // --- NUEVO MÉTODO: CUADRO DE CONFIRMACIÓN AL VOLVER ---
   Future<bool?> _mostrarDialogoConfirmacionSalida() {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange.shade800),
-            const SizedBox(width: 8),
-            Text(
-              "¿Descartar cambios?",
-              style: TextStyle(
-                color: Colors.orange.shade900,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
+        title: const Text("¿Descartar cambios?"),
         content: const Text(
-          "¿Estás seguro de que deseas volver? Todos los datos de este día que no hayas guardado se perderán.",
-          style: TextStyle(color: Colors.black87),
+          "Si sales sin guardar, perderás los cambios de este día.",
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false), // No salir
-            child: const Text("Cancelar", style: TextStyle(color: Colors.grey)),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancelar"),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onPressed: () => Navigator.pop(context, true), // Sí, salir
-            child: const Text(
-              "Salir sin guardar",
-              style: TextStyle(color: Colors.white),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Salir", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
 
+  Future<void> _generarPdfDiario() async {
+    final semana = context.read<HojaTiempoProvider>().hojaSeleccionada;
+    final user = context.read<AuthProvider>().currentUser;
+    if (semana == null) return;
+
+    try {
+      final pdfBytes = await HojaTiempoPdfBuilder.buildPdfDiario(
+        semana: semana,
+        dia: widget.dia,
+        nombreUsuario: user?.nombreCompleto ?? 'Usuario',
+      );
+      await Printing.layoutPdf(
+        onLayout: (format) async => pdfBytes,
+        name: 'Reporte_Diario.pdf',
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error PDF: $e"), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    double sumHabiles = 0;
-    double sumNoHabiles = 0;
-    double sumFestivas = 0;
-    double sumTotal = 0;
-
+    double sumHabiles = 0, sumNoHabiles = 0, sumFestivas = 0, sumTotal = 0;
     for (var a in _actividades) {
       final desglose = _desglosarHorasTramo(a.horaInicio, a.horaFin);
       sumHabiles += desglose['habiles']!;
@@ -449,12 +435,11 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
       sumTotal += _calcularHorasBrutas(a.horaInicio, a.horaFin);
     }
 
-    // Usamos WillPopScope para interceptar el botón de retroceso físico y el de la AppBar
     return WillPopScope(
       onWillPop: () async {
-        // Mostramos el popup de confirmación
+        // SI ES SOLO LECTURA, SALIMOS AL TIRO SIN PREGUNTAR
+        if (widget.isReadOnly) return true;
         final salir = await _mostrarDialogoConfirmacionSalida();
-        // Si salir es 'true', permite el pop; de lo contrario lo bloquea.
         return salir ?? false;
       },
       child: Scaffold(
@@ -462,27 +447,49 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
           title: Text(
             "Día: ${widget.dia.fecha.day}/${widget.dia.fecha.month}",
             style: const TextStyle(
-              color: Colors.white,
               fontWeight: FontWeight.bold,
+              color: Colors.white,
             ),
           ),
           backgroundColor: AppColors.primary,
           iconTheme: const IconThemeData(color: Colors.white),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.print),
+              onPressed: _generarPdfDiario,
+            ),
+          ],
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                "Configuración del Día",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey,
+              if (widget.isReadOnly)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.lock, size: 16, color: Colors.orange.shade800),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Modo Lectura - No se puede editar",
+                        style: TextStyle(
+                          color: Colors.orange.shade900,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
+
+              // --- CONFIGURACIÓN LUGAR Y TIPO ---
               Row(
                 children: [
                   Expanded(
@@ -492,23 +499,17 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                        ),
                       ),
                       value: _lugar,
+                      // SI ES SOLO LECTURA, DESACTIVAMOS EL DROPDOWN (onChanged: null)
                       items: ['OFICINA', 'TERRENO', 'DESCANSO']
                           .map(
-                            (e) => DropdownMenuItem(
-                              value: e,
-                              child: Text(
-                                e,
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                            ),
+                            (e) => DropdownMenuItem(value: e, child: Text(e)),
                           )
                           .toList(),
-                      onChanged: (val) => setState(() => _lugar = val!),
+                      onChanged: widget.isReadOnly
+                          ? null
+                          : (val) => setState(() => _lugar = val!),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -519,111 +520,84 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                        ),
                       ),
                       value: _tipoDia,
                       items: ['HABIL', 'NO_HABIL', 'FERIADO']
                           .map(
                             (e) => DropdownMenuItem(
                               value: e,
-                              child: Text(
-                                e.replaceAll('_', ' '),
-                                style: const TextStyle(fontSize: 14),
-                              ),
+                              child: Text(e.replaceAll('_', ' ')),
                             ),
                           )
                           .toList(),
-                      onChanged: (val) => setState(() => _tipoDia = val!),
+                      onChanged: widget.isReadOnly
+                          ? null
+                          : (val) => setState(() => _tipoDia = val!),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
 
+              // --- HORARIO BASE ---
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.blue.withOpacity(0.05),
-                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    const Text(
-                      "Horario Base (Normal)",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _seleccionarHorarioBase(true),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: "Entrada",
+                            border: OutlineInputBorder(),
+                          ),
+                          child: Text(
+                            _formatTime(_horarioInicio),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => _seleccionarHorarioBase(true),
-                            child: InputDecorator(
-                              decoration: const InputDecoration(
-                                labelText: "Entrada",
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 5,
-                                ),
-                              ),
-                              child: Text(
-                                _formatTime(_horarioInicio),
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Text("-", style: TextStyle(fontSize: 20)),
+                    ),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _seleccionarHorarioBase(false),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: "Salida",
+                            border: OutlineInputBorder(),
+                          ),
+                          child: Text(
+                            _formatTime(_horarioFin),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text("-", style: TextStyle(fontSize: 20)),
-                        ),
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => _seleccionarHorarioBase(false),
-                            child: InputDecorator(
-                              decoration: const InputDecoration(
-                                labelText: "Salida",
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 5,
-                                ),
-                              ),
-                              child: Text(
-                                _formatTime(_horarioFin),
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
 
+              // --- HORAS VIAJE ---
               TextFormField(
                 controller: _viajeController,
+                readOnly: widget.isReadOnly, // TEXTO SOLO LECTURA
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
                 decoration: InputDecoration(
-                  labelText: "Horas de Viaje (Ej: 1.5)",
+                  labelText: "Horas de Viaje",
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -633,6 +607,7 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
 
               const SizedBox(height: 24),
 
+              // --- RESUMEN ---
               Container(
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade300),
@@ -680,6 +655,7 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                 child: Divider(thickness: 2),
               ),
 
+              // --- LISTA DE TRAMOS ---
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -691,33 +667,20 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                       color: AppColors.primary,
                     ),
                   ),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
+                  // SI ES SOLO LECTURA, OCULTAMOS EL BOTÓN AGREGAR
+                  if (!widget.isReadOnly)
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: _mostrarPopupActividad,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text("Agregar"),
                     ),
-                    onPressed: _mostrarPopupActividad,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text("Agregar"),
-                  ),
                 ],
               ),
               const SizedBox(height: 10),
-
-              if (_actividades.isEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Text(
-                    "No hay actividades. Presiona 'Agregar' para registrar tu trabajo.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ),
 
               ListView.builder(
                 shrinkWrap: true,
@@ -732,11 +695,6 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
 
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      side: BorderSide(color: Colors.grey.shade200),
-                    ),
-                    elevation: 0,
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -770,10 +728,13 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                         padding: const EdgeInsets.only(top: 6),
                         child: Text(act.descripcion),
                       ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _eliminarActividad(index),
-                      ),
+                      // SI ES SOLO LECTURA, OCULTAMOS EL BOTÓN BORRAR
+                      trailing: widget.isReadOnly
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _eliminarActividad(index),
+                            ),
                     ),
                   );
                 },
@@ -781,38 +742,41 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
             ],
           ),
         ),
-        bottomNavigationBar: SafeArea(
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: _isSaving ? null : _guardarCambios,
-              child: _isSaving
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Text(
-                      "GUARDAR DÍA",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+        // SI ES SOLO LECTURA, NO MOSTRAMOS EL BOTÓN GUARDAR
+        bottomNavigationBar: widget.isReadOnly
+            ? null
+            : SafeArea(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-            ),
-          ),
-        ),
+                    onPressed: _isSaving ? null : _guardarCambios,
+                    child: _isSaving
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            "GUARDAR DÍA",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
       ),
     );
   }
@@ -822,9 +786,7 @@ class _BuildResumenItem extends StatelessWidget {
   final String titulo;
   final double valor;
   final Color color;
-
   const _BuildResumenItem(this.titulo, this.valor, this.color);
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -855,7 +817,6 @@ class _Badge extends StatelessWidget {
   final String texto;
   final Color color;
   const _Badge(this.texto, this.color);
-
   @override
   Widget build(BuildContext context) {
     return Container(
