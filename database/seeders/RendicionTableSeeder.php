@@ -102,7 +102,7 @@ class RendicionTableSeeder extends Seeder
                 'fecha' => '2026-02-15',
                 'proposito' => 'Terreno en MCEN',
                 'monto_entregado' => 0,
-                'estado' => 'Pendiente de Validación',
+                'estado' => 'Pagada',
                 'centro_costo' => '01-1-016',
                 'id_servicio' => 17,
                 'id_usuario' => 8,

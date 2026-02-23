@@ -703,6 +703,30 @@ class GastoArchivoTableSeeder extends Seeder
                 'created_at' => '2026-02-15 21:45:07',
                 'id_validador' => NULL,
             ),
+            57 => 
+            array (
+                'id_gasto_archivo' => 61,
+                'id_gasto' => 64,
+                'nombre_original' => 'scaled_922f1262-3e18-4b32-9a2e-b674406f55d62017711107471760206.jpg',
+                'nombre_fisico' => '064-69000.jpg',
+                'ruta_relativa' => '004/gastos/064-69000.jpg',
+                'extension' => 'jpg',
+                'peso_kb' => '313.63',
+                'created_at' => '2026-02-17 17:44:44',
+                'id_validador' => NULL,
+            ),
+            58 => 
+            array (
+                'id_gasto_archivo' => 62,
+                'id_gasto' => 65,
+                'nombre_original' => 'scaled_d1228c8a-0004-481a-9958-d3b4537c4a042196224632136332368.jpg',
+                'nombre_fisico' => '065-2300.jpg',
+                'ruta_relativa' => '004/gastos/065-2300.jpg',
+                'extension' => 'jpg',
+                'peso_kb' => '540.54',
+                'created_at' => '2026-02-17 22:17:03',
+                'id_validador' => NULL,
+            ),
         ));
         
         

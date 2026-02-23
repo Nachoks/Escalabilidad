@@ -154,6 +154,36 @@ class RegistrosTableSeeder extends Seeder
                 'created_at' => NULL,
                 'updated_at' => NULL,
             ),
+            9 => 
+            array (
+                'id_registro_rendicion' => 10,
+                'id_rendicion' => 8,
+                'id_usuario_pagador' => 2,
+                'fecha_pago' => '2026-02-18',
+                'monto_pagado' => 142157,
+                'nombre_original' => 'scaled_2b109e41-8bae-487f-801c-22525d860aea2763782454033428735.jpg',
+                'nombre_fisico' => 'PAGO_1771449496.jpg',
+                'ruta_relativa' => '008/pago/PAGO_1771449496.jpg',
+                'peso_kb' => '987.38',
+                'extension' => 'jpg',
+                'created_at' => NULL,
+                'updated_at' => NULL,
+            ),
+            10 => 
+            array (
+                'id_registro_rendicion' => 11,
+                'id_rendicion' => 8,
+                'id_usuario_pagador' => 2,
+                'fecha_pago' => '2026-02-18',
+                'monto_pagado' => 0,
+                'nombre_original' => 'Reporte Automático Generado.pdf',
+                'nombre_fisico' => 'REPORTE_DETALLE_8_1771449496.pdf',
+                'ruta_relativa' => '008/pago/REPORTE_DETALLE_8_1771449496.pdf',
+                'peso_kb' => '4417.80',
+                'extension' => 'pdf',
+                'created_at' => NULL,
+                'updated_at' => NULL,
+            ),
         ));
         
         

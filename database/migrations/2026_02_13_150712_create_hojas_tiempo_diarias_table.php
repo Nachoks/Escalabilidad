@@ -27,6 +27,7 @@ return new class extends Migration
             
             // 4. CONFIGURACIÓN DEL DÍA
             $table->enum('lugar', ['OFICINA', 'TERRENO', 'DESCANSO'])->default('DESCANSO');
+            $table->string('area')->nullable();
             $table->enum('tipo_dia', ['HABIL', 'NO_HABIL', 'FERIADO'])->default('NO_HABIL');
             
             // 5. Límite de horas (Solo aplica si el tipo_dia es HÁBIL)

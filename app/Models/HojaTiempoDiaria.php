@@ -16,6 +16,7 @@ class HojaTiempoDiaria extends Model
         'id_hoja_semana',
         'fecha',
         'lugar',
+        'area',  
         'tipo_dia',
         'horario_inicio',
         'horario_fin',

@@ -182,6 +182,7 @@ class HojaTiempoController extends Controller
             'tipo_dia' => 'required|in:HABIL,NO_HABIL,FERIADO',
             'viaje_horas' => 'nullable|numeric|min:0',
             'actividades' => 'nullable|array',
+            'area' => 'nullable|string|max:255', // Nueva validación para el área
         ]);
 
         try {
@@ -195,6 +196,7 @@ class HojaTiempoController extends Controller
                 'horario_inicio' => $request->horario_inicio,
                 'horario_fin' => $request->horario_fin,
                 'viaje_horas' => $request->viaje_horas ?? 0,
+                'area' => $request->area, // Guardamos el área también
             ]);
 
             // 2. Reemplazar Actividades (Borramos las viejas, insertamos las nuevas)
@@ -221,7 +223,7 @@ class HojaTiempoController extends Controller
             DB::commit();
 
             // Devolver el día actualizado con sus nuevas actividades
-            return response()->json(['success' => true, 'data' => $dia->load('actividades')]);
+            return response()->json(['success' => true, 'message' => 'Guardado Correctamente']);
 
         } catch (\Exception $e) {
             DB::rollBack();
