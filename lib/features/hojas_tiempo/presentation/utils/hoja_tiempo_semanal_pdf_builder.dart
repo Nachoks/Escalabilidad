@@ -278,11 +278,18 @@ class HojaTiempoSemanalPdfBuilder {
   }
 
   // --- 4. TABLA DETALLE ACTIVIDADES (TEXTO) ---
+  // --- 4. TABLA DETALLE ACTIVIDADES (TEXTO) ---
   static pw.Widget _buildActivitiesDetailTable(
     List<HojaTiempoDiaria> dias,
     PdfColor baseColor,
   ) {
-    final headers = ['Día', 'Horario', 'Descripción de la Actividad'];
+    // 1. Añadimos la columna "Ubicación"
+    final headers = [
+      'Día',
+      'Ubicación',
+      'Horario',
+      'Descripción de la Actividad',
+    ];
     final List<List<String>> data = [];
     const diasSemana = [
       "Lunes",
@@ -297,25 +304,33 @@ class HojaTiempoSemanalPdfBuilder {
     for (var dia in dias) {
       if (dia.actividades != null && dia.actividades!.isNotEmpty) {
         int index = 1;
+
+        // Formateamos la ubicación para que se vea limpia
+        String areaStr = (dia.area != null && dia.area!.isNotEmpty)
+            ? dia.area!
+            : 'N/A';
+        String ubicacion = "${dia.lugar}\n($areaStr)";
+
         for (var act in dia.actividades!) {
           data.add([
-            // Solo mostramos el día en la primera actividad de ese día para no repetir
+            // Solo mostramos el día y la ubicación en la primera actividad de ese día para no repetir visualmente
             index == 1
-                ? "${diasSemana[dia.fecha.weekday - 1]} ${DateFormat('dd/MM').format(dia.fecha)}"
+                ? "${diasSemana[dia.fecha.weekday - 1]}\n${DateFormat('dd/MM').format(dia.fecha)}"
                 : "",
-            "${act.horaInicio} - ${act.horaFin}",
+            index == 1 ? ubicacion : "",
+            "${act.horaInicio} -\n${act.horaFin}", // Salto de línea en la hora para ahorrar espacio
             "${index++}. ${act.descripcion}",
           ]);
         }
-        // Fila vacía separadora si quieres, o simplemente dejarlo continuo
       }
     }
 
-    if (data.isEmpty)
+    if (data.isEmpty) {
       return pw.Text(
         "Sin actividades detalladas.",
         style: const pw.TextStyle(color: PdfColors.grey),
       );
+    }
 
     return pw.TableHelper.fromTextArray(
       headers: headers,
@@ -323,23 +338,34 @@ class HojaTiempoSemanalPdfBuilder {
       border: null,
       headerStyle: pw.TextStyle(
         fontWeight: pw.FontWeight.bold,
-        color: PdfColors.black,
+        color: PdfColors.white,
         fontSize: 9,
       ),
-      headerDecoration: const pw.BoxDecoration(color: PdfColors.grey200),
+      headerDecoration: pw.BoxDecoration(
+        color: baseColor,
+        borderRadius: const pw.BorderRadius.vertical(
+          top: pw.Radius.circular(4),
+        ),
+      ),
       cellStyle: const pw.TextStyle(fontSize: 9),
       columnWidths: {
-        0: const pw.FixedColumnWidth(80), // Día
-        1: const pw.FixedColumnWidth(70), // Horario
-        2: const pw.FlexColumnWidth(), // Descripción (ocupa todo el resto)
+        0: const pw.FixedColumnWidth(50), // Día
+        1: const pw.FixedColumnWidth(80), // Ubicación (Lugar + Área)
+        2: const pw.FixedColumnWidth(60), // Horario
+        3: const pw.FlexColumnWidth(), // Descripción (ocupa todo el resto)
       },
       cellAlignments: {
-        0: pw.Alignment.centerLeft,
-        1: pw.Alignment.center,
-        2: pw.Alignment.centerLeft,
+        0: pw
+            .Alignment
+            .topCenter, // Alineados arriba para que no floten si la descripción es larga
+        1: pw.Alignment.topCenter,
+        2: pw.Alignment.topCenter,
+        3: pw.Alignment.topLeft,
       },
       rowDecoration: const pw.BoxDecoration(
-        border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey100)),
+        border: pw.Border(
+          bottom: pw.BorderSide(color: PdfColors.grey300),
+        ), // Borde gris claro para separar
       ),
     );
   }

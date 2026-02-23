@@ -21,12 +21,14 @@ class ActividadTramo {
 
 class HojaDiaEditScreen extends StatefulWidget {
   final HojaTiempoDiaria dia;
-  final bool isReadOnly; // <--- NUEVA VARIABLE
+  final bool isReadOnly;
+  final String nombreCliente; // <--- 1. RECIBIMOS EL CLIENTE
 
   const HojaDiaEditScreen({
     super.key,
     required this.dia,
-    this.isReadOnly = false, // Por defecto es falso (se puede editar)
+    this.isReadOnly = false,
+    required this.nombreCliente, // <--- OBLIGATORIO
   });
 
   @override
@@ -37,6 +39,12 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
   late String _lugar;
   late String _tipoDia;
   final TextEditingController _viajeController = TextEditingController();
+  final FocusNode _viajeFocusNode = FocusNode();
+
+  // --- VARIABLES PARA EL ÁREA DINÁMICA ---
+  List<String> _opcionesArea = [];
+  String? _selectedArea;
+  final TextEditingController _areaManualController = TextEditingController();
 
   TimeOfDay _horarioInicio = const TimeOfDay(hour: 8, minute: 0);
   TimeOfDay _horarioFin = const TimeOfDay(hour: 18, minute: 0);
@@ -50,6 +58,40 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
     _lugar = widget.dia.lugar;
     _tipoDia = widget.dia.tipoDia;
     _viajeController.text = widget.dia.viajeHoras.toString();
+
+    // --- LÓGICA DE ÁREA ---
+    _opcionesArea = _getOpcionesPorCliente(widget.nombreCliente);
+    String areaGuardada = widget.dia.area ?? '';
+
+    if (areaGuardada.isEmpty) {
+      _selectedArea = _opcionesArea.first;
+    } else if (_opcionesArea.contains(areaGuardada)) {
+      _selectedArea = areaGuardada;
+    } else {
+      _selectedArea = 'Otro';
+      _areaManualController.text = areaGuardada;
+    }
+
+    // --- LÓGICA DE FOCO PARA HORAS DE VIAJE ---
+    _viajeFocusNode.addListener(() {
+      if (_viajeFocusNode.hasFocus) {
+        if (_viajeController.text == '0.0' || _viajeController.text == '0') {
+          _viajeController.text = '';
+        }
+      } else {
+        String texto = _viajeController.text.trim().replaceAll(',', '.');
+        if (texto.isEmpty) {
+          _viajeController.text = '0.0';
+        } else {
+          double? valor = double.tryParse(texto);
+          if (valor != null) {
+            _viajeController.text = valor.toStringAsFixed(1);
+          } else {
+            _viajeController.text = '0.0';
+          }
+        }
+      }
+    });
 
     if (widget.dia.horarioInicio != null) {
       _horarioInicio = _parseTime(widget.dia.horarioInicio!);
@@ -74,7 +116,20 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
   @override
   void dispose() {
     _viajeController.dispose();
+    _viajeFocusNode.dispose();
+    _areaManualController.dispose();
     super.dispose();
+  }
+
+  // --- FUNCIÓN QUE DEFINE LAS ÁREAS SEGÚN CLIENTE ---
+  List<String> _getOpcionesPorCliente(String cliente) {
+    String c = cliente.toLowerCase();
+    if (c.contains('centinela')) return ['Planta', 'Puerto Centinela', 'Otro'];
+    if (c.contains('softys')) return ['Puente Alto', 'Talagante', 'Otro'];
+    if (c.contains('cmpc') || c.contains('pulp'))
+      return ['Pacifico', 'Laja', 'Otro'];
+    if (c.contains('bhp')) return ['Escondida', 'Puerto coloso', 'Otro'];
+    return ['Otro']; // Si no es ninguno, solo permite escribir a mano
   }
 
   TimeOfDay _parseTime(String timeStr) {
@@ -98,7 +153,6 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
     return diff / 60.0;
   }
 
-  // --- LÓGICA COPIADA PARA CÁLCULOS (NECESARIA) ---
   bool _haySuperposicion(TimeOfDay nuevoInicio, TimeOfDay nuevoFin) {
     int nuevoInMin = nuevoInicio.hour * 60 + nuevoInicio.minute;
     int nuevoFinMin = nuevoFin.hour * 60 + nuevoFin.minute;
@@ -143,9 +197,7 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
   }
 
   Future<void> _seleccionarHorarioBase(bool isInicio) async {
-    // Si es solo lectura, no hacemos nada
     if (widget.isReadOnly) return;
-
     final picked = await showTimePicker(
       context: context,
       initialTime: isInicio ? _horarioInicio : _horarioFin,
@@ -156,17 +208,17 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
     );
     if (picked != null) {
       setState(() {
-        if (isInicio)
+        if (isInicio) {
           _horarioInicio = picked;
-        else
+        } else {
           _horarioFin = picked;
+        }
       });
     }
   }
 
   void _mostrarPopupActividad() {
-    if (widget.isReadOnly) return; // Bloqueo extra por seguridad
-
+    if (widget.isReadOnly) return;
     TimeOfDay inicio = _horarioInicio;
     TimeOfDay fin = _horarioFin;
     final descController = TextEditingController();
@@ -192,10 +244,11 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
               );
               if (picked != null) {
                 setModalState(() {
-                  if (isInicio)
+                  if (isInicio) {
                     inicio = picked;
-                  else
+                  } else {
                     fin = picked;
+                  }
                   errorCruce = null;
                 });
                 setState(() {});
@@ -335,44 +388,93 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
   Future<void> _guardarCambios() async {
     if (widget.isReadOnly) return;
 
-    setState(() => _isSaving = true);
-    final provider = context.read<HojaTiempoProvider>();
+    // 1. ESCONDEMOS EL TECLADO ANTES DE HACER NADA
+    FocusScope.of(context).unfocus();
 
-    final data = {
-      "lugar": _lugar,
-      "tipo_dia": _tipoDia,
-      "horario_inicio": _formatTime(_horarioInicio),
-      "horario_fin": _formatTime(_horarioFin),
-      "viaje_horas": double.tryParse(_viajeController.text) ?? 0.0,
-      "actividades": _actividades.map((a) {
-        final desglose = _desglosarHorasTramo(a.horaInicio, a.horaFin);
-        return {
-          "hora_inicio": _formatTime(a.horaInicio),
-          "hora_fin": _formatTime(a.horaFin),
-          "descripcion": a.descripcion,
-          "horas_habiles": desglose['habiles'],
-          "horas_no_habiles": desglose['noHabiles'],
-          "horas_festivas": desglose['festivas'],
-        };
-      }).toList(),
-    };
-
-    final exito = await provider.actualizarDia(widget.dia.idHojaDiaria, data);
-    if (!mounted) return;
-    setState(() => _isSaving = false);
-
-    if (exito) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Día guardado"),
-          backgroundColor: Colors.green,
-        ),
+    // --- VALIDACIÓN DE 24 HORAS ---
+    double totalHorasActividades = 0;
+    for (var act in _actividades) {
+      totalHorasActividades += _calcularHorasBrutas(
+        act.horaInicio,
+        act.horaFin,
       );
-      Navigator.pop(context);
-    } else {
+    }
+    double horasViaje = double.tryParse(_viajeController.text) ?? 0.0;
+    double totalDia = totalHorasActividades + horasViaje;
+
+    if (totalDia > 24.0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(provider.errorMessage ?? "Error"),
+          content: Text(
+            "Error: La suma de trabajo y viaje ($totalDia hrs) supera 24 horas.",
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
+    String areaFinal = _selectedArea == 'Otro'
+        ? _areaManualController.text.trim()
+        : _selectedArea ?? 'Otro';
+
+    setState(() => _isSaving = true);
+
+    try {
+      final provider = context.read<HojaTiempoProvider>();
+      final data = {
+        "lugar": _lugar,
+        "tipo_dia": _tipoDia,
+        "area": areaFinal,
+        "horario_inicio": _formatTime(_horarioInicio),
+        "horario_fin": _formatTime(_horarioFin),
+        "viaje_horas": horasViaje,
+        "actividades": _actividades.map((a) {
+          final desglose = _desglosarHorasTramo(a.horaInicio, a.horaFin);
+          return {
+            "hora_inicio": _formatTime(a.horaInicio),
+            "hora_fin": _formatTime(a.horaFin),
+            "descripcion": a.descripcion,
+            "horas_habiles": desglose['habiles'],
+            "horas_no_habiles": desglose['noHabiles'],
+            "horas_festivas": desglose['festivas'],
+          };
+        }).toList(),
+      };
+
+      final exito = await provider.actualizarDia(widget.dia.idHojaDiaria, data);
+
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+
+      if (exito) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Día guardado"),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // 2. LE DAMOS UN RESPIRO AL CELULAR ANTES DE SALIR
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) Navigator.pop(context);
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(provider.errorMessage ?? "Error"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      // SI HAY ERROR CRÍTICO, LO ATRAPAMOS AQUÍ PARA QUE NO SE CAIGA LA APP
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error Interno: $e"),
           backgroundColor: Colors.red,
         ),
       );
@@ -437,7 +539,6 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
 
     return WillPopScope(
       onWillPop: () async {
-        // SI ES SOLO LECTURA, SALIMOS AL TIRO SIN PREGUNTAR
         if (widget.isReadOnly) return true;
         final salir = await _mostrarDialogoConfirmacionSalida();
         return salir ?? false;
@@ -501,7 +602,6 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                         ),
                       ),
                       value: _lugar,
-                      // SI ES SOLO LECTURA, DESACTIVAMOS EL DROPDOWN (onChanged: null)
                       items: ['OFICINA', 'TERRENO', 'DESCANSO']
                           .map(
                             (e) => DropdownMenuItem(value: e, child: Text(e)),
@@ -535,6 +635,56 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                           : (val) => setState(() => _tipoDia = val!),
                     ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // --- NUEVO COMBOBOX DE ÁREA DINÁMICA ---
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: _selectedArea == 'Otro' ? 1 : 2,
+                    child: DropdownButtonFormField<String>(
+                      decoration: InputDecoration(
+                        labelText: "Área",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      value: _selectedArea,
+                      items: _opcionesArea
+                          .map(
+                            (e) => DropdownMenuItem(value: e, child: Text(e)),
+                          )
+                          .toList(),
+                      onChanged: widget.isReadOnly
+                          ? null
+                          : (val) {
+                              setState(() {
+                                _selectedArea = val;
+                                if (val != 'Otro')
+                                  _areaManualController.clear();
+                              });
+                            },
+                    ),
+                  ),
+                  if (_selectedArea == 'Otro') ...[
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 1,
+                      child: TextFormField(
+                        controller: _areaManualController,
+                        readOnly: widget.isReadOnly,
+                        decoration: InputDecoration(
+                          labelText: "Especifique",
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 16),
@@ -592,7 +742,8 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
               // --- HORAS VIAJE ---
               TextFormField(
                 controller: _viajeController,
-                readOnly: widget.isReadOnly, // TEXTO SOLO LECTURA
+                focusNode: _viajeFocusNode,
+                readOnly: widget.isReadOnly,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
@@ -602,6 +753,11 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   prefixIcon: const Icon(Icons.directions_car),
+                  suffixText: " hrs",
+                  suffixStyle: const TextStyle(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
 
@@ -667,7 +823,6 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                       color: AppColors.primary,
                     ),
                   ),
-                  // SI ES SOLO LECTURA, OCULTAMOS EL BOTÓN AGREGAR
                   if (!widget.isReadOnly)
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
@@ -728,7 +883,6 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                         padding: const EdgeInsets.only(top: 6),
                         child: Text(act.descripcion),
                       ),
-                      // SI ES SOLO LECTURA, OCULTAMOS EL BOTÓN BORRAR
                       trailing: widget.isReadOnly
                           ? null
                           : IconButton(
@@ -742,7 +896,6 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
             ],
           ),
         ),
-        // SI ES SOLO LECTURA, NO MOSTRAMOS EL BOTÓN GUARDAR
         bottomNavigationBar: widget.isReadOnly
             ? null
             : SafeArea(

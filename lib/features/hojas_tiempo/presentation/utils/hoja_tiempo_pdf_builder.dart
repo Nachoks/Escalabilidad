@@ -113,6 +113,7 @@ class HojaTiempoPdfBuilder {
   }
 
   // --- 2. INFORMACIÓN GENERAL (Estilizada y Correcta) ---
+  // --- 2. INFORMACIÓN GENERAL (Estilizada y Correcta) ---
   static pw.Widget _buildInfoSection(
     HojaTiempoSemana semana,
     HojaTiempoDiaria dia,
@@ -136,7 +137,6 @@ class HojaTiempoPdfBuilder {
             semana.nombreServicio ?? 'N/A',
           ),
           pw.Divider(color: PdfColors.grey200),
-          // CORRECCIÓN AQUÍ: Mostramos "Centro de Costo" con el valor 'semana.centroCosto'
           _buildDataRow(
             "Orden Compra (OC)",
             semana.ocCliente?['cod_oc_cliente'] ?? 'S/I',
@@ -151,7 +151,18 @@ class HojaTiempoPdfBuilder {
             "${semana.numeroSemana}",
           ),
           pw.Divider(color: PdfColors.grey200),
-          // Fila fusionada (Fecha + Tipo + Viaje) para evitar cuadros vacíos
+
+          // --- 👇 NUEVA FILA: LUGAR Y ÁREA 👇 ---
+          _buildDataRow(
+            "Lugar",
+            dia.lugar,
+            "Área",
+            dia.area ?? 'No especificada',
+          ),
+          pw.Divider(color: PdfColors.grey200),
+          // ----------------------------------------
+
+          // Fila fusionada (Fecha + Tipo + Viaje)
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [

@@ -607,17 +607,27 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                               ), // Siempre mostramos la flecha
 
                               onTap: () {
-                                // Navegamos SIEMPRE, pero pasamos el modoLectura
+                                // 1. Guardamos el provider en una variable ANTES de navegar
+                                // para asegurarnos de que no se pierda en la memoria.
+                                final provider = context
+                                    .read<HojaTiempoProvider>();
+
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => HojaDiaEditScreen(
                                       dia: dia,
-                                      isReadOnly:
-                                          modoLectura, // <--- AQUÍ PASAMOS LA BANDERA
+                                      isReadOnly: modoLectura,
+                                      nombreCliente:
+                                          hoja.nombreCliente ?? 'Desconocido',
                                     ),
                                   ),
-                                );
+                                ).then((_) {
+                                  // 2. Usamos el provider guardado para recargar
+                                  provider.cargarDetalleHoja(
+                                    widget.idHojaSemana,
+                                  );
+                                });
                               },
                             ),
                           );

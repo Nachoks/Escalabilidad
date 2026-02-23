@@ -1,5 +1,5 @@
 // Archivo: auth_provider.dart
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:somnolence_app/core/api/api_service.dart'; // <--- AJUSTA ESTA RUTA SI ES NECESARIO
@@ -68,13 +68,18 @@ class AuthProvider extends ChangeNotifier {
   // En AuthProvider.dart
 
   Future<void> registrarDispositivoEnBackend(String idUsuarioLaravel) async {
+    if (kIsWeb) {
+      print("🌐 Modo Web detectado: Saltando registro de OneSignal.");
+      return; // Sale inmediatamente y deja que el Login avance
+    }
+
     print("🟦 [1] Configurando OneSignal para usuario: $idUsuarioLaravel");
 
     try {
-      // 1. LOGIN (Vincular usuario)
+      // 2. LOGIN (Vincular usuario) - Esto ya es seguro porque sabemos que es celular
       OneSignal.login(idUsuarioLaravel);
 
-      // 2. REVISAR SI YA TENEMOS EL ID (Caso ideal)
+      // 3. REVISAR SI YA TENEMOS EL ID (Caso ideal)
       String? currentId = OneSignal.User.pushSubscription.id;
 
       if (currentId != null && currentId.isNotEmpty) {
@@ -83,8 +88,7 @@ class AuthProvider extends ChangeNotifier {
       } else {
         print("⏳ ID no disponible aún. Activando OBSERVER (Espía)...");
 
-        // 3. ACTIVAR EL ESPÍA (Observer)
-        // Esto se ejecutará automáticamente cuando OneSignal termine de registrarse
+        // 4. ACTIVAR EL ESPÍA (Observer)
         OneSignal.User.pushSubscription.addObserver((state) {
           print("👀 El estado de OneSignal cambió...");
           var newId = state.current.id;

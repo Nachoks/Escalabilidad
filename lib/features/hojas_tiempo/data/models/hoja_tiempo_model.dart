@@ -71,6 +71,7 @@ class HojaTiempoDiaria {
   final int idHojaSemana;
   final DateTime fecha;
   final String lugar;
+  final String? area;
   final String tipoDia;
   final String? horarioInicio;
   final String? horarioFin;
@@ -82,6 +83,7 @@ class HojaTiempoDiaria {
     required this.idHojaSemana,
     required this.fecha,
     required this.lugar,
+    this.area,
     required this.tipoDia,
     this.horarioInicio,
     this.horarioFin,
@@ -95,6 +97,7 @@ class HojaTiempoDiaria {
       idHojaSemana: json['id_hoja_semana'],
       fecha: DateTime.parse(json['fecha']),
       lugar: json['lugar'] ?? 'OFICINA',
+      area: json['area'],
       tipoDia: json['tipo_dia'] ?? 'HABIL',
       horarioInicio: json['horario_inicio'],
       horarioFin: json['horario_fin'],
