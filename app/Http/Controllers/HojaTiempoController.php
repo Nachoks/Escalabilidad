@@ -11,6 +11,8 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use App\Models\Cliente;
 use App\Models\OcCliente;
+use App\Models\User; 
+use App\Services\OneSignalService; 
 
 class HojaTiempoController extends Controller
 {
@@ -152,12 +154,17 @@ class HojaTiempoController extends Controller
         return response()->json(['success' => true, 'data' => $hojas]);
     }
 
-    public function detalleHoja($id_hoja_semana)
+   public function detalleHoja($id_hoja_semana)
     {
-        // Hacemos JOIN con 'servicio' para traer 'nombre_servicio' a la capa principal del JSON
-        $hoja = HojaTiempoSemana::select('hojas_tiempo_semanas.*', 'servicio.nombre_servicio')
+        // Agregamos el JOIN con 'cliente' y seleccionamos 'cliente.nombre_cliente'
+        $hoja = HojaTiempoSemana::select(
+                'hojas_tiempo_semanas.*', 
+                'servicio.nombre_servicio',
+                'cliente.nombre_cliente' // <--- IMPORTANTE: Traer este campo
+            )
             ->join('servicio', 'hojas_tiempo_semanas.id_servicio', '=', 'servicio.id_servicio')
-            ->with(['ocCliente', 'dias.actividades']) // Mantenemos las relaciones de días y OC
+            ->join('cliente', 'servicio.id_cliente', '=', 'cliente.id_cliente') // <--- JOIN FALTANTE
+            ->with(['ocCliente', 'dias.actividades']) 
             ->where('hojas_tiempo_semanas.id_hoja_semana', $id_hoja_semana)
             ->first();
 
@@ -229,12 +236,42 @@ class HojaTiempoController extends Controller
         ]);
 
         try {
+            // Cargamos la relación 'usuario' si existe en el modelo, o buscamos el usuario después
             $hoja = \App\Models\HojaTiempoSemana::findOrFail($id_hoja_semana);
             
-            // Cambiamos el estado y guardamos la observación
             $hoja->estado = 'Enviada';
             $hoja->observacion = $request->observacion;
             $hoja->save();
+
+            // --- LÓGICA DE NOTIFICACIÓN (NUEVO) ---
+            try {
+                // 1. Obtener datos del trabajador para el mensaje
+                $trabajador = User::find($hoja->id_usuario);
+                // Usamos nombre_usuario o los atributos virtuales nombre/apellido si están disponibles
+                $nombreTrabajador = $trabajador ? ($trabajador->nombre . ' ' . $trabajador->apellido) : 'Un trabajador';
+                if (trim($nombreTrabajador) == '') $nombreTrabajador = $trabajador->nombre_usuario;
+
+                // 2. Buscar IDs de usuarios con rol Administrador o Validador
+                // (Reutilizando la lógica exacta de tu RendicionController)
+                $validadoresIds = User::whereHas('roles', function($q) {
+                    $q->whereIn('tipo_usuario', ['Administrador', 'Validador']);
+                })->pluck('id_usuario')->toArray();
+
+                // 3. Enviar usando tu servicio
+                OneSignalService::enviar(
+                    $validadoresIds, // Array de IDs de usuario (Laravel)
+                    "Hoja de Tiempo Pendiente ⏱️", 
+                    "{$nombreTrabajador} ha enviado hoja de tiempo de la semana numero {$hoja->numero_semana} para ser validada.", 
+                    [
+                        'id_hoja_semana' => $hoja->id_hoja_semana, 
+                        'tipo' => 'hoja_tiempo_pendiente'
+                    ]
+                );
+            } catch (\Exception $ex) {
+                // Si falla la notificación, solo lo logueamos para no detener el flujo
+                \Log::error("Error enviando notificación OneSignal (HojaTiempo): " . $ex->getMessage());
+            }
+            // ---------------------------------------
 
             return response()->json([
                 'success' => true, 
@@ -261,30 +298,54 @@ class HojaTiempoController extends Controller
 }
 
 public function evaluarHoja(Request $request, $id)
-{
-    $request->validate([
-        'estado' => 'required|in:Aprobada,Rechazada',
-        'observacion' => 'nullable|string'
-    ]);
-
-    try {
-        $hoja = \App\Models\HojaTiempoSemana::findOrFail($id);
-        $hoja->estado = $request->estado;
-        
-        if ($request->filled('observacion')) {
-            $hoja->observacion = $request->observacion;
-        }
-
-        $hoja->save();
-
-        return response()->json([
-            'success' => true, 
-            'message' => 'Hoja evaluada',
-            'data' => $hoja
+    {
+        $request->validate([
+            'estado' => 'required|in:Aprobada,Rechazada',
+            'observacion' => 'nullable|string'
         ]);
 
-    } catch (\Exception $e) {
-        return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        try {
+            $hoja = \App\Models\HojaTiempoSemana::findOrFail($id);
+            $hoja->estado = $request->estado;
+            
+            if ($request->filled('observacion')) {
+                $hoja->observacion = $request->observacion;
+            }
+
+            $hoja->save();
+
+            // --- LÓGICA DE NOTIFICACIÓN (NUEVO) ---
+            try {
+                $titulo = $request->estado === 'Aprobada' ? "Hoja Aprobada ✅" : "Hoja Rechazada ❌";
+                
+                $mensaje = $request->estado === 'Aprobada' 
+                    ? "Tu hoja de tiempo (Semana {$hoja->numero_semana}) ha sido aprobada." 
+                    : "Tu hoja de tiempo (Semana {$hoja->numero_semana}) ha sido rechazada. Revisa la observación.";
+
+                // Tu servicio OneSignalService recibe un ARRAY de IDs de usuario
+                OneSignalService::enviar(
+                    [$hoja->id_usuario], 
+                    $titulo, 
+                    $mensaje,
+                    [
+                        'id_hoja_semana' => $hoja->id_hoja_semana,
+                        'tipo' => 'hoja_tiempo_evaluada'
+                    ]
+                );
+
+            } catch (\Exception $ex) {
+                \Log::error("Error enviando notificación evaluación (HojaTiempo): " . $ex->getMessage());
+            }
+            // ---------------------------------------
+
+            return response()->json([
+                'success' => true, 
+                'message' => 'Hoja evaluada',
+                'data' => $hoja
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
     }
-}
 }
