@@ -25,60 +25,112 @@ class _FatigaContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = context.watch<FatigaProvider>();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Test de Fatiga',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: const Color(0xFFF35F34),
-        foregroundColor: Colors.white,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.primary, AppColors.secondary],
-              begin: Alignment.bottomRight,
-              end: Alignment.topLeft,
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 850;
+
+        return Scaffold(
+          backgroundColor: isDesktop ? const Color(0xFFF4F6F8) : Colors.white,
+
+          // --- APPBAR ADAPTATIVO ---
+          appBar: isDesktop
+              ? AppBar(
+                  backgroundColor: AppColors.primary,
+                  elevation: 2,
+                  toolbarHeight: 70,
+                  title: Row(
+                    children: [
+                      const Image(
+                        image: AssetImage('assets/images/isotipo.png'),
+                        width: 45,
+                        height: 45,
+                      ),
+                      const SizedBox(width: 16),
+                      const Text(
+                        "Test de Fatiga",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                        ),
+                      ),
+                    ],
+                  ),
+                  iconTheme: const IconThemeData(color: Colors.white),
+                )
+              : AppBar(
+                  title: const Text(
+                    'Test de Fatiga',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  flexibleSpace: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [AppColors.primary, AppColors.secondary],
+                        begin: Alignment.bottomRight,
+                        end: Alignment.topLeft,
+                      ),
+                    ),
+                  ),
+                ),
+
+          // --- CUERPO ---
+          body: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 500),
+            child: provider.showSurvey
+                ? _buildSurvey(context, provider, isDesktop)
+                : _buildAlert(context, provider, isDesktop),
           ),
-        ),
-      ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 500),
-        child: provider.showSurvey
-            ? _buildSurvey(context, provider)
-            : _buildAlert(context, provider),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildSurvey(BuildContext context, FatigaProvider provider) {
+  Widget _buildSurvey(
+    BuildContext context,
+    FatigaProvider provider,
+    bool isDesktop,
+  ) {
     return Container(
       key: const ValueKey('survey'),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.grey.shade100, Colors.white],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
+        gradient: isDesktop
+            ? null
+            : LinearGradient(
+                colors: [Colors.grey.shade100, Colors.white],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
       ),
       child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 24),
-              ...List.generate(
-                provider.preguntasActivas.length,
-                (i) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: _buildQuestionCard(context, i, provider),
-                ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: isDesktop ? 800 : double.infinity,
+            ), // Centrado y con ancho máximo en PC
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(isDesktop ? 40.0 : 24.0),
+              child: Column(
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 32),
+
+                  // Generamos las tarjetas dinámicamente
+                  ...List.generate(
+                    provider.preguntasActivas.length,
+                    (i) => Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _buildQuestionCard(context, i, provider),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+                  _buildSubmitButton(context, provider),
+                ],
               ),
-              const SizedBox(height: 16),
-              _buildSubmitButton(context, provider),
-            ],
+            ),
           ),
         ),
       ),
@@ -87,35 +139,38 @@ class _FatigaContent extends StatelessWidget {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
         ],
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         children: [
           const Icon(
             Icons.battery_alert_outlined,
-            size: 48,
+            size: 56,
             color: Color(0xFFF35F34),
           ),
           const SizedBox(height: 16),
           const Text(
             'Encuesta de Fatiga',
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.bold,
               color: Color(0xFFF35F34),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             'Responde estas preguntas para evaluar tu nivel de fatiga.',
             textAlign: TextAlign.center,
@@ -131,12 +186,11 @@ class _FatigaContent extends StatelessWidget {
     int index,
     FatigaProvider provider,
   ) {
-    // AQUÍ usamos el tipo explícito para evitar el warning del import
     PreguntaConfig pregunta = provider.preguntasActivas[index];
     bool? respuestaUsuario = provider.userAnswers[index];
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -148,9 +202,9 @@ class _FatigaContent extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -160,8 +214,8 @@ class _FatigaContent extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: const Color(0xFFF35F34).withOpacity(0.1),
                   shape: BoxShape.circle,
@@ -177,7 +231,7 @@ class _FatigaContent extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
               Expanded(
                 child: Text(
                   pregunta.texto,
@@ -190,7 +244,7 @@ class _FatigaContent extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Row(
             children: [
               Expanded(
@@ -201,7 +255,7 @@ class _FatigaContent extends StatelessWidget {
                   () => provider.setAnswer(index, true),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
               Expanded(
                 child: _buildAnswerButton(
                   'No',
@@ -227,12 +281,12 @@ class _FatigaContent extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF35F34) : Colors.grey.shade100,
+          color: isSelected ? const Color(0xFFF35F34) : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? const Color(0xFFF35F34) : Colors.grey.shade300,
+            color: isSelected ? const Color(0xFFF35F34) : Colors.grey.shade200,
             width: 2,
           ),
         ),
@@ -241,8 +295,8 @@ class _FatigaContent extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: isSelected ? Colors.white : Colors.grey.shade600,
-              size: 20,
+              color: isSelected ? Colors.white : Colors.grey.shade500,
+              size: 22,
             ),
             const SizedBox(width: 8),
             Text(
@@ -260,195 +314,214 @@ class _FatigaContent extends StatelessWidget {
   }
 
   Widget _buildSubmitButton(BuildContext context, FatigaProvider provider) {
-    return Container(
-      height: 56,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: provider.allQuestionsAnswered
-              ? [
-                  const Color(0xFFF35F34),
-                  const Color.fromARGB(255, 185, 120, 104),
-                ]
-              : [Colors.grey.shade400, Colors.grey.shade500],
-        ),
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: provider.allQuestionsAnswered
-            ? [
-                BoxShadow(
-                  color: const Color(0xFFF35F34).withOpacity(0.4),
-                  blurRadius: 12,
-                  offset: const Offset(0, 6),
-                ),
-              ]
-            : [],
-      ),
-      child: ElevatedButton(
-        onPressed: () {
-          if (!provider.allQuestionsAnswered) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Por favor responde todas las preguntas'),
-                backgroundColor: Colors.orange,
-              ),
-            );
-            return;
-          }
-
-          final aprobado = provider.submitSurvey();
-
-          if (aprobado) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Encuesta completada correctamente. Estado seguro.',
-                ),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 2),
-              ),
-            );
-            Navigator.pop(context, true);
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('ALERTA:ESTADO NO RECOMANDADO PARA CONDUCIR.'),
-                backgroundColor: Colors.red.shade700,
-              ),
-            );
-          }
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+    return Opacity(
+      opacity: provider.allQuestionsAnswered ? 1.0 : 0.6,
+      child: Container(
+        height: 60,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: provider.allQuestionsAnswered
+                ? [
+                    const Color(0xFFF35F34),
+                    const Color.fromARGB(255, 185, 120, 104),
+                  ]
+                : [Colors.grey.shade400, Colors.grey.shade500],
           ),
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: provider.allQuestionsAnswered
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFF35F34).withOpacity(0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+              : [],
         ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.send_rounded, color: Colors.white),
-            SizedBox(width: 8),
-            Text(
-              'Enviar Encuesta',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+        child: ElevatedButton(
+          onPressed: () {
+            if (!provider.allQuestionsAnswered) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Por favor responde todas las preguntas'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+              return;
+            }
+
+            final aprobado = provider.submitSurvey();
+
+            if (aprobado) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Encuesta completada correctamente. Estado seguro.',
+                  ),
+                  backgroundColor: Colors.green,
+                  duration: Duration(seconds: 2),
+                ),
+              );
+              Navigator.pop(context, true);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text(
+                    'ALERTA: ESTADO NO RECOMANDADO PARA CONDUCIR.',
+                  ),
+                  backgroundColor: Colors.red.shade700,
+                ),
+              );
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
             ),
-          ],
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.send_rounded, color: Colors.white),
+              SizedBox(width: 8),
+              Text(
+                'Enviar Encuesta',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildAlert(BuildContext context, FatigaProvider provider) {
+  Widget _buildAlert(
+    BuildContext context,
+    FatigaProvider provider,
+    bool isDesktop,
+  ) {
     return Container(
       key: const ValueKey('alert'),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.grey.shade100, Colors.white],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
+        gradient: isDesktop
+            ? null
+            : LinearGradient(
+                colors: [Colors.grey.shade100, Colors.white],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
       ),
       child: SafeArea(
         child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.warning_amber_rounded,
-                        size: 64,
-                        color: Colors.red.shade700,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        '¡Alerta de Fatiga!',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: isDesktop ? 600 : double.infinity,
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(isDesktop ? 40.0 : 24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 15,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                      border: Border.all(color: Colors.red.shade100),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          size: 80,
                           color: Colors.red.shade700,
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Tus respuestas indican riesgo. Por tu seguridad, no puedes conducir.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey.shade700,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 32),
-                Container(
-                  width: double.infinity,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFFF35F34),
-                        Color.fromARGB(255, 185, 120, 104),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(28),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFF35F34).withOpacity(0.4),
-                        blurRadius: 12,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.arrow_back_rounded, color: Colors.white),
-                        SizedBox(width: 8),
+                        const SizedBox(height: 24),
                         Text(
-                          'Volver',
+                          '¡Alerta de Fatiga!',
+                          textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 18,
+                            fontSize: 28,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: Colors.red.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Tus respuestas indican riesgo. Por tu seguridad, no puedes conducir.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey.shade700,
+                            height: 1.5,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 48),
+                  Container(
+                    width: double.infinity,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFFF35F34),
+                          Color.fromARGB(255, 185, 120, 104),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(30),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFF35F34).withOpacity(0.4),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.arrow_back_rounded, color: Colors.white),
+                          SizedBox(width: 8),
+                          Text(
+                            'Volver',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

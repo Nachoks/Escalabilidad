@@ -14,7 +14,7 @@ import 'package:somnolence_app/features/rendiciones/presentation/screens/gestion
 import 'package:somnolence_app/features/rendiciones/presentation/screens/validator_dashboar_screen.dart';
 import 'control_salida_screen.dart';
 import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/hojas_list_screen.dart';
-import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/admin_hoja_pendientes_screen.dart'; // <--- AGREGAR ESTA LÍNEA
+import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/admin_hoja_pendientes_screen.dart';
 
 class HomeDashboardScreen extends StatefulWidget {
   const HomeDashboardScreen({super.key});
@@ -27,7 +27,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // Cargar el contador al iniciar si es admin
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = context.read<AuthProvider>().currentUser;
       if (user != null && user.esAdmin) {
@@ -36,174 +35,202 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     });
   }
 
-  /// Refrescamos el contador manualmente al volver de una pantalla
   void _actualizarContador() {
     if (mounted) {
       context.read<RendicionesProvider>().actualizarContadorPendientes();
     }
   }
 
+  // --- MENÚS ADAPTATIVOS (Modales) ---
   void _mostrarMenuRendicionesAdmin(BuildContext context, int pendientes) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true, // Permite que el modal se ajuste mejor
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+    final isDesktop = MediaQuery.of(context).size.width >= 850;
+    Widget menuContent = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (!isDesktop)
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        const Text(
+          "Gestión de Rendiciones",
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: AppColors.primary,
+          ),
         ),
-        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Pequeña barra gris decorativa
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
+        const SizedBox(height: 20),
+        _buildModalListItem(
+          icon: Icons.fact_check_outlined,
+          color: Colors.green,
+          text: "Validar Gastos",
+          badgeCount: pendientes,
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ValidatorDashboardScreen(),
               ),
-            ),
-            const Text(
-              "Gestión de Rendiciones",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // 1. Validar Gastos (Validar)
-            _buildListItem(
-              icon: Icons.fact_check_outlined,
-              color: Colors.green,
-              text: "Validar Gastos",
-              badgeCount: pendientes, // El contador también se ve aquí dentro
-              onTap: () {
-                Navigator.pop(context); // Cerrar el menú
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const ValidatorDashboardScreen(),
-                  ),
-                ).then((_) => _actualizarContador());
-              },
-            ),
-            const Divider(),
-
-            // 2. Historial Global
-            _buildListItem(
-              icon: Icons.history_edu,
-              color: Colors.teal,
-              text: "Historial Global",
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AdminHistoryScreen()),
-                );
-              },
-            ),
-            const Divider(),
-
-            // 3. Mis propias rendiciones (Como usuario normal)
-            _buildListItem(
-              icon: Icons.receipt_long_outlined,
-              color: Colors.blueAccent,
-              text: "Mis Rendiciones",
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const GestionRendicionesScreen(),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-          ],
+            ).then((_) => _actualizarContador());
+          },
         ),
-      ),
+        const Divider(),
+        _buildModalListItem(
+          icon: Icons.history_edu,
+          color: Colors.teal,
+          text: "Historial Global",
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AdminHistoryScreen()),
+            );
+          },
+        ),
+        const Divider(),
+        _buildModalListItem(
+          icon: Icons.receipt_long_outlined,
+          color: Colors.blueAccent,
+          text: "Mis Rendiciones",
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const GestionRendicionesScreen(),
+              ),
+            );
+          },
+        ),
+        if (!isDesktop) const SizedBox(height: 20),
+      ],
     );
+
+    if (isDesktop) {
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            width: 400,
+            padding: const EdgeInsets.all(24),
+            child: menuContent,
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (context) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+          child: menuContent,
+        ),
+      );
+    }
   }
 
   void _mostrarMenuHojasTiempoAdmin(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+    final isDesktop = MediaQuery.of(context).size.width >= 850;
+    Widget menuContent = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (!isDesktop)
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        const Text(
+          "Gestión de Hojas de Tiempo",
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: AppColors.primary,
+          ),
         ),
-        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
+        const SizedBox(height: 20),
+        _buildModalListItem(
+          icon: Icons.fact_check_outlined,
+          color: Colors.green,
+          text: "Evaluar Hojas Pendientes",
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const AdminHojasPendientesScreen(),
               ),
-            ),
-            const Text(
-              "Gestión de Hojas de Tiempo",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // 1. Validar Hojas (Solo Admin)
-            _buildListItem(
-              icon: Icons.fact_check_outlined,
-              color: Colors.green,
-              text: "Evaluar Hojas Pendientes",
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AdminHojasPendientesScreen(),
-                  ),
-                );
-              },
-            ),
-            const Divider(),
-
-            // 2. Mis propias hojas (Como usuario normal)
-            _buildListItem(
-              icon: Icons.access_time,
-              color: Colors.deepPurple,
-              text: "Mis Hojas de Tiempo",
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const HojasListScreen()),
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-          ],
+            );
+          },
         ),
-      ),
+        const Divider(),
+        _buildModalListItem(
+          icon: Icons.access_time,
+          color: Colors.deepPurple,
+          text: "Mis Hojas de Tiempo",
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const HojasListScreen()),
+            );
+          },
+        ),
+        if (!isDesktop) const SizedBox(height: 20),
+      ],
     );
+
+    if (isDesktop) {
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            width: 400,
+            padding: const EdgeInsets.all(24),
+            child: menuContent,
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (context) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+          child: menuContent,
+        ),
+      );
+    }
   }
 
-  // Widget auxiliar para las filas del menú desplegable
-  Widget _buildListItem({
+  Widget _buildModalListItem({
     required IconData icon,
     required Color color,
     required String text,
@@ -247,79 +274,72 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().currentUser;
-    // Consumir el contador
     final provider = context.watch<RendicionesProvider>();
     final int pendientes = provider.cantidadPendientes;
 
-    if (user == null) {
+    if (user == null)
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
 
-    final bool esConductor = user.esConductor;
-    final bool esAdmin = user.esAdmin;
-    final bool esValidador = user.esValidador;
+    // CONFIGURACIÓN DE MENÚS (Ahora incluimos un 'subtitle' para la vista Web)
     final List<Map<String, dynamic>> menuItems = [];
 
-    // 1. MI PERFIL (Para todos)
     menuItems.add({
       'title': 'Mi Perfil',
+      'subtitle': 'Ajustes y credenciales',
       'icon': Icons.person_outline,
       'color': Colors.orange,
       'page': const PerfilScreen(),
     });
 
-    // --- NUEVO BOTÓN: HOJAS DE TIEMPO (Para todos) ---
-    if (esAdmin) {
-      // Vista agrupada para el Admin
+    if (user.esAdmin) {
       menuItems.add({
         'title': 'Hojas de Tiempo',
+        'subtitle': 'Control y validación de horas',
         'icon': Icons.access_time,
         'color': Colors.deepPurple,
         'isAction': true,
         'action': (BuildContext ctx) => _mostrarMenuHojasTiempoAdmin(ctx),
       });
     } else {
-      // Vista directa para trabajadores
       menuItems.add({
         'title': 'Hojas de Tiempo',
+        'subtitle': 'Registra tus horas',
         'icon': Icons.access_time,
         'color': Colors.deepPurple,
         'page': const HojasListScreen(),
       });
     }
 
-    // 2. CONTROL SALIDA (Solo si es conductor)
-    if (esConductor) {
+    if (user.esConductor) {
       menuItems.add({
         'title': 'Control Salida',
+        'subtitle': 'Test de Somnolencia',
         'icon': Icons.directions_car_filled_outlined,
         'color': Colors.indigo,
         'page': const ControlSalidaScreen(),
       });
     }
 
-    // 3. LÓGICA DE RENDICIONES (Diferenciada)
-    if (esAdmin || esValidador) {
-      // SOLO ADMIN ve Usuarios y Clientes
-      if (esAdmin) {
+    if (user.esAdmin || user.esValidador) {
+      if (user.esAdmin) {
         menuItems.add({
           'title': 'Usuarios',
+          'subtitle': 'Gestión de personal',
           'icon': Icons.manage_accounts_outlined,
           'color': Colors.brown,
           'page': const GestionUsuariosScreen(),
         });
-
         menuItems.add({
-          'title': 'Clientes y Servicios',
+          'title': 'Clientes',
+          'subtitle': 'Empresas y servicios',
           'icon': Icons.business_center_outlined,
           'color': Colors.amber.shade800,
           'page': const GestionClientesScreen(),
         });
       }
-
-      // C. RENDICIONES (Botón Agrupado) - VISIBLE PARA AMBOS
       menuItems.add({
         'title': 'Rendiciones',
+        'subtitle': 'Control de viáticos y gastos',
         'icon': Icons.folder_shared_outlined,
         'color': Colors.blueGrey,
         'badgeCount': pendientes,
@@ -328,133 +348,228 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             _mostrarMenuRendicionesAdmin(ctx, pendientes),
       });
     } else {
-      // --- VISTA NORMAL (Solo Rendidor/Conductor) ---
       menuItems.add({
         'title': 'Mis Rendiciones',
+        'subtitle': 'Envío de boletas y gastos',
         'icon': Icons.receipt_long_outlined,
         'color': Colors.blueAccent,
         'page': const GestionRendicionesScreen(),
       });
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F8),
-      body: Column(
-        children: [
-          // --- HEADER (Diseño original mantenido) ---
-          Container(
-            padding: const EdgeInsets.fromLTRB(24, 60, 24, 40),
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(36),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.4),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const LogoAppbar(),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 850;
+
+        return Scaffold(
+          backgroundColor: const Color(0xFFF4F6F8),
+
+          // --- 1. APPBAR MODERNO (SOLO PARA WEB/DESKTOP) ---
+          appBar: isDesktop
+              ? AppBar(
+                  backgroundColor: AppColors.primary,
+                  elevation: 2,
+                  toolbarHeight: 70,
+                  title: Row(
+                    children: [
+                      const Image(
+                        image: AssetImage('assets/images/isotipo.png'),
+                        width: 45,
+                        height: 45,
                       ),
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.logout,
+                      const SizedBox(width: 16),
+                      const Text(
+                        "Intranet IAA SPA",
+                        style: TextStyle(
                           color: Colors.white,
-                          size: 22,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                          letterSpacing: 0.5,
                         ),
-                        onPressed: () async {
-                          await context.read<AuthProvider>().logout();
-                          if (context.mounted) {
-                            Navigator.pushAndRemoveUntil(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const LoginScreen(),
-                              ),
-                              (r) => false,
-                            );
-                          }
-                        },
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            user.nombreCompleto,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                          Text(
+                            user.roles.join(' • '),
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.8),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 30),
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.white.withOpacity(0.2)),
-                  ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 30,
-                        backgroundColor: Colors.white,
-                        child: Text(
-                          user.nombreUsuario.isNotEmpty
-                              ? user.nombreUsuario[0].toUpperCase()
-                              : 'U',
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w900,
-                            color: AppColors.primary,
-                          ),
+                    const SizedBox(width: 12),
+                    CircleAvatar(
+                      backgroundColor: Colors.white,
+                      child: Text(
+                        user.nombreUsuario.isNotEmpty
+                            ? user.nombreUsuario[0].toUpperCase()
+                            : 'U',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
                         ),
                       ),
-                      const SizedBox(width: 20),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              user.nombreCompleto,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(width: 16),
+                    IconButton(
+                      tooltip: 'Cerrar Sesión',
+                      icon: const Icon(Icons.logout, color: Colors.white),
+                      onPressed: () async {
+                        await context.read<AuthProvider>().logout();
+                        if (context.mounted) {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const LoginScreen(),
                             ),
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 6,
-                              children: user.roles.map((rol) {
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 5,
+                            (r) => false,
+                          );
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 16),
+                  ],
+                )
+              : null, // En móvil no usamos AppBar, usamos el Header gigante
+
+          body: Column(
+            children: [
+              // --- 2. HEADER GIGANTE (SOLO PARA MÓVIL) ---
+              if (!isDesktop)
+                Container(
+                  padding: const EdgeInsets.fromLTRB(24, 60, 24, 40),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(36),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.4),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const LogoAppbar(),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.logout,
+                                color: Colors.white,
+                                size: 22,
+                              ),
+                              onPressed: () async {
+                                await context.read<AuthProvider>().logout();
+                                if (context.mounted) {
+                                  Navigator.pushAndRemoveUntil(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const LoginScreen(),
+                                    ),
+                                    (r) => false,
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 30),
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 30,
+                              backgroundColor: Colors.white,
+                              child: Text(
+                                user.nombreUsuario.isNotEmpty
+                                    ? user.nombreUsuario[0].toUpperCase()
+                                    : 'U',
+                                style: const TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    user.nombreCompleto,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.25),
-                                    borderRadius: BorderRadius.circular(8),
+                                  const SizedBox(height: 10),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 6,
+                                    children: user.roles
+                                        .map(
+                                          (rol) => Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 5,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black.withOpacity(
+                                                0.25,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Icon(
+                                              RoleHelper.getIconForRole(rol),
+                                              color: Colors.white70,
+                                              size: 14,
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        RoleHelper.getIconForRole(rol),
-                                        color: Colors.white70,
-                                        size: 14,
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }).toList(),
+                                ],
+                              ),
                             ),
                           ],
                         ),
@@ -462,67 +577,208 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     ],
                   ),
                 ),
+
+              // --- 3. GRILLA DE MÓDULOS ---
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: 1100,
+                    ), // Ancho máximo centrado
+                    child: GridView.builder(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isDesktop ? 40 : 20,
+                        vertical: isDesktop ? 40 : 25,
+                      ),
+                      itemCount: menuItems.length,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        // En PC mostramos 3 columnas, en móvil 2
+                        crossAxisCount: isDesktop ? 3 : 2,
+                        crossAxisSpacing: isDesktop ? 24 : 16,
+                        mainAxisSpacing: isDesktop ? 24 : 16,
+                        // El secreto del diseño Web: Tarjetas rectangulares (aspectRatio alto)
+                        childAspectRatio: isDesktop ? 2.5 : 1.0,
+                      ),
+                      itemBuilder: (context, index) {
+                        final item = menuItems[index];
+
+                        return isDesktop
+                            ? _WebCardMenu(
+                                // DISEÑO NUEVO PARA PC
+                                title: item['title'],
+                                subtitle: item['subtitle'],
+                                icon: item['icon'],
+                                color: item['color'],
+                                badgeCount: item['badgeCount'],
+                                onTap: () => _manejarNavegacion(
+                                  item,
+                                  context,
+                                  user.esAdmin,
+                                ),
+                              )
+                            : _MobileSquareCard(
+                                // DISEÑO ORIGINAL PARA CELULAR
+                                title: item['title'],
+                                icon: item['icon'],
+                                color: item['color'],
+                                badgeCount: item['badgeCount'],
+                                onTap: () => _manejarNavegacion(
+                                  item,
+                                  context,
+                                  user.esAdmin,
+                                ),
+                              );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _manejarNavegacion(
+    Map<String, dynamic> item,
+    BuildContext context,
+    bool esAdmin,
+  ) async {
+    if (item['isAction'] == true) {
+      item['action'](context);
+    } else {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => item['page']),
+      );
+      if (context.mounted && esAdmin) _actualizarContador();
+    }
+  }
+}
+
+// ==========================================================
+// 🎨 DISEÑO 1: TARJETA HORIZONTAL MODERNA (SOLO PARA WEB)
+// ==========================================================
+class _WebCardMenu extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  final int? badgeCount;
+
+  const _WebCardMenu({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    this.badgeCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.08),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  height: 55,
+                  width: 55,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, size: 28, color: color),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                if (badgeCount != null && badgeCount! > 0)
+                  Container(
+                    margin: const EdgeInsets.only(left: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      badgeCount! > 99 ? '99+' : badgeCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  )
+                else
+                  const Icon(Icons.chevron_right, color: Colors.grey),
               ],
             ),
           ),
-
-          // --- GRID DE BOTONES ---
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
-              itemCount: menuItems.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.0,
-              ),
-              itemBuilder: (context, index) {
-                final item = menuItems[index];
-
-                return _BigCardButton(
-                  title: item['title'],
-                  icon: item['icon'],
-                  color: item['color'],
-                  badgeCount: item['badgeCount'], // Pasamos el contador
-                  onTap: () async {
-                    // VERIFICACIÓN IMPORTANTE:
-                    // ¿Es un botón de acción (Popup) o de navegación normal?
-
-                    if (item['isAction'] == true) {
-                      // Ejecutar la función (abrir el modal)
-                      item['action'](context);
-                    } else {
-                      // Navegación normal
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => item['page']),
-                      );
-                      // Al volver, actualizamos el contador por si acaso
-                      if (context.mounted && esAdmin) {
-                        _actualizarContador();
-                      }
-                    }
-                  },
-                );
-              },
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-// --- WIDGET DE TARJETA (Mantenido igual para diseño visual) ---
-class _BigCardButton extends StatelessWidget {
+// ==========================================================
+// 🎨 DISEÑO 2: TARJETA CUADRADA ORIGINAL (SOLO PARA MÓVIL)
+// ==========================================================
+class _MobileSquareCard extends StatelessWidget {
   final String title;
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
-  final int? badgeCount; // Variable opcional para el número
+  final int? badgeCount;
 
-  const _BigCardButton({
+  const _MobileSquareCard({
     required this.title,
     required this.icon,
     required this.color,
@@ -533,9 +789,8 @@ class _BigCardButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Stack(
-      clipBehavior: Clip.none, // Permitir que el badge salga un poco
+      clipBehavior: Clip.none,
       children: [
-        // 1. Tarjeta Normal
         Container(
           width: double.infinity,
           height: double.infinity,
@@ -589,8 +844,6 @@ class _BigCardButton extends StatelessWidget {
             ),
           ),
         ),
-
-        // 2. BADGE DE NOTIFICACIÓN (Solo si hay contador > 0)
         if (badgeCount != null && badgeCount! > 0)
           Positioned(
             right: 12,

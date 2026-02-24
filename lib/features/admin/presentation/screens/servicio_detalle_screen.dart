@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_slidable/flutter_slidable.dart'; // <--- IMPORTANTE
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
 import 'package:somnolence_app/core/api/api_service.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/admin/data/models/servicio_model.dart';
 import 'package:somnolence_app/features/admin/data/models/oc_cliente_model.dart';
-import 'oc_detalle_screen.dart'; // Asegúrate de tener esta pantalla creada
+import 'oc_detalle_screen.dart';
 
 class ServicioDetalleScreen extends StatefulWidget {
   final ServicioModel servicio;
@@ -32,7 +32,6 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
     super.dispose();
   }
 
-  // Método para actualizar la UI
   void _actualizarLocalmente(Function updateFn) {
     if (mounted) {
       setState(() {
@@ -51,14 +50,12 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
     }
   }
 
-  // Recargar datos al volver de la pantalla de OC
   Future<void> _recargarDatos() async {
     setState(() {});
   }
 
   // --- LÓGICA PARA ELIMINAR OC ---
   Future<void> _eliminarOc(OcClienteModel oc) async {
-    // 1. Confirmación
     final bool? confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -86,20 +83,16 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
       context,
     ).showSnackBar(const SnackBar(content: Text("Eliminando OC...")));
 
-    // 2. Llamada a la API
-    // Asegúrate de haber agregado 'eliminarOc' en tu ApiService
     final success = await ApiService.eliminarOc(oc.idOcCliente);
 
     if (!mounted) return;
 
     if (success) {
-      // 3. Actualizar UI (Eliminar de la lista local)
       _actualizarLocalmente(() {
         servicioActual.ocs.removeWhere(
           (item) => item.idOcCliente == oc.idOcCliente,
         );
       });
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("✅ OC eliminada correctamente"),
@@ -121,57 +114,145 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
     bool isFinalizado = servicioActual.estadoServicio == 'Finalizado';
     Color estadoColor = isFinalizado ? Colors.grey : Colors.green;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(
-          servicioActual.centroCosto ?? "Detalle Servicio",
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: isFinalizado ? Colors.grey : AppColors.primary,
-        foregroundColor: Colors.white,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.primary, AppColors.secondary],
-              begin: Alignment.bottomRight,
-              end: Alignment.topLeft,
-            ),
-          ),
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Tarjeta de Información General
-              _buildInfoCard(isFinalizado, estadoColor),
-              const SizedBox(height: 24),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 850;
 
-              // 2. Sección de Órdenes de Compra (OC)
-              _buildSectionHeader(
-                "Órdenes de Compra (OC)",
-                () => _showAddOcDialog(),
-              ),
-              const SizedBox(height: 10),
+        return Scaffold(
+          backgroundColor: isDesktop
+              ? const Color(0xFFF4F6F8)
+              : AppColors.background,
 
-              // Lista de OCs
-              if (servicioActual.ocs.isEmpty)
-                _buildEmptyState()
-              else
-                Column(
-                  children: servicioActual.ocs
-                      .map((oc) => _buildOcCard(oc))
-                      .toList(),
+          // --- APPBAR ADAPTATIVO ---
+          appBar: isDesktop
+              ? AppBar(
+                  backgroundColor: isFinalizado
+                      ? Colors.grey.shade700
+                      : AppColors.primary,
+                  elevation: 2,
+                  toolbarHeight: 70,
+                  title: Row(
+                    children: [
+                      const Image(
+                        image: AssetImage('assets/images/isotipo.png'),
+                        width: 45,
+                        height: 45,
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        "Servicio: ${servicioActual.centroCosto ?? 'Sin CC'}",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                        ),
+                      ),
+                    ],
+                  ),
+                  iconTheme: const IconThemeData(color: Colors.white),
+                )
+              : AppBar(
+                  title: Text(
+                    servicioActual.centroCosto ?? "Detalle Servicio",
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  backgroundColor: isFinalizado
+                      ? Colors.grey
+                      : AppColors.primary,
+                  foregroundColor: Colors.white,
+                  flexibleSpace: Container(
+                    decoration: BoxDecoration(
+                      gradient: isFinalizado
+                          ? null
+                          : LinearGradient(
+                              colors: [AppColors.primary, AppColors.secondary],
+                              begin: Alignment.bottomRight,
+                              end: Alignment.topLeft,
+                            ),
+                    ),
+                  ),
                 ),
 
-              const SizedBox(height: 40),
+          // --- CUERPO ADAPTATIVO ---
+          body: isDesktop
+              ? _buildDesktopLayout(isFinalizado, estadoColor)
+              : _buildMobileLayout(isFinalizado, estadoColor),
+        );
+      },
+    );
+  }
 
-              // 3. Botones de Acción
-              _buildActionButtons(isFinalizado),
-              const SizedBox(height: 20),
+  // ==========================================================
+  // 💻 DISEÑO 1: ESCRITORIO (WEB / PC) - 2 COLUMNAS
+  // ==========================================================
+  Widget _buildDesktopLayout(bool isFinalizado, Color estadoColor) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1200), // Ancho máximo
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // COLUMNA IZQUIERDA: Info del Servicio y Botones
+              Expanded(
+                flex: 4,
+                child: Column(
+                  children: [
+                    _buildInfoCard(isFinalizado, estadoColor, isDesktop: true),
+                    const SizedBox(height: 24),
+                    _buildActionButtons(isFinalizado),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 40),
+
+              // COLUMNA DERECHA: Lista de OCs
+              Expanded(
+                flex: 6,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: _buildSectionHeader(
+                          "Órdenes de Compra (OC)",
+                          _showAddOcDialog,
+                          isDesktop: true,
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      Expanded(
+                        // Permite scrollear la lista de OCs sin mover la info de la izquierda
+                        child: servicioActual.ocs.isEmpty
+                            ? _buildEmptyState()
+                            : ListView.separated(
+                                padding: const EdgeInsets.all(24),
+                                itemCount: servicioActual.ocs.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 16),
+                                itemBuilder: (context, index) =>
+                                    _buildOcCardDesktop(
+                                      servicioActual.ocs[index],
+                                    ),
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -179,12 +260,176 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
     );
   }
 
-  // --- WIDGETS DE LA LISTA (CON SLIDABLE IMPLEMENTADO) ---
+  // ==========================================================
+  // 📱 DISEÑO 2: MÓVIL (Mantenido casi igual)
+  // ==========================================================
+  Widget _buildMobileLayout(bool isFinalizado, Color estadoColor) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildInfoCard(isFinalizado, estadoColor, isDesktop: false),
+            const SizedBox(height: 24),
+            _buildSectionHeader(
+              "Órdenes de Compra (OC)",
+              _showAddOcDialog,
+              isDesktop: false,
+            ),
+            const SizedBox(height: 10),
+            if (servicioActual.ocs.isEmpty)
+              _buildEmptyState()
+            else
+              Column(
+                children: servicioActual.ocs
+                    .map((oc) => _buildOcCardMobile(oc))
+                    .toList(),
+              ),
+            const SizedBox(height: 40),
+            _buildActionButtons(isFinalizado),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
 
-  Widget _buildOcCard(OcClienteModel oc) {
+  // --- WIDGETS DE INFORMACIÓN ---
+  Widget _buildInfoCard(
+    bool isFinalizado,
+    Color color, {
+    required bool isDesktop,
+  }) {
+    return Card(
+      elevation: isDesktop ? 0 : 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: isDesktop
+            ? BorderSide(color: Colors.grey.shade200)
+            : BorderSide.none,
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(isDesktop ? 32.0 : 16.0),
+        child: Column(
+          children: [
+            Text(
+              servicioActual.nombreServicio,
+              style: TextStyle(
+                fontSize: isDesktop ? 22 : 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 16),
+            _rowInfo(
+              "Fecha Inicio:",
+              _formatearFecha(servicioActual.fechaInicio ?? "---"),
+            ),
+            const SizedBox(height: 12),
+            _rowInfo(
+              "Fecha Término:",
+              _formatearFecha(servicioActual.fechaTermino ?? "---"),
+            ),
+            const SizedBox(height: 12),
+            _rowInfo(
+              "Facturación:",
+              servicioActual.facturacion ?? "No facturado",
+            ),
+            const SizedBox(height: 24),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: color),
+              ),
+              child: Text(
+                servicioActual.estadoServicio.toUpperCase(),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _rowInfo(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey[700],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(
+    String title,
+    VoidCallback onAdd, {
+    required bool isDesktop,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: isDesktop ? 20 : 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        if (isDesktop)
+          ElevatedButton.icon(
+            onPressed: onAdd,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text("Agregar OC"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+            ),
+          )
+        else
+          IconButton(
+            icon: const Icon(
+              Icons.add_circle,
+              color: AppColors.primary,
+              size: 30,
+            ),
+            onPressed: onAdd,
+            tooltip: "Agregar OC",
+          ),
+      ],
+    );
+  }
+
+  // --- WIDGETS DE LA LISTA DE OCs ---
+
+  // Para Móvil: Usa Slidable
+  Widget _buildOcCardMobile(OcClienteModel oc) {
     return Slidable(
-      key: ValueKey(oc.idOcCliente), // Llave única para Flutter
-      // Panel de acciones (Lado derecho - Deslizar a la izquierda)
+      key: ValueKey(oc.idOcCliente),
       endActionPane: ActionPane(
         motion: const ScrollMotion(),
         extentRatio: 0.3,
@@ -199,66 +444,95 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
           ),
         ],
       ),
+      child: _buildOcCardContent(oc),
+    );
+  }
 
-      // Contenido principal (Card original)
-      child: Card(
-        elevation: 2,
-        margin: const EdgeInsets.only(bottom: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 8,
-          ),
-          leading: CircleAvatar(
-            backgroundColor: AppColors.primary.withOpacity(0.1),
-            child: const Icon(Icons.shopping_bag, color: AppColors.primary),
-          ),
-          title: Text(
-            oc.codOcCliente,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          subtitle: Text(
-            "${oc.guias.length} Guías asociadas",
-            style: TextStyle(color: Colors.grey[600]),
-          ),
-          trailing: const Icon(
-            Icons.arrow_forward_ios,
-            size: 16,
-            color: Colors.grey,
-          ),
-          onTap: () async {
-            // NAVEGACIÓN A LA VISTA DE HAS (OC DETALLE)
-            await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => OcDetalleScreen(oc: oc)),
-            );
-            // Al volver, recargamos (opcional por si se agregaron guías)
-            _recargarDatos();
-          },
+  // Para Web/PC: Usa Botón Icono explícito (Sin Slidable)
+  Widget _buildOcCardDesktop(OcClienteModel oc) {
+    return _buildOcCardContent(oc, isDesktop: true);
+  }
+
+  // Contenido base de la tarjeta (Compartido)
+  Widget _buildOcCardContent(OcClienteModel oc, {bool isDesktop = false}) {
+    return Card(
+      elevation: isDesktop ? 0 : 2,
+      margin: isDesktop ? EdgeInsets.zero : const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: isDesktop
+            ? BorderSide(color: Colors.grey.shade200)
+            : BorderSide.none,
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
         ),
+        leading: CircleAvatar(
+          backgroundColor: AppColors.primary.withOpacity(0.1),
+          child: const Icon(Icons.shopping_bag, color: AppColors.primary),
+        ),
+        title: Text(
+          oc.codOcCliente,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        subtitle: Text(
+          "${oc.guias.length} Guías asociadas",
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        trailing: isDesktop
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    tooltip: 'Eliminar OC',
+                    onPressed: () => _eliminarOc(oc),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: Colors.grey,
+                  ),
+                ],
+              )
+            : const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => OcDetalleScreen(oc: oc)),
+          );
+          _recargarDatos();
+        },
       ),
     );
   }
 
   Widget _buildEmptyState() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(40),
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: Colors.grey[50],
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.folder_off, size: 40, color: Colors.grey[400]),
-          const SizedBox(height: 10),
+          Icon(Icons.folder_off, size: 60, color: Colors.grey[300]),
+          const SizedBox(height: 16),
           Text(
             "No hay Órdenes de Compra registradas",
             style: TextStyle(
               color: Colors.grey[500],
               fontStyle: FontStyle.italic,
+              fontSize: 16,
             ),
           ),
         ],
@@ -266,98 +540,10 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
     );
   }
 
-  // --- WIDGETS DE INFORMACIÓN ---
-
-  Widget _buildInfoCard(bool isFinalizado, Color color) {
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Text(
-              servicioActual.nombreServicio,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const Divider(),
-            _rowInfo(
-              "Fecha Inicio:",
-              _formatearFecha(servicioActual.fechaInicio ?? "---"),
-            ),
-            _rowInfo(
-              "Fecha Término:",
-              _formatearFecha(servicioActual.fechaTermino ?? "---"),
-            ),
-            const SizedBox(height: 8),
-            _rowInfo(
-              "Facturación:",
-              servicioActual.facturacion ?? "No facturado",
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: color),
-              ),
-              child: Text(
-                servicioActual.estadoServicio,
-                style: TextStyle(color: color, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _rowInfo(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.grey[700],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title, VoidCallback onAdd) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        IconButton(
-          icon: const Icon(
-            Icons.add_circle,
-            color: AppColors.primary,
-            size: 30,
-          ),
-          onPressed: onAdd,
-          tooltip: "Agregar OC",
-        ),
-      ],
-    );
-  }
-
+  // --- BOTONES DE ACCIÓN (Compartidos) ---
   Widget _buildActionButtons(bool isFinalizado) {
     return Column(
       children: [
-        // BOTÓN 1: MODIFICAR INFO
         SizedBox(
           width: double.infinity,
           height: 50,
@@ -370,13 +556,14 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
               ),
             ),
             icon: const Icon(Icons.edit_calendar),
-            label: const Text("MODIFICAR INFO (Fechas / Facturación)"),
+            label: const Text(
+              "MODIFICAR INFO",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             onPressed: _showEditInfoDialog,
           ),
         ),
-        const SizedBox(height: 16),
-
-        // BOTÓN 2: FINALIZAR / ACTUALIZAR FECHA
+        const SizedBox(height: 12),
         SizedBox(
           width: double.infinity,
           height: 50,
@@ -394,15 +581,14 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
               isFinalizado ? Icons.update : Icons.check_circle_outline,
             ),
             label: Text(
-              isFinalizado ? "ACTUALIZAR FECHA TÉRMINO" : "FINALIZAR SERVICIO",
+              isFinalizado ? "ACTUALIZAR FECHA" : "FINALIZAR SERVICIO",
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             onPressed: _showFinalizarDialog,
           ),
         ),
-
-        // BOTÓN 3: REACTIVAR
         if (isFinalizado) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             height: 50,
@@ -415,7 +601,10 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                 ),
               ),
               icon: const Icon(Icons.restore_from_trash),
-              label: const Text("REACTIVAR SERVICIO"),
+              label: const Text(
+                "REACTIVAR SERVICIO",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               onPressed: _showReactivarDialog,
             ),
           ),
@@ -424,9 +613,9 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
     );
   }
 
-  // ===========================================================================
-  // === LÓGICA DE DIÁLOGOS (Sin Cambios significativos) ===
-  // ===========================================================================
+  // ==========================
+  // === LÓGICA DE DIÁLOGOS (Sin cambios) ===
+  // ==========================
 
   void _showAddOcDialog() {
     _textController.clear();
@@ -463,10 +652,8 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                         ? null
                         : () async {
                             if (_textController.text.isEmpty) return;
-
                             setStateBd(() => isSaving = true);
                             final codigoOc = _textController.text;
-
                             final int? nuevoIdReal = await ApiService.agregarOc(
                               servicioActual.idServicio!,
                               codigoOc,
@@ -475,7 +662,6 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                             if (nuevoIdReal != null) {
                               if (dialogContext.mounted)
                                 Navigator.pop(dialogContext);
-
                               _actualizarLocalmente(() {
                                 servicioActual.ocs.add(
                                   OcClienteModel(
@@ -486,10 +672,9 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                                   ),
                                 );
                               });
-
                               ScaffoldMessenger.of(this.context).showSnackBar(
                                 const SnackBar(
-                                  content: Text("OC Agregada correctamente"),
+                                  content: Text("OC Agregada"),
                                   backgroundColor: Colors.green,
                                 ),
                               );
@@ -602,10 +787,6 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                         ? null
                         : () async {
                             setStateBd(() => isSaving = true);
-                            final messenger = ScaffoldMessenger.of(
-                              this.context,
-                            );
-
                             bool success = false;
                             try {
                               success = await ApiService.updateServiceInfo(
@@ -632,10 +813,9 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                                   facturacion: nuevaFacturacion,
                                 );
                               });
-
                               if (dialogContext.mounted)
                                 Navigator.pop(dialogContext);
-                              messenger.showSnackBar(
+                              ScaffoldMessenger.of(this.context).showSnackBar(
                                 const SnackBar(
                                   content: Text("Actualizado"),
                                   backgroundColor: Colors.green,
@@ -644,7 +824,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                             } else {
                               if (sbContext.mounted)
                                 setStateBd(() => isSaving = false);
-                              messenger.showSnackBar(
+                              ScaffoldMessenger.of(this.context).showSnackBar(
                                 const SnackBar(
                                   content: Text("Error al actualizar"),
                                   backgroundColor: Colors.red,
@@ -653,7 +833,14 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                             }
                           },
                     child: isSaving
-                        ? const CircularProgressIndicator(color: Colors.white)
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
                         : const Text("Guardar"),
                   ),
                 ],
@@ -725,10 +912,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                           );
                           return;
                         }
-
                         setStateBd(() => isSaving = true);
-                        final messenger = ScaffoldMessenger.of(this.context);
-
                         bool success = false;
                         try {
                           success = await ApiService.finalizarServicio(
@@ -754,10 +938,9 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                               facturacion: servicioActual.facturacion,
                             );
                           });
-
                           if (dialogContext.mounted)
                             Navigator.pop(dialogContext);
-                          messenger.showSnackBar(
+                          ScaffoldMessenger.of(this.context).showSnackBar(
                             const SnackBar(
                               content: Text("Servicio FINALIZADO"),
                               backgroundColor: Colors.green,
@@ -766,7 +949,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                         } else {
                           if (sbContext.mounted)
                             setStateBd(() => isSaving = false);
-                          messenger.showSnackBar(
+                          ScaffoldMessenger.of(this.context).showSnackBar(
                             const SnackBar(
                               content: Text("Error al finalizar."),
                               backgroundColor: Colors.red,
@@ -775,7 +958,14 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                         }
                       },
                 child: isSaving
-                    ? const CircularProgressIndicator(color: Colors.white)
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
                     : const Text("FINALIZAR"),
               ),
             ],
@@ -814,8 +1004,6 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                     ? null
                     : () async {
                         setStateBd(() => isSaving = true);
-                        final messenger = ScaffoldMessenger.of(this.context);
-
                         bool success = false;
                         try {
                           success = await ApiService.reactivarServicio(
@@ -840,10 +1028,9 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                               facturacion: servicioActual.facturacion,
                             );
                           });
-
                           if (dialogContext.mounted)
                             Navigator.pop(dialogContext);
-                          messenger.showSnackBar(
+                          ScaffoldMessenger.of(this.context).showSnackBar(
                             const SnackBar(
                               content: Text("Servicio REACTIVADO"),
                               backgroundColor: Colors.green,
@@ -852,7 +1039,7 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                         } else {
                           if (sbContext.mounted)
                             setStateBd(() => isSaving = false);
-                          messenger.showSnackBar(
+                          ScaffoldMessenger.of(this.context).showSnackBar(
                             const SnackBar(
                               content: Text("Error al reactivar"),
                               backgroundColor: Colors.red,
@@ -861,7 +1048,14 @@ class _ServicioDetalleScreenState extends State<ServicioDetalleScreen> {
                         }
                       },
                 child: isSaving
-                    ? const CircularProgressIndicator(color: Colors.white)
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
                     : const Text("REACTIVAR"),
               ),
             ],

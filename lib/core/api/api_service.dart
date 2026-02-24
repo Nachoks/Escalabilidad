@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:somnolence_app/core/constants/app_constants.dart';
@@ -665,6 +666,51 @@ class ApiService {
       );
       return response.statusCode == 200;
     } catch (e) {
+      return false;
+    }
+  }
+
+  // NUEVA FUNCIÓN PARA SUBIR ARCHIVOS DESDE LA WEB
+  static Future<bool> subirArchivoHasWeb(
+    int idHas,
+    Uint8List bytes,
+    String fileName,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      // Asegúrate de poner tu URL correcta aquí
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/has/$idHas/archivo'),
+      );
+
+      request.headers.addAll({
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+
+      // La diferencia clave: usamos fromBytes en lugar de fromPath
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'archivo', // El nombre del campo que espera tu Laravel en el Request
+          bytes,
+          filename: fileName,
+        ),
+      );
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return true;
+      } else {
+        print("Error subiendo archivo web: ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      print("Excepción al subir archivo web: $e");
       return false;
     }
   }

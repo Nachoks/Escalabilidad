@@ -1,5 +1,3 @@
-// Archivo: lib/features/dashboard/presentation/screens/control_salida_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:somnolence_app/features/cuestionarios/presentation/screens/checklist_screen.dart';
@@ -9,13 +7,13 @@ import 'package:somnolence_app/features/cuestionarios/presentation/screens/somno
 import 'package:somnolence_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:somnolence_app/features/auth/data/models/user_model.dart';
 import '../providers/home_provider.dart';
+import 'package:somnolence_app/core/constants/app_colors.dart';
 
 class ControlSalidaScreen extends StatelessWidget {
   const ControlSalidaScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Inyectamos el HomeProvider específicamente para esta pantalla
     return ChangeNotifierProvider(
       create: (_) => HomeProvider(),
       child: const _ControlSalidaContent(),
@@ -44,8 +42,6 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
     super.dispose();
   }
 
-  // --- LÓGICA DE BOTONES (UI) ---
-
   void _handleRegistrarViaje() async {
     final homeProvider = context.read<HomeProvider>();
     final authProvider = context.read<AuthProvider>();
@@ -58,7 +54,6 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
       return;
     }
 
-    // Llamamos al provider para hacer el trabajo sucio
     final resultado = await homeProvider.registrarInicioViaje(
       nombreConductor: user.nombreUsuario,
       rutConductor: user.rut,
@@ -68,7 +63,6 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
 
     if (!mounted) return;
 
-    // Manejo de respuesta visual
     if (resultado['success']) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -76,11 +70,8 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
           backgroundColor: Colors.green,
         ),
       );
-
       _patenteArrendadoController.clear();
       _descripcionController.clear();
-
-      // NUEVO: Volvemos al menú principal tras el éxito
       Navigator.pop(context);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -94,78 +85,184 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. OBTENEMOS EL USUARIO DESDE EL AUTH PROVIDER
     final user = context.watch<AuthProvider>().currentUser;
-    // 2. OBTENEMOS EL ESTADO DEL HOME
     final homeProvider = context.watch<HomeProvider>();
 
-    if (user == null) {
+    if (user == null)
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Control de Salida', // CAMBIO DE TÍTULO
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-        backgroundColor: _primaryColor,
-        foregroundColor: Colors.white,
-        // QUITAMOS el botón de logout de aquí
-        actions: [],
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [_primaryColor, _secondaryColor],
-              begin: Alignment.bottomRight,
-              end: Alignment.topLeft,
-            ),
-          ),
-        ),
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.grey.shade100, Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
-            child: Column(
-              children: [
-                _buildHeaderInfo(user, homeProvider),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 850;
 
-                const SizedBox(height: 24),
-                _buildProgressSection(homeProvider),
+        return Scaffold(
+          backgroundColor: isDesktop
+              ? const Color(0xFFF4F6F8)
+              : Colors.grey.shade100,
 
-                const SizedBox(height: 24),
-                _buildTestsList(homeProvider),
+          // --- APPBAR ADAPTATIVO ---
+          appBar: isDesktop
+              ? AppBar(
+                  backgroundColor: AppColors.primary,
+                  elevation: 2,
+                  toolbarHeight: 70,
+                  title: Row(
+                    children: [
+                      const Image(
+                        image: AssetImage('assets/images/isotipo.png'),
+                        width: 45,
+                        height: 45,
+                      ), // Usando el isotipo!
+                      const SizedBox(width: 16),
+                      const Text(
+                        "Control de Salida",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                        ),
+                      ),
+                    ],
+                  ),
+                  iconTheme: const IconThemeData(color: Colors.white),
+                )
+              : AppBar(
+                  title: const Text(
+                    'Control de Salida',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  centerTitle: true,
+                  backgroundColor: _primaryColor,
+                  foregroundColor: Colors.white,
+                  flexibleSpace: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [_primaryColor, _secondaryColor],
+                        begin: Alignment.bottomRight,
+                        end: Alignment.topLeft,
+                      ),
+                    ),
+                  ),
+                ),
 
-                const SizedBox(height: 32),
-                _buildMainActionButton(homeProvider),
-              ],
-            ),
+          // --- CUERPO ADAPTATIVO ---
+          body: isDesktop
+              ? _buildDesktopLayout(user, homeProvider)
+              : _buildMobileLayout(user, homeProvider),
+        );
+      },
+    );
+  }
+
+  // ==========================================================
+  // 💻 DISEÑO 1: ESCRITORIO (WEB / PC) - 2 COLUMNAS
+  // ==========================================================
+  Widget _buildDesktopLayout(User user, HomeProvider homeProvider) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1200), // Ancho máximo
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(40),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // COLUMNA IZQUIERDA: Info y Vehículo
+              Expanded(
+                flex: 5,
+                child: Column(children: [_buildHeaderInfo(user, homeProvider)]),
+              ),
+              const SizedBox(width: 32),
+              // COLUMNA DERECHA: Tests y Botón de Inicio
+              Expanded(
+                flex: 4,
+                child: Column(
+                  children: [
+                    _buildProgressSection(homeProvider),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade200),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Pruebas Clínicas y Checklists",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey.shade800,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          _buildTestsList(homeProvider),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    _buildMainActionButton(homeProvider),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  // --- WIDGETS AUXILIARES (Sin cambios mayores, solo copiados) ---
+  // ==========================================================
+  // 📱 DISEÑO 2: MÓVIL (Mantenido exactamente igual)
+  // ==========================================================
+  Widget _buildMobileLayout(User user, HomeProvider homeProvider) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.grey.shade100, Colors.white],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+          child: Column(
+            children: [
+              _buildHeaderInfo(user, homeProvider),
+              const SizedBox(height: 24),
+              _buildProgressSection(homeProvider),
+              const SizedBox(height: 24),
+              _buildTestsList(homeProvider),
+              const SizedBox(height: 32),
+              _buildMainActionButton(homeProvider),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
+  // --- WIDGETS AUXILIARES REUTILIZABLES ---
   Widget _buildHeaderInfo(User user, HomeProvider provider) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -173,14 +270,8 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
       ),
       child: Column(
         children: [
-          // Puedes mantener los datos del usuario aquí para confirmar quién llena el formulario
-          Icon(
-            Icons.assignment_ind_outlined,
-            size: 48,
-            color: _primaryColor,
-          ), // Icono cambiado ligeramente
+          Icon(Icons.assignment_ind_outlined, size: 48, color: _primaryColor),
           const SizedBox(height: 10),
-
           Text(
             user.nombreCompleto,
             textAlign: TextAlign.center,
@@ -190,7 +281,6 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
               color: Colors.black87,
             ),
           ),
-
           Text(
             user.rut,
             style: const TextStyle(
@@ -199,9 +289,7 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
               color: Colors.grey,
             ),
           ),
-
-          const Divider(height: 30),
-
+          const Divider(height: 40),
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
@@ -235,21 +323,18 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
               ),
             ],
           ),
-
-          const SizedBox(height: 15),
-
+          const SizedBox(height: 20),
           if (provider.tipoAutoSeleccionado == TipoAuto.empresa)
             _buildDropdownPatentes(provider)
           else if (provider.tipoAutoSeleccionado == TipoAuto.arrendado)
             _buildInputPatenteArrendada(provider),
-
           if (provider.tipoAutoSeleccionado != null) ...[
-            const SizedBox(height: 15),
+            const SizedBox(height: 20),
             TextField(
               controller: _descripcionController,
               maxLines: 2,
               decoration: InputDecoration(
-                hintText: 'Descripción (Opcional)',
+                hintText: 'Descripción de la ruta (Opcional)',
                 isDense: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -259,12 +344,11 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
               ),
             ),
           ],
-
           if (provider.direccionGuardada != null) ...[
-            const SizedBox(height: 15),
+            const SizedBox(height: 20),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.green.shade50,
                 borderRadius: BorderRadius.circular(8),
@@ -276,7 +360,7 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
                 style: TextStyle(
                   color: Colors.green.shade800,
                   fontWeight: FontWeight.bold,
-                  fontSize: 12,
+                  fontSize: 13,
                 ),
               ),
             ),
@@ -299,7 +383,7 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
         _patenteArrendadoController.clear();
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: selected ? _primaryColor.withOpacity(0.1) : Colors.white,
           borderRadius: BorderRadius.circular(10),
@@ -310,7 +394,12 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
         ),
         child: Column(
           children: [
-            Icon(icon, color: selected ? _primaryColor : Colors.grey.shade400),
+            Icon(
+              icon,
+              color: selected ? _primaryColor : Colors.grey.shade400,
+              size: 28,
+            ),
+            const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
@@ -326,7 +415,7 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
 
   Widget _buildDropdownPatentes(HomeProvider provider) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.grey[50],
         border: Border.all(color: Colors.grey.shade300),
@@ -340,7 +429,15 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
               : const Text('Seleccionar patente'),
           value: provider.patenteSeleccionada,
           items: provider.patentesDisponibles
-              .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+              .map(
+                (p) => DropdownMenuItem(
+                  value: p,
+                  child: Text(
+                    p,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              )
               .toList(),
           onChanged: (val) => provider.setPatenteSeleccionada(val),
         ),
@@ -354,6 +451,7 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
       onChanged: (_) => setState(() {}),
       textCapitalization: TextCapitalization.characters,
       maxLength: 6,
+      style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2),
       decoration: InputDecoration(
         hintText: 'Ej: ABCD12',
         counterText: '',
@@ -366,12 +464,17 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
 
   Widget _buildProgressSection(HomeProvider provider) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
       child: Column(
@@ -386,8 +489,8 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
               Text(
                 '${provider.testsRealizadosCount}/4',
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
                   color: provider.todosTestsRealizados
                       ? Colors.green
                       : _primaryColor,
@@ -395,12 +498,17 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: provider.testsRealizadosCount / 4,
-            backgroundColor: Colors.grey.shade200,
-            color: provider.todosTestsRealizados ? Colors.green : _primaryColor,
-            minHeight: 8,
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: provider.testsRealizadosCount / 4,
+              backgroundColor: Colors.grey.shade200,
+              color: provider.todosTestsRealizados
+                  ? Colors.green
+                  : _primaryColor,
+              minHeight: 10,
+            ),
           ),
         ],
       ),
@@ -446,11 +554,10 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
               context,
               MaterialPageRoute(builder: (_) => const ChecklistScreen()),
             );
-            if (res is Map<String, dynamic>) {
+            if (res is Map<String, dynamic>)
               provider.setResultadoChecklist(res['aprobado'], res['detalles']);
-            } else if (res is bool) {
+            else if (res is bool)
               provider.setResultadoChecklist(res, null);
-            }
           },
         ),
       ],
@@ -479,9 +586,9 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.4),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+            color: color.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -502,7 +609,7 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
             Text(
               finalText,
               style: const TextStyle(
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
@@ -521,15 +628,15 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
       opacity: (habilitado && !provider.cargandoUbicacion) ? 1.0 : 0.5,
       child: Container(
         width: double.infinity,
-        height: 56,
+        height: 60,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             colors: [Color(0xFF007BFF), Color.fromARGB(255, 84, 143, 206)],
           ),
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
-              color: _primaryColor.withOpacity(0.4),
+              color: const Color(0xFF007BFF).withOpacity(0.4),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),
@@ -543,7 +650,7 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
             backgroundColor: Colors.transparent,
             shadowColor: Colors.transparent,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(30),
             ),
           ),
           child: provider.cargandoUbicacion
@@ -558,9 +665,10 @@ class _ControlSalidaContentState extends State<_ControlSalidaContent> {
               : const Text(
                   'Registrar Inicio del Viaje',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
+                    letterSpacing: 0.5,
                   ),
                 ),
         ),

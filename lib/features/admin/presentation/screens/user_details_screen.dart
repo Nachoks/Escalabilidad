@@ -16,97 +16,226 @@ class UserDetailsScreen extends StatefulWidget {
 }
 
 class _UserDetailsScreenState extends State<UserDetailsScreen> {
-  // Solo mantenemos un flag local para indicar carga mientras se ejecuta la acción
   bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {
-    // Escuchamos el provider para obtener el usuario actualizado
     final provider = context.watch<AdminUsersProvider>();
     final currentUser = provider.usuarios.firstWhere(
       (u) => u.id == widget.user.id,
       orElse: () => widget.user,
     );
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text(
-          'Detalle de Usuario',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.primary, AppColors.secondary],
-              begin: Alignment.bottomRight,
-              end: Alignment.topLeft,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 850;
+
+        return Scaffold(
+          backgroundColor: isDesktop
+              ? const Color(0xFFF4F6F8)
+              : AppColors.background,
+
+          // --- APPBAR ADAPTATIVO ---
+          appBar: isDesktop
+              ? AppBar(
+                  backgroundColor: AppColors.primary,
+                  elevation: 2,
+                  toolbarHeight: 70,
+                  title: Row(
+                    children: [
+                      const Image(
+                        image: AssetImage('assets/images/isotipo.png'),
+                        width: 45,
+                        height: 45,
+                      ),
+                      const SizedBox(width: 16),
+                      const Text(
+                        'Detalle de Usuario',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                        ),
+                      ),
+                    ],
+                  ),
+                  iconTheme: const IconThemeData(color: Colors.white),
+                )
+              : AppBar(
+                  title: const Text(
+                    'Detalle de Usuario',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  flexibleSpace: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [AppColors.primary, AppColors.secondary],
+                        begin: Alignment.bottomRight,
+                        end: Alignment.topLeft,
+                      ),
+                    ),
+                  ),
+                ),
+
+          // --- CUERPO ---
+          body: isDesktop
+              ? _buildDesktopLayout(currentUser)
+              : _buildMobileLayout(currentUser),
+        );
+      },
+    );
+  }
+
+  // ==========================================================
+  // 💻 DISEÑO 1: ESCRITORIO (WEB / PC)
+  // ==========================================================
+  Widget _buildDesktopLayout(User currentUser) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900), // Panel central ancho
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(40),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 15,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+              border: Border.all(color: Colors.grey.shade200),
             ),
-          ),
-        ),
-      ),
-      // 🔥 CAMBIO ESTRUCTURAL AQUÍ
-      // Usamos Column para dividir la pantalla en: Contenido vs Botones Fijos
-      body: Column(
-        children: [
-          // 1. ZONA SCROLLABLE (Ocupa todo el espacio sobrante)
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
+            // 🔥 SOLUCIÓN DEL ERROR: IntrinsicHeight evita el colapso del "stretch" infinito
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildHeader(currentUser),
-                  const SizedBox(height: 24),
-                  _buildInfoCard(currentUser),
-                  // Un pequeño espacio extra al final por si acaso
-                  const SizedBox(height: 20),
+                  // Columna Izquierda: Perfil y Roles
+                  Expanded(
+                    flex: 4,
+                    child: Container(
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: const BorderRadius.horizontal(
+                          left: Radius.circular(20),
+                        ),
+                        border: Border(
+                          right: BorderSide(color: Colors.grey.shade200),
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [_buildHeader(currentUser, isDesktop: true)],
+                      ),
+                    ),
+                  ),
+
+                  // Columna Derecha: Información y Botones
+                  Expanded(
+                    flex: 6,
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Información de Contacto",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          _buildInfoCard(currentUser, isDesktop: true),
+                          const SizedBox(height: 40),
+                          const Text(
+                            "Acciones de Administrador",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildActionButtons(currentUser, isDesktop: true),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
-
-          // 2. ZONA DE BOTONES (Fija abajo y Segura)
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -4),
-                ),
-              ],
-            ),
-            // SafeArea protege contra la barra de gestos/notch inferior
-            child: SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: _buildActionButtons(context, currentUser),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildHeader(User currentUser) {
+  // ==========================================================
+  // 📱 DISEÑO 2: MÓVIL (Mantenido exactamente igual)
+  // ==========================================================
+  Widget _buildMobileLayout(User currentUser) {
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                _buildHeader(currentUser, isDesktop: false),
+                const SizedBox(height: 24),
+                _buildInfoCard(currentUser, isDesktop: false),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: _buildActionButtons(currentUser, isDesktop: false),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- WIDGETS AUXILIARES ---
+
+  Widget _buildHeader(User currentUser, {required bool isDesktop}) {
     final esHabilitado = currentUser.estado;
 
     return Column(
       children: [
         CircleAvatar(
-          radius: 50,
+          radius: isDesktop ? 60 : 50,
           backgroundColor: AppColors.primary.withOpacity(0.1),
           child: Text(
             currentUser.nombreCompleto.isNotEmpty
                 ? currentUser.nombreCompleto[0].toUpperCase()
                 : '?',
-            style: const TextStyle(
-              fontSize: 40,
+            style: TextStyle(
+              fontSize: isDesktop ? 48 : 40,
               color: AppColors.primary,
               fontWeight: FontWeight.bold,
             ),
@@ -115,34 +244,41 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
         const SizedBox(height: 16),
         Text(
           currentUser.nombreCompleto,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: isDesktop ? 26 : 22,
+            fontWeight: FontWeight.bold,
+          ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 8),
-        // Mostrar roles como "badges"
+        const SizedBox(height: 16),
         Wrap(
           spacing: 8,
+          runSpacing: 8,
           alignment: WrapAlignment.center,
-          children: currentUser.roles.map((rol) {
+          children: (currentUser.roles as List<dynamic>).map<Widget>((rol) {
+            final String roleStr = rol.toString();
             return Chip(
               avatar: Icon(
-                RoleHelper.getIconForRole(rol),
+                RoleHelper.getIconForRole(roleStr),
                 size: 16,
                 color: Colors.white,
               ),
               label: Text(
-                rol.toUpperCase(),
-                style: const TextStyle(fontSize: 10, color: Colors.white),
+                roleStr.toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              backgroundColor: RoleHelper.getColorForRole(rol),
+              backgroundColor: RoleHelper.getColorForRole(roleStr),
               padding: EdgeInsets.zero,
             );
           }).toList(),
         ),
-        const SizedBox(height: 8),
-        // Indicador de Estado
+        const SizedBox(height: 24),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           decoration: BoxDecoration(
             color: esHabilitado
                 ? Colors.green.withOpacity(0.1)
@@ -163,10 +299,15 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
     );
   }
 
-  Widget _buildInfoCard(User currentUser) {
+  Widget _buildInfoCard(User currentUser, {required bool isDesktop}) {
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: isDesktop ? 0 : 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: isDesktop
+            ? BorderSide(color: Colors.grey.shade200)
+            : BorderSide.none,
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -218,8 +359,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
     );
   }
 
-  Widget _buildActionButtons(BuildContext context, User currentUser) {
-    // Definimos colores según el estado del usuario actual
+  Widget _buildActionButtons(User currentUser, {required bool isDesktop}) {
     final colorBoton = currentUser.estado
         ? Colors.orange[800]!
         : Colors.green[700]!;
@@ -231,36 +371,43 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
         : Icons.check_circle_outline;
 
     return Column(
+      mainAxisSize:
+          MainAxisSize.min, // Para que no intente crecer infinitamente
       children: [
-        // Botón Editar
         SizedBox(
           width: double.infinity,
+          height: isDesktop ? 55 : 48,
           child: ElevatedButton.icon(
             onPressed: () {
               showDialog(
                 context: context,
-                builder: (context) => EditUserDialog(user: currentUser),
+                barrierDismissible: false,
+                builder: (ctx) => EditUserDialog(user: currentUser),
               );
             },
             icon: const Icon(Icons.edit),
-            label: const Text('Editar Usuario'),
+            label: const Text(
+              'Editar Usuario',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue[700],
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: isDesktop ? 0 : 2,
             ),
           ),
         ),
-        const SizedBox(height: 12),
-
-        // (HABILITAR/DESHABILITAR)
+        SizedBox(height: isDesktop ? 16 : 12),
         SizedBox(
           width: double.infinity,
+          height: isDesktop ? 55 : 48,
           child: OutlinedButton.icon(
             onPressed: _isLoading
                 ? null
                 : () async {
-                    // 1. Mostrar Diálogo de Confirmación
                     final confirmar = await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
@@ -287,22 +434,17 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                       ),
                     );
 
-                    // 2. Si confirmó, llamar a la API
                     if (confirmar == true) {
                       setState(() => _isLoading = true);
-
                       final provider = context.read<AdminUsersProvider>();
                       final exito = await provider.cambiarEstadoUsuario(
                         currentUser.id,
                       );
 
-                      if (!mounted) return; // Chequeo de seguridad
-
+                      if (!mounted) return;
                       setState(() => _isLoading = false);
 
                       if (exito) {
-                        // No necesitamos cambiar estado localmente: el provider
-                        // ya actualizó la lista y notificará a los listeners.
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
@@ -335,16 +477,20 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                     ),
                   )
                 : Icon(iconoBoton),
-            label: Text(_isLoading ? 'Procesando...' : textoBoton),
+            label: Text(
+              _isLoading ? 'Procesando...' : textoBoton,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             style: OutlinedButton.styleFrom(
               backgroundColor: colorBoton,
               foregroundColor: Colors.white,
               side: BorderSide(color: colorBoton),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
         ),
-        const SizedBox(height: 12),
       ],
     );
   }
