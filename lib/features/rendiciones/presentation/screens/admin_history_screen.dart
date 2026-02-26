@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart'; // Importante para fechas
+import 'package:intl/intl.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/rendiciones_provider.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/screens/rendicion_detail_screen.dart';
@@ -15,7 +15,7 @@ class AdminHistoryScreen extends StatefulWidget {
 class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
   // --- VARIABLES DE FILTRO ---
   String _filtroEstado = 'Todos';
-  DateTimeRange? _rangoFechas; // Nuevo filtro de fecha
+  DateTimeRange? _rangoFechas;
 
   @override
   void initState() {
@@ -59,11 +59,11 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
       context: context,
       firstDate: DateTime(2023),
       lastDate: now,
-      initialDateRange: null, // Limpio para evitar errores
+      initialDateRange: null,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
+            colorScheme: const ColorScheme.light(
               primary: AppColors.primary,
               onPrimary: Colors.white,
               surface: Colors.white,
@@ -117,7 +117,7 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
     final provider = context.watch<RendicionesProvider>();
     final historial = provider.historialGlobal;
 
-    // --- APLICAR TODOS LOS FILTROS (ESTADO + FECHA) ---
+    // --- APLICAR TODOS LOS FILTROS (ESTADO + FECHA) EXACTAMENTE COMO LO TENÍAS ---
     final historialFiltrado = historial.where((rendicion) {
       // 1. Filtro por Estado
       if (_filtroEstado != 'Todos' && rendicion.estado != _filtroEstado) {
@@ -151,298 +151,315 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
       return true;
     }).toList();
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text(
-          "Historial de Rendiciones",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.primary, AppColors.secondary],
-              begin: Alignment.bottomRight,
-              end: Alignment.topLeft,
-            ),
-          ),
-        ),
-        actions: [
-          // BOTÓN DE FILTRO FECHA (NUEVO)
-          PopupMenuButton<String>(
-            icon: Icon(
-              Icons.calendar_month,
-              color: _rangoFechas != null ? Colors.amberAccent : Colors.white,
-            ),
-            tooltip: "Filtrar por fecha",
-            onSelected: (value) {
-              if (value == 'hoy') _filtrarHoy();
-              if (value == 'mes') _filtrarEsteMes();
-              if (value == 'año') _filtrarEsteAnio();
-              if (value == 'custom') _seleccionarRangoPersonalizado();
-              if (value == 'limpiar') _limpiarFiltroFecha();
-            },
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              const PopupMenuItem(value: 'hoy', child: Text('📅 Hoy')),
-              const PopupMenuItem(value: 'mes', child: Text('📆 Este Mes')),
-              const PopupMenuItem(value: 'año', child: Text('🗓️ Este Año')),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'custom',
-                child: Text('🛠️ Rango Personalizado'),
-              ),
-              if (_rangoFechas != null) ...[
-                const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: 'limpiar',
-                  child: Text(
-                    '❌ Quitar Filtro',
-                    style: TextStyle(color: Colors.red),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 850;
+
+        return Scaffold(
+          backgroundColor: isDesktop
+              ? const Color(0xFFF4F6F8)
+              : AppColors.background,
+
+          // --- APPBAR ADAPTATIVO ---
+          appBar: isDesktop
+              ? AppBar(
+                  backgroundColor: AppColors.primary,
+                  elevation: 2,
+                  toolbarHeight: 70,
+                  title: Row(
+                    children: [
+                      const Image(
+                        image: AssetImage('assets/images/isotipo.png'),
+                        width: 45,
+                        height: 45,
+                      ),
+                      const SizedBox(width: 16),
+                      const Text(
+                        "Historial de Rendiciones",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                        ),
+                      ),
+                    ],
+                  ),
+                  iconTheme: const IconThemeData(color: Colors.white),
+                  actions: _buildAppBarActions(),
+                )
+              : AppBar(
+                  title: const Text(
+                    "Historial de Rendiciones",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  flexibleSpace: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [AppColors.primary, AppColors.secondary],
+                        begin: Alignment.bottomRight,
+                        end: Alignment.topLeft,
+                      ),
+                    ),
+                  ),
+                  actions: _buildAppBarActions(),
+                ),
+
+          // --- CUERPO ---
+          body: Column(
+            children: [
+              // --- BARRA DE FILTROS ORIGINAL ---
+              _buildFilterBar(isDesktop),
+
+              // --- INDICADOR FILTRO FECHA ACTIVO ---
+              if (_rangoFechas != null)
+                Container(
+                  width: double.infinity,
+                  color: Colors.grey.shade100,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 4,
+                    horizontal: 16,
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: isDesktop ? 1200 : double.infinity,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.filter_list,
+                            size: 14,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            "Fecha: ${DateFormat('dd/MM/yyyy').format(_rangoFechas!.start)} - ${DateFormat('dd/MM/yyyy').format(_rangoFechas!.end)}",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const Spacer(),
+                          InkWell(
+                            onTap: _limpiarFiltroFecha,
+                            child: const Icon(
+                              Icons.close,
+                              size: 16,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ],
+
+              // --- LISTA O GRILLA DE RESULTADOS ---
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _recargarDatos,
+                  color: AppColors.primary,
+                  child: provider.isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : historial.isEmpty
+                      ? _buildEmptyStateOriginal()
+                      : historialFiltrado.isEmpty
+                      ? _buildEmptyStateFiltros()
+                      : Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: isDesktop ? 1200 : double.infinity,
+                            ),
+                            child: isDesktop
+                                // VISTA ESCRITORIO (GRILLA)
+                                ? GridView.builder(
+                                    padding: const EdgeInsets.all(32),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: 2,
+                                          childAspectRatio:
+                                              3.5, // Ajustado para que parezcan tarjetas de lista
+                                          crossAxisSpacing: 24,
+                                          mainAxisSpacing: 24,
+                                        ),
+                                    itemCount: historialFiltrado.length,
+                                    itemBuilder: (context, index) =>
+                                        _buildTarjetaHistorial(
+                                          historialFiltrado[index],
+                                          isDesktop: true,
+                                        ),
+                                  )
+                                // VISTA MÓVIL (LISTA)
+                                : ListView.separated(
+                                    physics:
+                                        const AlwaysScrollableScrollPhysics(),
+                                    padding: const EdgeInsets.all(16),
+                                    itemCount: historialFiltrado.length,
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(height: 10),
+                                    itemBuilder: (context, index) =>
+                                        _buildTarjetaHistorial(
+                                          historialFiltrado[index],
+                                          isDesktop: false,
+                                        ),
+                                  ),
+                          ),
+                        ),
+                ),
+              ),
             ],
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: "Recargar historial",
-            onPressed: provider.isLoading ? null : _recargarDatos,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // --- BARRA DE FILTROS DE ESTADO ---
-          _buildFilterBar(),
+        );
+      },
+    );
+  }
 
-          // --- INDICADOR FILTRO FECHA ACTIVO (NUEVO) ---
-          if (_rangoFechas != null)
-            Container(
-              width: double.infinity,
-              color: Colors.grey.shade100,
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-              child: Row(
-                children: [
-                  Icon(Icons.filter_list, size: 14, color: AppColors.primary),
-                  const SizedBox(width: 8),
-                  Text(
-                    "Fecha: ${DateFormat('dd/MM/yyyy').format(_rangoFechas!.start)} - ${DateFormat('dd/MM/yyyy').format(_rangoFechas!.end)}",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: _limpiarFiltroFecha,
-                    child: const Icon(
-                      Icons.close,
-                      size: 16,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
+  // --- COMPONENTES AUXILIARES ---
+
+  List<Widget> _buildAppBarActions() {
+    return [
+      PopupMenuButton<String>(
+        icon: Icon(
+          Icons.calendar_month,
+          color: _rangoFechas != null ? Colors.amberAccent : Colors.white,
+        ),
+        tooltip: "Filtrar por fecha",
+        onSelected: (value) {
+          if (value == 'hoy') _filtrarHoy();
+          if (value == 'mes') _filtrarEsteMes();
+          if (value == 'año') _filtrarEsteAnio();
+          if (value == 'custom') _seleccionarRangoPersonalizado();
+          if (value == 'limpiar') _limpiarFiltroFecha();
+        },
+        itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+          const PopupMenuItem(value: 'hoy', child: Text('📅 Hoy')),
+          const PopupMenuItem(value: 'mes', child: Text('📆 Este Mes')),
+          const PopupMenuItem(value: 'año', child: Text('🗓️ Este Año')),
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: 'custom',
+            child: Text('🛠️ Rango Personalizado'),
+          ),
+          if (_rangoFechas != null) ...[
+            const PopupMenuDivider(),
+            const PopupMenuItem(
+              value: 'limpiar',
+              child: Text(
+                '❌ Quitar Filtro',
+                style: TextStyle(color: Colors.red),
               ),
             ),
-
-          // --- LISTA DE RENDICIONES ---
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _recargarDatos,
-              color: AppColors.primary,
-              child: provider.isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : historial.isEmpty
-                  ? _buildEmptyStateOriginal()
-                  : historialFiltrado.isEmpty
-                  ? _buildEmptyStateFiltros()
-                  : ListView.separated(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(16),
-                      itemCount: historialFiltrado.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final item = historialFiltrado[index];
-                        final String idVisual =
-                            "#${(item.idRendicion ?? 0).toString().padLeft(3, '0')}";
-                        final String nombreUsuario = item.nombreUsuario;
-                        final colorFondo = _getColorByEstado(item.estado);
-
-                        return Card(
-                          elevation: 2,
-                          color: colorFondo,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ListTile(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => RendicionDetailScreen(
-                                    rendicion: item,
-                                    soloLectura: true,
-                                  ),
-                                ),
-                              );
-                            },
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.white.withOpacity(0.6),
-                              child: Text(
-                                idVisual,
-                                style: TextStyle(
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            title: Text(
-                              item.proposito,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.person,
-                                      size: 14,
-                                      color: Colors.black54,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        nombreUsuario,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  "Estado: ${item.estado} • ${_formatearFecha(item.fecha)}",
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            trailing: Text(
-                              _formatMoney(item.totalGastado),
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ),
+          ],
         ],
       ),
-    );
+      IconButton(
+        icon: const Icon(Icons.refresh),
+        tooltip: "Recargar historial",
+        onPressed: context.read<RendicionesProvider>().isLoading
+            ? null
+            : _recargarDatos,
+      ),
+      const SizedBox(width: 16),
+    ];
   }
 
-  Widget _buildFilterBar() {
+  // --- RESTAURADO A TU CÓDIGO EXACTO, SOLO AGREGANDO ConstrainedBox ---
+  Widget _buildFilterBar(bool isDesktop) {
     return Container(
       width: double.infinity,
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Filtrar por Estado:",
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey,
-            ),
+      decoration: const BoxDecoration(color: Colors.white),
+      padding: EdgeInsets.symmetric(
+        vertical: 8,
+        horizontal: isDesktop ? 32 : 16,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: isDesktop ? 1200 : double.infinity,
           ),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildChoiceChip(
-                  label: 'Todos',
-                  selected: _filtroEstado == 'Todos',
-                  onSelected: (val) => setState(() => _filtroEstado = 'Todos'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Filtrar por Estado:",
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
                 ),
-                const SizedBox(width: 8),
-                _buildChoiceChip(
-                  label: 'Borrador',
-                  selected: _filtroEstado == 'Borrador',
-                  color: Colors.orange.shade200,
-                  onSelected: (val) => setState(
-                    () => _filtroEstado = val ? 'Borrador' : 'Todos',
-                  ),
+              ),
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildChoiceChip(
+                      label: 'Todos',
+                      selected: _filtroEstado == 'Todos',
+                      onSelected: (val) =>
+                          setState(() => _filtroEstado = 'Todos'),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildChoiceChip(
+                      label: 'Borrador',
+                      selected: _filtroEstado == 'Borrador',
+                      color: Colors.orange.shade200,
+                      onSelected: (val) => setState(
+                        () => _filtroEstado = val ? 'Borrador' : 'Todos',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildChoiceChip(
+                      label: 'Pendiente',
+                      selected: _filtroEstado == 'Pendiente de Validación',
+                      color: Colors.blue.shade200,
+                      onSelected: (val) => setState(
+                        () => _filtroEstado = val
+                            ? 'Pendiente de Validación'
+                            : 'Todos',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildChoiceChip(
+                      label: 'Observada',
+                      selected: _filtroEstado == 'Observada',
+                      color: Colors.red.shade200,
+                      onSelected: (val) => setState(
+                        () => _filtroEstado = val ? 'Observada' : 'Todos',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildChoiceChip(
+                      label: 'Aprobada',
+                      selected: _filtroEstado == 'Aprobada',
+                      color: Colors.purple.shade200,
+                      onSelected: (val) => setState(
+                        () => _filtroEstado = val ? 'Aprobada' : 'Todos',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildChoiceChip(
+                      label: 'Pagada',
+                      selected: _filtroEstado == 'Pagada',
+                      color: Colors.green.shade200,
+                      onSelected: (val) => setState(
+                        () => _filtroEstado = val ? 'Pagada' : 'Todos',
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                _buildChoiceChip(
-                  label: 'Pendiente',
-                  selected: _filtroEstado == 'Pendiente de Validación',
-                  color: Colors.blue.shade200,
-                  onSelected: (val) => setState(
-                    () => _filtroEstado = val
-                        ? 'Pendiente de Validación'
-                        : 'Todos',
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _buildChoiceChip(
-                  label: 'Observada',
-                  selected: _filtroEstado == 'Observada',
-                  color: Colors.red.shade200,
-                  onSelected: (val) => setState(
-                    () => _filtroEstado = val ? 'Observada' : 'Todos',
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _buildChoiceChip(
-                  label: 'Aprobada',
-                  selected: _filtroEstado == 'Aprobada',
-                  color: Colors.purple.shade200,
-                  onSelected: (val) => setState(
-                    () => _filtroEstado = val ? 'Aprobada' : 'Todos',
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _buildChoiceChip(
-                  label: 'Pagada',
-                  selected: _filtroEstado == 'Pagada',
-                  color: Colors.green.shade200,
-                  onSelected: (val) =>
-                      setState(() => _filtroEstado = val ? 'Pagada' : 'Todos'),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
+  // --- RESTAURADO A TU CÓDIGO EXACTO ---
   Widget _buildChoiceChip({
     required String label,
     required bool selected,
@@ -467,6 +484,79 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(
           color: selected ? (color ?? AppColors.primary) : Colors.transparent,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTarjetaHistorial(dynamic item, {required bool isDesktop}) {
+    final String idVisual =
+        "#${(item.idRendicion ?? 0).toString().padLeft(3, '0')}";
+    final String nombreUsuario = item.nombreUsuario;
+    final colorFondo = _getColorByEstado(item.estado);
+
+    return Card(
+      elevation: 2,
+      color: colorFondo,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  RendicionDetailScreen(rendicion: item, soloLectura: true),
+            ),
+          );
+        },
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          backgroundColor: Colors.white.withOpacity(0.6),
+          child: Text(
+            idVisual,
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ),
+        title: Text(
+          item.proposito,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(Icons.person, size: 14, color: Colors.black54),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    nombreUsuario,
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              "Estado: ${item.estado} • ${_formatearFecha(item.fecha)}",
+              style: const TextStyle(fontSize: 12, color: Colors.black87),
+            ),
+          ],
+        ),
+        trailing: Text(
+          _formatMoney(item.totalGastado),
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
         ),
       ),
     );

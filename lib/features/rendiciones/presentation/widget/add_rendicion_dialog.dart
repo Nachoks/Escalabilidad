@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Necesario para TextInputFormatter
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
@@ -23,23 +23,14 @@ class ThousandsSeparatorInputFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    // Si está vacío, retornamos nada
-    if (newValue.text.isEmpty) {
-      return newValue;
-    }
-
-    // 1. Limpiamos cualquier cosa que no sea número
+    if (newValue.text.isEmpty) return newValue;
     String newText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-
-    // 2. Si después de limpiar no queda nada, retornamos vacío
     if (newText.isEmpty) return newValue;
 
-    // 3. Formateamos con puntos (Locale de Chile para miles)
     final int value = int.parse(newText);
     final formatter = NumberFormat.decimalPattern('es_CL');
     String newString = formatter.format(value);
 
-    // 4. Retornamos el valor formateado manteniendo el cursor al final
     return TextEditingValue(
       text: newString,
       selection: TextSelection.collapsed(offset: newString.length),
@@ -50,10 +41,9 @@ class ThousandsSeparatorInputFormatter extends TextInputFormatter {
 class _AddRendicionDialogState extends State<AddRendicionDialog> {
   final _formKey = GlobalKey<FormState>();
 
-  // Controladores
   final TextEditingController _propositoController = TextEditingController();
   final TextEditingController _montoController = TextEditingController(
-    text: '0', // Valor inicial
+    text: '0',
   );
   final TextEditingController _fechaController = TextEditingController();
 
@@ -65,12 +55,9 @@ class _AddRendicionDialogState extends State<AddRendicionDialog> {
   @override
   void initState() {
     super.initState();
-    // Cargar clientes al abrir
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ClienteProvider>().cargarClientes();
     });
-
-    // Fecha por defecto: Hoy
     _fechaController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
   }
 
@@ -85,10 +72,6 @@ class _AddRendicionDialogState extends State<AddRendicionDialog> {
 
     setState(() => _isLoading = true);
 
-    // --- CORRECCIÓN AQUÍ ---
-    // 1. Obtenemos el texto (Ej: "50.000")
-    // 2. Quitamos los puntos (Ej: "50000")
-    // 3. Convertimos a int
     String montoLimpio = _montoController.text.replaceAll('.', '');
     int montoFinal = int.tryParse(montoLimpio) ?? 0;
 
@@ -96,20 +79,26 @@ class _AddRendicionDialogState extends State<AddRendicionDialog> {
     final exito = await provider.crearRendicion(
       idServicio: _servicioSeleccionado!.idServicio!,
       proposito: _propositoController.text,
-      montoEntregado: montoFinal, // Enviamos el número limpio
+      montoEntregado: montoFinal,
     );
 
     setState(() => _isLoading = false);
 
     if (mounted) {
       if (exito) {
-        Navigator.pop(context); // Cerrar diálogo
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Rendición creada exitosamente")),
+          const SnackBar(
+            content: Text("Rendición creada exitosamente"),
+            backgroundColor: Colors.green,
+          ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Error al crear rendición")),
+          const SnackBar(
+            content: Text("Error al crear rendición"),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -120,125 +109,211 @@ class _AddRendicionDialogState extends State<AddRendicionDialog> {
     final clienteProvider = context.watch<ClienteProvider>();
     final servicioProvider = context.watch<ServicioProvider>();
 
-    return AlertDialog(
-      title: const Text("Nueva Rendición"),
-      content: SingleChildScrollView(
-        child: SizedBox(
-          width: double.maxFinite,
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 1. DROPDOWN CLIENTE
-                DropdownButtonFormField<ClienteModel>(
-                  decoration: const InputDecoration(labelText: "Cliente"),
-                  value: _clienteSeleccionado,
-                  isExpanded: true,
-                  items: clienteProvider.clientes.map((cliente) {
-                    return DropdownMenuItem(
-                      value: cliente,
-                      child: Text(
-                        cliente.nombreCliente,
-                        overflow: TextOverflow.ellipsis,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 850;
+
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          title: Row(
+            children: [
+              const Icon(Icons.receipt_long, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                "Nueva Rendición",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                  fontSize: isDesktop ? 22 : 18,
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            // En web restringimos el ancho a 500px, en móvil usa todo el disponible
+            width: isDesktop ? 500 : double.maxFinite,
+            child: SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Información del Cliente",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
                       ),
-                    );
-                  }).toList(),
-                  onChanged: (cliente) {
-                    setState(() {
-                      _clienteSeleccionado = cliente;
-                      _servicioSeleccionado = null; // Resetear servicio
-                    });
-                    if (cliente?.idCliente != null) {
-                      context
-                          .read<ServicioProvider>()
-                          .cargarServiciosPorCliente(cliente!.idCliente!);
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // 2. DROPDOWN SERVICIO
-                DropdownButtonFormField<ServicioModel>(
-                  decoration: const InputDecoration(labelText: "Servicio"),
-                  value: _servicioSeleccionado,
-                  isExpanded: true,
-                  hint: servicioProvider.isLoading
-                      ? const Text("Cargando servicios...")
-                      : const Text("Selecciona un servicio"),
-                  items: servicioProvider.servicios.map((servicio) {
-                    return DropdownMenuItem(
-                      value: servicio,
-                      child: Text(
-                        "${servicio.nombreServicio} (${servicio.centroCosto ?? 'S/CC'})",
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<ClienteModel>(
+                      decoration: InputDecoration(
+                        labelText: "Cliente",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        prefixIcon: const Icon(Icons.business),
                       ),
-                    );
-                  }).toList(),
-                  onChanged: (servicio) {
-                    setState(() => _servicioSeleccionado = servicio);
-                  },
-                ),
-                const SizedBox(height: 16),
+                      value: _clienteSeleccionado,
+                      isExpanded: true,
+                      items: clienteProvider.clientes.map((cliente) {
+                        return DropdownMenuItem(
+                          value: cliente,
+                          child: Text(
+                            cliente.nombreCliente,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (cliente) {
+                        setState(() {
+                          _clienteSeleccionado = cliente;
+                          _servicioSeleccionado = null;
+                        });
+                        if (cliente?.idCliente != null) {
+                          context
+                              .read<ServicioProvider>()
+                              .cargarServiciosPorCliente(cliente!.idCliente!);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<ServicioModel>(
+                      decoration: InputDecoration(
+                        labelText: "Servicio",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        prefixIcon: const Icon(Icons.work_outline),
+                      ),
+                      value: _servicioSeleccionado,
+                      isExpanded: true,
+                      hint: servicioProvider.isLoading
+                          ? const Text("Cargando servicios...")
+                          : const Text("Selecciona un servicio"),
+                      items: servicioProvider.servicios.map((servicio) {
+                        return DropdownMenuItem(
+                          value: servicio,
+                          child: Text(
+                            "${servicio.nombreServicio} (${servicio.centroCosto ?? 'S/CC'})",
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (servicio) =>
+                          setState(() => _servicioSeleccionado = servicio),
+                    ),
 
-                // 3. PROPÓSITO
-                TextFormField(
-                  controller: _propositoController,
-                  decoration: const InputDecoration(
-                    labelText: "Propósito del gasto",
-                    hintText: "Ej: Viáticos Norte",
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (v) => v!.isEmpty ? "Campo obligatorio" : null,
-                ),
-                const SizedBox(height: 16),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Divider(),
+                    ),
 
-                // 4. MONTO ENTREGADO (FONDO) - CORREGIDO
-                TextFormField(
-                  controller: _montoController,
-                  keyboardType: TextInputType.number,
-                  // --- CORRECCIÓN AQUÍ: Agregamos los formatters ---
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly, // Solo números
-                    ThousandsSeparatorInputFormatter(), // Puntos visuales
+                    const Text(
+                      "Detalles del Gasto",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _propositoController,
+                      decoration: InputDecoration(
+                        labelText: "Propósito del gasto",
+                        hintText: "Ej: Viáticos Norte",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        prefixIcon: const Icon(Icons.edit_note),
+                      ),
+                      validator: (v) => v!.isEmpty ? "Campo obligatorio" : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _montoController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        ThousandsSeparatorInputFormatter(),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: "Monto Entregado (Fondo)",
+                        helperText: "Ingresa 0 si no recibiste anticipo",
+                        prefixStyle: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                          fontSize: 16,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        hintText: "Ej: 50.000",
+                        prefixIcon: const Icon(
+                          Icons.attach_money,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ),
                   ],
-                  decoration: const InputDecoration(
-                    labelText: "Monto Entregado (Fondo)",
-                    helperText: "Ingresa 0 si no recibiste anticipo",
-                    prefixText: "\$ ",
-                    border: OutlineInputBorder(),
-                    hintText: "Ej: 50.000",
-                  ),
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("Cancelar"),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _guardar,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
+          actionsPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 16,
           ),
-          child: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
-                )
-              : const Text("Crear Rendición"),
-        ),
-      ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                "Cancelar",
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ElevatedButton.icon(
+              onPressed: _isLoading ? null : _guardar,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              icon: _isLoading
+                  ? const SizedBox.shrink()
+                  : const Icon(Icons.save, size: 18),
+              label: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text(
+                      "Crear Rendición",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

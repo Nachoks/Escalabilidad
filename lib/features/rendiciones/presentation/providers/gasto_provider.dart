@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:somnolence_app/core/api/api_service.dart';
@@ -22,9 +23,6 @@ class GastoProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Usamos el endpoint 'show' de rendición que trae la relación 'gastos'
-      // O si tienes un endpoint directo '/gastos?id_rendicion=X', úsalo.
-      // Por ahora mantenemos la lógica que funcionaba:
       final response = await _apiService.get('/rendiciones/$idRendicion');
 
       if (response.statusCode == 200) {
@@ -82,7 +80,7 @@ class GastoProvider extends ChangeNotifier {
     }
   }
 
-  // 3. SUBIR EVIDENCIA
+  // 3. SUBIR EVIDENCIA (MÓVIL)
   Future<bool> subirEvidencia(
     int idGasto,
     int idRendicion,
@@ -115,6 +113,58 @@ class GastoProvider extends ChangeNotifier {
     }
   }
 
+  // 3.5 SUBIR EVIDENCIA (WEB) - CORREGIDO
+  Future<bool> subirEvidenciaWeb(
+    int idGasto,
+    int idRendicion,
+    Uint8List bytes,
+    String fileName,
+  ) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final token = await AuthService.getToken();
+
+      // CORRECCIÓN 1: La ruta exacta que usa tu Laravel
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${AppConstants.apiUrl}/gastos/archivo'),
+      );
+
+      request.headers.addAll({
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+
+      // CORRECCIÓN 2: Enviamos el ID del gasto en el cuerpo de la petición (como en el móvil)
+      request.fields['id_gasto'] = idGasto.toString();
+
+      // Añadimos el archivo desde los bytes
+      request.files.add(
+        http.MultipartFile.fromBytes('archivo', bytes, filename: fileName),
+      );
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Recargamos los gastos para ver la nueva foto
+        await cargarGastos(idRendicion);
+        return true;
+      } else {
+        print("Error subiendo evidencia web: ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      print("Excepción subiendo evidencia web: $e");
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   // 4. ELIMINAR GASTO
   Future<bool> eliminarGastoCompleto(int idGasto) async {
     _isLoading = true;
@@ -124,7 +174,7 @@ class GastoProvider extends ChangeNotifier {
       final token = await AuthService.getToken();
       final url = Uri.parse('${AppConstants.apiUrl}/gastos/$idGasto');
 
-      print("--- INTENTANDO BORRAR GASTO ---"); // <--- AGREGAR
+      print("--- INTENTANDO BORRAR GASTO ---");
       print("URL: $url");
       final response = await http.delete(
         url,
@@ -133,15 +183,14 @@ class GastoProvider extends ChangeNotifier {
           'Accept': 'application/json',
         },
       );
-      print("STATUS: ${response.statusCode}"); // <--- AGREGAR
+      print("STATUS: ${response.statusCode}");
       print("ERROR BODY: ${response.body}");
       if (response.statusCode == 200) {
-        // --- MAGIA: Borramos de la lista local ---
-        // Esto hace que la lista se achique y el "Total Gastado" baje solo.
+        // Borramos de la lista local
         _gastos.removeWhere((g) => g.idGasto == idGasto);
 
         _isLoading = false;
-        notifyListeners(); // ¡Esto actualiza la UI!
+        notifyListeners();
         return true;
       } else {
         _isLoading = false;
@@ -156,12 +205,12 @@ class GastoProvider extends ChangeNotifier {
     }
   }
 
+  // 5. ELIMINAR EVIDENCIA
   Future<bool> eliminarEvidencia(int idGasto, int idRendicion) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      // 1. Obtener token y preparar URL (Asegúrate de tener la IP correcta en AppConstants)
       final token = await AuthService.getToken();
       final url = Uri.parse('${AppConstants.apiUrl}/gastos/$idGasto/archivo');
 
@@ -174,13 +223,9 @@ class GastoProvider extends ChangeNotifier {
       );
 
       if (response.statusCode == 200) {
-        // --- AQUÍ ESTÁ EL TRUCO (ACTUALIZACIÓN LOCAL) ---
-        // En lugar de recargar todo, buscamos el gasto y lo modificamos en memoria
         final index = _gastos.indexWhere((g) => g.idGasto == idGasto);
 
         if (index != -1) {
-          // Como GastoModel es 'final' (inmutable), creamos una copia idéntica
-          // pero con la lista de fotos VACÍA.
           final gastoViejo = _gastos[index];
 
           final gastoNuevo = GastoModel(
@@ -193,20 +238,17 @@ class GastoProvider extends ChangeNotifier {
             detalle: gastoViejo.detalle,
             estado: gastoViejo.estado,
             comentario: gastoViejo.comentario,
-            fotos: [], // <--- FORZAMOS QUE NO TENGA FOTOS
+            fotos: [], // FORZAMOS QUE NO TENGA FOTOS
           );
 
-          // Reemplazamos el gasto viejo por el nuevo en la lista
           _gastos[index] = gastoNuevo;
         }
 
-        // Avisamos a la pantalla que ya terminamos, pero NO limpiamos la lista
         _isLoading = false;
         notifyListeners();
 
         return true;
       } else {
-        // Si falló el servidor
         _isLoading = false;
         notifyListeners();
         return false;

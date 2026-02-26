@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Importante para inputFormatters
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart'; // Importante para formatear el valor inicial
+import 'package:intl/intl.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/rendiciones/data/models/rendicion_model.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/rendiciones_provider.dart';
@@ -49,17 +49,12 @@ class _EditRendicionDialogState extends State<EditRendicionDialog> {
   @override
   void initState() {
     super.initState();
-
-    // 1. PRE-CARGAR DATOS EXISTENTES
     _propositoController = TextEditingController(
       text: widget.rendicion.proposito,
     );
 
-    // --- CORRECCIÓN 1: Formatear el valor inicial ---
-    // Si viene 50000 de la BD, lo convertimos a "50.000" para mostrarlo
     final formatter = NumberFormat.decimalPattern('es_CL');
     String montoFormateado = formatter.format(widget.rendicion.montoEntregado);
-
     _montoController = TextEditingController(text: montoFormateado);
   }
 
@@ -76,8 +71,6 @@ class _EditRendicionDialogState extends State<EditRendicionDialog> {
     setState(() => _isLoading = true);
 
     final provider = context.read<RendicionesProvider>();
-
-    // --- CORRECCIÓN 2: Limpiar el valor antes de enviar ---
     String montoLimpio = _montoController.text.replaceAll('.', '');
     int montoFinal = int.tryParse(montoLimpio) ?? 0;
 
@@ -85,11 +78,11 @@ class _EditRendicionDialogState extends State<EditRendicionDialog> {
       await provider.editarRendicion(
         widget.rendicion.idRendicion!,
         _propositoController.text,
-        montoFinal, // Enviamos el int limpio
+        montoFinal,
       );
 
       if (mounted) {
-        Navigator.pop(context); // Cerrar diálogo
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Rendición actualizada correctamente"),
@@ -113,134 +106,215 @@ class _EditRendicionDialogState extends State<EditRendicionDialog> {
 
   @override
   Widget build(BuildContext context) {
-    // Datos informativos (Solo lectura)
     final String nombreServicio =
         widget.rendicion.servicio?.nombreServicio ?? 'Sin Servicio';
     final String centroCosto = widget.rendicion.servicio?.centroCosto ?? 'S/CC';
 
-    return AlertDialog(
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("Editar Rendición"),
-          Text(
-            "ID #${widget.rendicion.idRendicion}",
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 850;
+
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
-        ],
-      ),
-      content: SingleChildScrollView(
-        child: SizedBox(
-          width: double.maxFinite,
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 1. INFORMACIÓN DE CONTEXTO (NO EDITABLE)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          title: Row(
+            children: [
+              const Icon(Icons.edit_document, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Editar Rendición",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                      fontSize: isDesktop ? 22 : 18,
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "SERVICIO ASOCIADO",
-                        style: TextStyle(
-                          fontSize: 10,
+                  Text(
+                    "ID #${widget.rendicion.idRendicion}",
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: isDesktop
+                ? 500
+                : double.maxFinite, // Limitamos el ancho en PC
+            child: SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 1. INFORMACIÓN DE CONTEXTO (NO EDITABLE)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.work_outline,
+                            color: Colors.grey.shade500,
+                            size: 28,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "SERVICIO ASOCIADO",
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey[600],
+                                    letterSpacing: 1,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  nombreServicio,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                Text(
+                                  "CC: $centroCosto",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // 2. PROPÓSITO (EDITABLE)
+                    const Text(
+                      "Detalles del Gasto",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _propositoController,
+                      decoration: InputDecoration(
+                        labelText: "Propósito del gasto",
+                        hintText: "Ej: Viáticos Norte",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        prefixIcon: const Icon(Icons.description_outlined),
+                      ),
+                      validator: (v) => v!.isEmpty ? "Campo obligatorio" : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 3. MONTO ENTREGADO (EDITABLE)
+                    TextFormField(
+                      controller: _montoController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        ThousandsSeparatorInputFormatter(),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: "Monto Entregado (Fondo)",
+                        helperText: "Modifica si el anticipo cambió",
+                        prefixStyle: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.grey[600],
+                          color: Colors.black87,
+                          fontSize: 16,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.attach_money,
+                          color: Colors.green,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        nombreServicio,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      Text(
-                        "CC: $centroCosto",
-                        style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // 2. PROPÓSITO (EDITABLE)
-                TextFormField(
-                  controller: _propositoController,
-                  decoration: const InputDecoration(
-                    labelText: "Propósito del gasto",
-                    hintText: "Ej: Viáticos Norte",
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.description_outlined),
-                  ),
-                  validator: (v) => v!.isEmpty ? "Campo obligatorio" : null,
-                ),
-                const SizedBox(height: 16),
-
-                // 3. MONTO ENTREGADO (EDITABLE) - CORREGIDO
-                TextFormField(
-                  controller: _montoController,
-                  keyboardType: TextInputType.number,
-                  // --- CORRECCIÓN 3: Agregar Formatters ---
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    ThousandsSeparatorInputFormatter(),
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return "Ingresa un monto";
+                        if (int.tryParse(v.replaceAll('.', '')) == null)
+                          return "Solo números enteros";
+                        return null;
+                      },
+                    ),
                   ],
-                  decoration: const InputDecoration(
-                    labelText: "Monto Entregado (Fondo)",
-                    helperText: "Modifica si el anticipo cambió",
-                    prefixText: "\$ ",
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.attach_money),
-                  ),
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return "Ingresa un monto";
-                    // Validamos quitando los puntos temporalmente
-                    if (int.tryParse(v.replaceAll('.', '')) == null) {
-                      return "Solo números enteros";
-                    }
-                    return null;
-                  },
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("Cancelar"),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _guardarCambios,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
+          actionsPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 16,
           ),
-          child: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
-                )
-              : const Text("Guardar Cambios"),
-        ),
-      ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                "Cancelar",
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ElevatedButton.icon(
+              onPressed: _isLoading ? null : _guardarCambios,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              icon: _isLoading
+                  ? const SizedBox.shrink()
+                  : const Icon(Icons.save, size: 18),
+              label: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text(
+                      "Guardar Cambios",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

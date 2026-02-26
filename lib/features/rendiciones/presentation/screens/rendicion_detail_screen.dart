@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; // Importante para la web
 import 'package:flutter_cached_pdfview/flutter_cached_pdfview.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -75,25 +78,18 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     }
   }
 
-  // --- VER EVIDENCIA (MEJORADO CON HEADERS) ---
+  // --- VER EVIDENCIA ---
   void _verEvidencia(BuildContext context, dynamic archivo) {
     String rutaLimpia = archivo.rutaRelativa.replaceAll('\\', '/');
-
-    if (rutaLimpia.startsWith('public/')) {
+    if (rutaLimpia.startsWith('public/'))
       rutaLimpia = rutaLimpia.replaceFirst('public/', '');
-    }
-    if (rutaLimpia.startsWith('/')) {
-      rutaLimpia = rutaLimpia.substring(1);
-    }
+    if (rutaLimpia.startsWith('/')) rutaLimpia = rutaLimpia.substring(1);
 
     final apiUrl = AppConstants.apiUrl.endsWith('/')
         ? AppConstants.apiUrl.substring(0, AppConstants.apiUrl.length - 1)
         : AppConstants.apiUrl;
-
     final urlString = "$apiUrl/evidencia/$rutaLimpia";
     final urlImagen = Uri.encodeFull(urlString);
-
-    print("Abriendo evidencia: $urlImagen");
 
     final ext = archivo.extension?.toLowerCase() ?? 'jpg';
     final bool esPdf = ext == 'pdf';
@@ -109,10 +105,9 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
             Container(
               width: double.infinity,
               constraints: BoxConstraints(
-                maxHeight:
-                    MediaQuery.of(context).size.height *
-                    0.8, // Aumenté un poco la altura
-              ),
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+                maxWidth: 800,
+              ), // Max width para web
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
@@ -121,19 +116,18 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.all(12.0),
+                    padding: const EdgeInsets.all(16.0),
                     child: Text(
                       esPdf ? "Documento PDF" : "Evidencia Adjunta",
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        fontSize: 18,
                         color: AppColors.primary,
                       ),
                     ),
                   ),
                   const Divider(height: 1),
                   Expanded(
-                    // --- CAMBIO PRINCIPAL AQUÍ ---
                     child: esPdf
                         ? const PDF(
                             enableSwipe: true,
@@ -164,19 +158,18 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                   child: CircularProgressIndicator(),
                                 );
                               },
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.broken_image,
-                                      size: 50,
-                                      color: Colors.grey,
-                                    ),
-                                    Text("Error al cargar imagen"),
-                                  ],
-                                );
-                              },
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.broken_image,
+                                        size: 50,
+                                        color: Colors.grey,
+                                      ),
+                                      Text("Error al cargar imagen"),
+                                    ],
+                                  ),
                             ),
                           ),
                   ),
@@ -195,7 +188,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                     color: Colors.black54,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 20),
+                  child: const Icon(Icons.close, color: Colors.white, size: 24),
                 ),
               ),
             ),
@@ -205,62 +198,120 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     );
   }
 
-  // --- SUBIR ARCHIVO ---
-  Future<void> _adjuntarEvidencia(int idGasto) async {
+  // --- SUBIR ARCHIVO ADAPTATIVO A WEB ---
+  Future<void> _adjuntarEvidencia(int idGasto, bool isDesktop) async {
     final ImagePicker picker = ImagePicker();
     String? pathSeleccionado;
-    final String? opcion = await showModalBottomSheet<String>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt, color: Colors.blue),
-              title: const Text("Tomar Foto"),
-              onTap: () => Navigator.pop(ctx, 'camera'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library, color: Colors.green),
-              title: const Text("Galería"),
-              onTap: () => Navigator.pop(ctx, 'gallery'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
-              title: const Text("PDF"),
-              onTap: () => Navigator.pop(ctx, 'pdf'),
+    Uint8List? fileBytes; // <--- Agregamos variable para los Bytes
+    String? fileName; // <--- Agregamos variable para el nombre en Web
+
+    // Menú de opciones (Cámara solo en móvil)
+    Widget menuOpciones = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (!kIsWeb)
+          ListTile(
+            leading: const Icon(Icons.camera_alt, color: Colors.blue),
+            title: const Text("Tomar Foto"),
+            onTap: () => Navigator.pop(context, 'camera'),
+          ),
+        ListTile(
+          leading: const Icon(Icons.photo_library, color: Colors.green),
+          title: const Text("Galería / Imagen"),
+          onTap: () => Navigator.pop(context, 'gallery'),
+        ),
+        ListTile(
+          leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+          title: const Text("Documento PDF"),
+          onTap: () => Navigator.pop(context, 'pdf'),
+        ),
+      ],
+    );
+
+    // Mostramos el menú según el dispositivo
+    String? opcion;
+    if (isDesktop) {
+      opcion = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text("Adjuntar Evidencia"),
+          content: SizedBox(width: 300, child: menuOpciones),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Cancelar"),
             ),
           ],
         ),
-      ),
-    );
+      );
+    } else {
+      opcion = await showModalBottomSheet<String>(
+        context: context,
+        builder: (ctx) => SafeArea(child: menuOpciones),
+      );
+    }
+
     if (opcion == null) return;
+
+    // --- PROCESAMIENTO SEGÚN PLATAFORMA ---
     if (opcion == 'camera' || opcion == 'gallery') {
       final XFile? photo = await picker.pickImage(
         source: opcion == 'camera' ? ImageSource.camera : ImageSource.gallery,
         imageQuality: 50,
       );
-      pathSeleccionado = photo?.path;
+
+      if (photo != null) {
+        if (kIsWeb) {
+          // Si es web, extraemos bytes
+          fileBytes = await photo.readAsBytes();
+          fileName = photo.name;
+        } else {
+          // Si es móvil, extraemos ruta
+          pathSeleccionado = photo.path;
+        }
+      }
     } else {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf'],
+        withData: kIsWeb, // ESTO ES CLAVE PARA LA WEB
       );
-      pathSeleccionado = result?.files.single.path;
+
+      if (result != null) {
+        if (kIsWeb) {
+          fileBytes = result.files.single.bytes;
+          fileName = result.files.single.name;
+        } else {
+          pathSeleccionado = result.files.single.path;
+        }
+      }
     }
 
-    if (pathSeleccionado != null && mounted) {
+    // --- SUBIDA A LA BASE DE DATOS ---
+    if ((pathSeleccionado != null || fileBytes != null) && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Subiendo..."),
           duration: Duration(seconds: 1),
         ),
       );
-      await context.read<GastoProvider>().subirEvidencia(
-        idGasto,
-        widget.rendicion.idRendicion!,
-        pathSeleccionado,
-      );
+
+      if (kIsWeb && fileBytes != null && fileName != null) {
+        // LLAMADA PARA LA WEB (Necesitarás tener esta función en tu GastoProvider)
+        await context.read<GastoProvider>().subirEvidenciaWeb(
+          idGasto,
+          widget.rendicion.idRendicion!,
+          fileBytes,
+          fileName,
+        );
+      } else if (!kIsWeb && pathSeleccionado != null) {
+        // LLAMADA PARA MÓVIL (La que ya tenías)
+        await context.read<GastoProvider>().subirEvidencia(
+          idGasto,
+          widget.rendicion.idRendicion!,
+          pathSeleccionado,
+        );
+      }
     }
   }
 
@@ -316,33 +367,28 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
   String _formatearFecha(String fechaString) {
     if (fechaString.isEmpty) return "";
     try {
-      final DateTime fecha = DateTime.parse(fechaString);
-      return DateFormat('dd-MM-yyyy').format(fecha);
+      return DateFormat('dd-MM-yyyy').format(DateTime.parse(fechaString));
     } catch (e) {
       return fechaString;
     }
   }
 
-  // --- FUNCIÓN PARA VER COMPROBANTE DE PAGO ---
+  // --- VER COMPROBANTE DE PAGO ---
   void _verComprobanteDePago() {
     final ruta = widget.rendicion.rutaComprobante;
     if (ruta == null) return;
 
     String rutaLimpia = ruta.replaceAll('\\', '/');
-    if (rutaLimpia.startsWith('public/')) {
+    if (rutaLimpia.startsWith('public/'))
       rutaLimpia = rutaLimpia.replaceFirst('public/', '');
-    }
     if (rutaLimpia.startsWith('/')) rutaLimpia = rutaLimpia.substring(1);
 
     final apiUrl = AppConstants.apiUrl.endsWith('/')
         ? AppConstants.apiUrl.substring(0, AppConstants.apiUrl.length - 1)
         : AppConstants.apiUrl;
-
     final urlFinal = "$apiUrl/evidencia/$rutaLimpia";
     final urlCodificada = Uri.encodeFull(urlFinal);
     final bool esPdf = rutaLimpia.toLowerCase().endsWith('.pdf');
-
-    print("Viendo comprobante: $urlCodificada");
 
     showDialog(
       context: context,
@@ -354,9 +400,10 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
           children: [
             Container(
               width: double.infinity,
-              height:
-                  MediaQuery.of(context).size.height *
-                  0.85, // Altura para ver bien el PDF
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+                maxWidth: 800,
+              ),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
@@ -364,7 +411,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
               child: Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.all(12.0),
+                    padding: const EdgeInsets.all(16.0),
                     child: Text(
                       "Comprobante de Pago",
                       style: TextStyle(
@@ -460,378 +507,707 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     final bool esEditable =
         !widget.soloLectura &&
         ['Borrador', 'Observada'].contains(widget.rendicion.estado);
-
     final bool puedeImprimir =
         widget.soloLectura ||
         ['Enviada', 'Pagada', 'Aprobada'].contains(widget.rendicion.estado);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(
-          widget.soloLectura ? "Historial Detalle" : "Detalle Rendición",
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        actions: [
-          if (estaPagada && tieneComprobante)
-            IconButton(
-              icon: const Icon(Icons.receipt_long),
-              tooltip: "Ver Comprobante de Pago",
-              onPressed: _verComprobanteDePago,
-            ),
-          if (puedeImprimir)
-            IconButton(
-              icon: const Icon(Icons.print),
-              tooltip: "Generar PDF",
-              onPressed: _generarPdf,
-            ),
-        ],
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.primary, AppColors.secondary],
-              begin: Alignment.bottomRight,
-              end: Alignment.topLeft,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 850;
+
+        return Scaffold(
+          backgroundColor: isDesktop
+              ? const Color(0xFFF4F6F8)
+              : AppColors.background,
+
+          // --- APPBAR ADAPTATIVO ---
+          appBar: isDesktop
+              ? AppBar(
+                  backgroundColor: AppColors.primary,
+                  elevation: 2,
+                  toolbarHeight: 70,
+                  title: Row(
+                    children: [
+                      const Image(
+                        image: AssetImage('assets/images/isotipo.png'),
+                        width: 45,
+                        height: 45,
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        widget.soloLectura
+                            ? "Historial de Rendición"
+                            : "Detalle Rendición",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                        ),
+                      ),
+                    ],
+                  ),
+                  iconTheme: const IconThemeData(color: Colors.white),
+                  actions: [
+                    if (estaPagada && tieneComprobante)
+                      ElevatedButton.icon(
+                        onPressed: _verComprobanteDePago,
+                        icon: const Icon(Icons.receipt_long, size: 18),
+                        label: const Text("Ver Comprobante"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.green.shade800,
+                          elevation: 0,
+                        ),
+                      ),
+                    const SizedBox(width: 12),
+                    if (puedeImprimir)
+                      ElevatedButton.icon(
+                        onPressed: _generarPdf,
+                        icon: const Icon(Icons.print, size: 18),
+                        label: const Text("Imprimir"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: AppColors.primary,
+                          elevation: 0,
+                        ),
+                      ),
+                    const SizedBox(width: 32),
+                  ],
+                )
+              : AppBar(
+                  title: Text(
+                    widget.soloLectura
+                        ? "Historial Detalle"
+                        : "Detalle Rendición",
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  actions: [
+                    if (estaPagada && tieneComprobante)
+                      IconButton(
+                        icon: const Icon(Icons.receipt_long),
+                        tooltip: "Ver Comprobante",
+                        onPressed: _verComprobanteDePago,
+                      ),
+                    if (puedeImprimir)
+                      IconButton(
+                        icon: const Icon(Icons.print),
+                        tooltip: "Generar PDF",
+                        onPressed: _generarPdf,
+                      ),
+                  ],
+                  flexibleSpace: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [AppColors.primary, AppColors.secondary],
+                        begin: Alignment.bottomRight,
+                        end: Alignment.topLeft,
+                      ),
+                    ),
+                  ),
+                ),
+
+          // --- BOTÓN FLOTANTE ---
+          floatingActionButton: esEditable
+              ? FloatingActionButton.extended(
+                  onPressed: () {
+                    if (widget.rendicion.idRendicion != null) {
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (_) => AddGastoDialog(
+                          idRendicion: widget.rendicion.idRendicion!,
+                        ),
+                      );
+                    }
+                  },
+                  label: isDesktop
+                      ? const Text(
+                          "AGREGAR GASTO",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        )
+                      : const Text("Agregar Gasto"),
+                  icon: const Icon(Icons.add),
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                )
+              : null,
+
+          // --- CUERPO PRINCIPAL ---
+          body: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: isDesktop ? 1000 : double.infinity,
+              ), // Panel central ancho
+              child: Column(
+                children: [
+                  // --- PANEL DE CONTROL (SALDOS) ---
+                  Container(
+                    margin: EdgeInsets.all(isDesktop ? 32 : 0),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 24,
+                      horizontal: 32,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: isDesktop
+                          ? BorderRadius.circular(16)
+                          : BorderRadius.zero,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                      border: isDesktop
+                          ? Border.all(color: Colors.grey.shade200)
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "ASIGNADO",
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _formatMoney(montoEntregado),
+                                style: TextStyle(
+                                  fontSize: isDesktop ? 22 : 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          height: 40,
+                          width: 1,
+                          color: Colors.grey[300],
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text(
+                                "TOTAL (con iva)",
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _formatMoney(totalEnVivo),
+                                style: TextStyle(
+                                  fontSize: isDesktop ? 22 : 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blueAccent,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          height: 40,
+                          width: 1,
+                          color: Colors.grey[300],
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                "POR RENDIR",
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _formatMoney(saldo),
+                                style: TextStyle(
+                                  fontSize: isDesktop ? 22 : 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: saldo >= 0
+                                      ? Colors.green[700]
+                                      : Colors.redAccent,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!isDesktop) const SizedBox(height: 10),
+
+                  // --- LISTA DE GASTOS ---
+                  Expanded(
+                    child: provider.isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : gastos.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.receipt_long_outlined,
+                                  size: 80,
+                                  color: Colors.grey[300],
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  "No hay gastos registrados",
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: EdgeInsets.fromLTRB(
+                              isDesktop ? 32 : 16,
+                              isDesktop ? 0 : 16,
+                              isDesktop ? 32 : 16,
+                              120,
+                            ),
+                            itemCount: gastos.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 16),
+                            itemBuilder: (context, index) {
+                              final gasto = gastos[index];
+                              if (gasto.idGasto == null)
+                                return const SizedBox.shrink();
+
+                              final bool tieneEvidencia =
+                                  gasto.fotos.isNotEmpty;
+                              final bool esRechazado =
+                                  gasto.estado == 'Rechazado';
+                              final String? comentario = gasto.comentario;
+                              final String extension = tieneEvidencia
+                                  ? (gasto.fotos[0].extension).toUpperCase()
+                                  : '';
+                              final bool esPdf = extension == 'PDF';
+
+                              final Color colorEstado = esRechazado
+                                  ? Colors.red
+                                  : (tieneEvidencia
+                                        ? Colors.green
+                                        : Colors.orange);
+                              final Color colorFondo = esRechazado
+                                  ? Colors.red.shade50
+                                  : (tieneEvidencia
+                                        ? Colors.white
+                                        : Colors.orange.shade50);
+
+                              return isDesktop
+                                  ? _buildGastoCardDesktop(
+                                      gasto,
+                                      tieneEvidencia,
+                                      esRechazado,
+                                      esPdf,
+                                      extension,
+                                      comentario,
+                                      colorEstado,
+                                      colorFondo,
+                                      esEditable,
+                                    )
+                                  : _buildGastoCardMobile(
+                                      gasto,
+                                      tieneEvidencia,
+                                      esRechazado,
+                                      esPdf,
+                                      extension,
+                                      comentario,
+                                      colorEstado,
+                                      colorFondo,
+                                      esEditable,
+                                    );
+                            },
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
+        );
+      },
+    );
+  }
+
+  // ==========================================================
+  // 💻 TARJETA GASTO ESCRITORIO (Sin Slidable, Botones visibles)
+  // ==========================================================
+  Widget _buildGastoCardDesktop(
+    dynamic gasto,
+    bool tieneEvidencia,
+    bool esRechazado,
+    bool esPdf,
+    String extension,
+    String? comentario,
+    Color colorEstado,
+    Color colorFondo,
+    bool esEditable,
+  ) {
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorEstado.withOpacity(0.5), width: 1.5),
       ),
-      floatingActionButton: esEditable
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                if (widget.rendicion.idRendicion != null) {
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (_) => AddGastoDialog(
-                      idRendicion: widget.rendicion.idRendicion!,
-                    ),
-                  );
-                }
-              },
-              label: const Text("Agregar Gasto"),
-              icon: const Icon(Icons.add),
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-            )
-          : null,
-      body: Column(
-        children: [
-          // PANEL DE CONTROL
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      color: colorFondo,
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "ASIGNADO",
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    ),
-                    Text(
-                      _formatMoney(montoEntregado),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ],
+                // Icono Izquierdo
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colorEstado.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    esRechazado ? Icons.highlight_off : Icons.receipt_long,
+                    color: colorEstado,
+                    size: 28,
+                  ),
                 ),
-                Container(height: 30, width: 1, color: Colors.grey[300]),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      "TOTAL (con iva)",
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    ),
-                    Text(
-                      _formatMoney(totalEnVivo),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blueAccent,
+                const SizedBox(width: 16),
+
+                // Info Central
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        gasto.detalle,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 6),
+                      Text(
+                        "${_formatearFecha(gasto.fecha)} • ${gasto.tipoDocumento}",
+                        style: TextStyle(color: Colors.grey.shade700),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          _buildBadge(
+                            text: esRechazado
+                                ? "RECHAZADO"
+                                : (tieneEvidencia
+                                      ? "EVIDENCIA OK"
+                                      : "FALTA FOTO"),
+                            color: colorEstado,
+                          ),
+                          if (tieneEvidencia) ...[
+                            const SizedBox(width: 8),
+                            _buildBadge(
+                              text: extension,
+                              color: esPdf
+                                  ? Colors.red.shade700
+                                  : Colors.blue.shade600,
+                              icon: esPdf ? Icons.picture_as_pdf : Icons.image,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-                Container(height: 30, width: 1, color: Colors.grey[300]),
+
+                // Info Derecha y Botones
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      "POR RENDIR",
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    ),
-                    Text(
-                      _formatMoney(saldo),
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: saldo >= 0
-                            ? Colors.green[700]
-                            : Colors.redAccent,
+                      _formatMoney(gasto.monto),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 24,
+                        color: AppColors.primary,
                       ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        if (tieneEvidencia)
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.indigo,
+                              side: const BorderSide(color: Colors.indigo),
+                            ),
+                            onPressed: () =>
+                                _verEvidencia(context, gasto.fotos[0]),
+                            icon: const Icon(Icons.visibility, size: 16),
+                            label: const Text("Ver"),
+                          ),
+                        if (esEditable) ...[
+                          const SizedBox(width: 8),
+                          if (tieneEvidencia)
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.deepOrange,
+                                side: const BorderSide(
+                                  color: Colors.deepOrange,
+                                ),
+                              ),
+                              onPressed: () => _borrarArchivo(gasto.idGasto!),
+                              icon: const Icon(
+                                Icons.image_not_supported,
+                                size: 16,
+                              ),
+                              label: const Text("Borrar img"),
+                            )
+                          else
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                              ),
+                              onPressed: () =>
+                                  _adjuntarEvidencia(gasto.idGasto!, true),
+                              icon: const Icon(Icons.camera_alt, size: 16),
+                              label: const Text("Subir Respaldo"),
+                            ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: const BorderSide(color: Colors.red),
+                            ),
+                            onPressed: () =>
+                                _confirmarBorrarGasto(gasto.idGasto!),
+                            icon: const Icon(Icons.delete, size: 16),
+                            label: const Text("Eliminar Gasto"),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 10),
-
-          // LISTA DE GASTOS
-          // LISTA DE GASTOS
-          Expanded(
-            child: provider.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : gastos.isEmpty
-                ? const Center(child: Text("No hay gastos registrados"))
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-                    itemCount: gastos.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final gasto = gastos[index];
-                      if (gasto.idGasto == null) return const SizedBox.shrink();
-
-                      final bool tieneEvidencia = gasto.fotos.isNotEmpty;
-                      final bool esRechazado = gasto.estado == 'Rechazado';
-                      final String? comentario = gasto.comentario;
-
-                      // Datos para badges visuales (Solo lectura)
-                      final String extension = tieneEvidencia
-                          ? (gasto.fotos[0].extension).toUpperCase()
-                          : '';
-                      final bool esPdf = extension == 'PDF';
-
-                      final Color colorEstado = esRechazado
-                          ? Colors.red
-                          : (tieneEvidencia ? Colors.green : Colors.orange);
-
-                      final Color colorFondo = esRechazado
-                          ? Colors.red.shade50
-                          : (tieneEvidencia
-                                ? Colors.white
-                                : Colors.orange.shade50);
-
-                      return Slidable(
-                        key: ValueKey(gasto.idGasto),
-                        // El slidable se habilita si se puede editar O si hay algo que ver
-                        enabled: esEditable || tieneEvidencia,
-
-                        // ACCIONES A LA DERECHA (Swipe hacia la izquierda)
-                        endActionPane: ActionPane(
-                          motion: const ScrollMotion(),
-                          extentRatio:
-                              0.75, // Ajustamos espacio para 3 botones máx
-                          children: [
-                            // 1. BOTÓN VER (Solo si tiene evidencia)
-                            if (tieneEvidencia)
-                              SlidableAction(
-                                onPressed: (_) =>
-                                    _verEvidencia(context, gasto.fotos[0]),
-                                backgroundColor: Colors.indigo,
-                                foregroundColor: Colors.white,
-                                icon: Icons.visibility,
-                                label: 'Ver',
-                              ),
-
-                            // 2. BOTÓN DINÁMICO (Subir o Borrar Archivo) - Solo si es editable
-                            if (esEditable)
-                              SlidableAction(
-                                onPressed: (_) {
-                                  if (tieneEvidencia) {
-                                    _borrarArchivo(gasto.idGasto!);
-                                  } else {
-                                    _adjuntarEvidencia(gasto.idGasto!);
-                                  }
-                                },
-                                backgroundColor: tieneEvidencia
-                                    ? Colors.deepOrange
-                                    : Colors.blue,
-                                foregroundColor: Colors.white,
-                                icon: tieneEvidencia
-                                    ? Icons.image_not_supported
-                                    : Icons.camera_alt,
-                                label: tieneEvidencia
-                                    ? 'Borrar img'
-                                    : 'Subir respaldo',
-                              ),
-
-                            // 3. BOTÓN BORRAR GASTO COMPLETO - Solo si es editable
-                            if (esEditable)
-                              SlidableAction(
-                                onPressed: (_) =>
-                                    _confirmarBorrarGasto(gasto.idGasto!),
-                                backgroundColor: Colors.red,
-                                foregroundColor: Colors.white,
-                                icon: Icons.delete,
-                                label: 'Borrar',
-                                borderRadius: const BorderRadius.only(
-                                  topRight: Radius.circular(12),
-                                  bottomRight: Radius.circular(12),
-                                ),
-                              ),
-                          ],
+            if (esRechazado && comentario != null && comentario.isNotEmpty) ...[
+              const Divider(color: Colors.red, height: 32, thickness: 0.5),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.comment, color: Colors.red, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        "Observación: $comentario",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.red.shade900,
+                          fontStyle: FontStyle.italic,
                         ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 
-                        // CONTENIDO DE LA TARJETA (Limpio de botones)
-                        child: Card(
-                          margin: EdgeInsets.zero,
-                          elevation: tieneEvidencia ? 1 : 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(
-                              color: colorEstado.withOpacity(0.5),
-                              width: 1.5,
-                            ),
-                          ),
-                          color: colorFondo,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                  ),
-                                  // Icono Izquierdo (Estado)
-                                  leading: Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: colorEstado.withOpacity(0.1),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      esRechazado
-                                          ? Icons.highlight_off
-                                          : Icons.receipt_long,
-                                      color: colorEstado,
-                                      size: 24,
-                                    ),
-                                  ),
-                                  // Título (Detalle del gasto)
-                                  title: Text(
-                                    gasto.detalle,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  // Subtítulo (Fecha, Tipo Doc y Badges visuales)
-                                  subtitle: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        "${_formatearFecha(gasto.fecha)} • ${gasto.tipoDocumento}",
-                                      ),
-                                      const SizedBox(height: 8),
-
-                                      // BADGES INFORMATIVOS (Ya no son botones)
-                                      Row(
-                                        children: [
-                                          // Badge Estado Texto
-                                          _buildBadge(
-                                            text: esRechazado
-                                                ? "RECHAZADO"
-                                                : (tieneEvidencia
-                                                      ? "EVIDENCIA OK"
-                                                      : "FALTA FOTO"),
-                                            color: colorEstado,
-                                          ),
-
-                                          // Badge Tipo Archivo (PDF/JPG)
-                                          if (tieneEvidencia) ...[
-                                            const SizedBox(width: 6),
-                                            _buildBadge(
-                                              text: extension,
-                                              color: esPdf
-                                                  ? Colors.red.shade700
-                                                  : Colors.blue.shade600,
-                                              icon: esPdf
-                                                  ? Icons.picture_as_pdf
-                                                  : Icons.image,
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                  // Trailing: Solo el Monto
-                                  trailing: Text(
-                                    _formatMoney(gasto.monto),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                ),
-
-                                // Comentario de rechazo (si existe)
-                                if (esRechazado &&
-                                    comentario != null &&
-                                    comentario.isNotEmpty) ...[
-                                  const Divider(
-                                    color: Colors.red,
-                                    height: 20,
-                                    thickness: 0.5,
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      16,
-                                      0,
-                                      16,
-                                      8,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.comment,
-                                          color: Colors.red,
-                                          size: 16,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            "Observación: $comentario",
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.black87,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
+  // ==========================================================
+  // 📱 TARJETA GASTO MÓVIL (Mantenida exactamente igual)
+  // ==========================================================
+  Widget _buildGastoCardMobile(
+    dynamic gasto,
+    bool tieneEvidencia,
+    bool esRechazado,
+    bool esPdf,
+    String extension,
+    String? comentario,
+    Color colorEstado,
+    Color colorFondo,
+    bool esEditable,
+  ) {
+    return Slidable(
+      key: ValueKey(gasto.idGasto),
+      enabled: esEditable || tieneEvidencia,
+      endActionPane: ActionPane(
+        motion: const ScrollMotion(),
+        extentRatio: 0.75,
+        children: [
+          if (tieneEvidencia)
+            SlidableAction(
+              onPressed: (_) => _verEvidencia(context, gasto.fotos[0]),
+              backgroundColor: Colors.indigo,
+              foregroundColor: Colors.white,
+              icon: Icons.visibility,
+              label: 'Ver',
+            ),
+          if (esEditable)
+            SlidableAction(
+              onPressed: (_) {
+                if (tieneEvidencia)
+                  _borrarArchivo(gasto.idGasto!);
+                else
+                  _adjuntarEvidencia(gasto.idGasto!, false);
+              },
+              backgroundColor: tieneEvidencia ? Colors.deepOrange : Colors.blue,
+              foregroundColor: Colors.white,
+              icon: tieneEvidencia
+                  ? Icons.image_not_supported
+                  : Icons.camera_alt,
+              label: tieneEvidencia ? 'Borrar img' : 'Subir',
+            ),
+          if (esEditable)
+            SlidableAction(
+              onPressed: (_) => _confirmarBorrarGasto(gasto.idGasto!),
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              icon: Icons.delete,
+              label: 'Borrar',
+              borderRadius: const BorderRadius.only(
+                topRight: Radius.circular(12),
+                bottomRight: Radius.circular(12),
+              ),
+            ),
         ],
+      ),
+      child: Card(
+        margin: EdgeInsets.zero,
+        elevation: tieneEvidencia ? 1 : 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: colorEstado.withOpacity(0.5), width: 1.5),
+        ),
+        color: colorFondo,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: colorEstado.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    esRechazado ? Icons.highlight_off : Icons.receipt_long,
+                    color: colorEstado,
+                    size: 24,
+                  ),
+                ),
+                title: Text(
+                  gasto.detalle,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 4),
+                    Text(
+                      "${_formatearFecha(gasto.fecha)} • ${gasto.tipoDocumento}",
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _buildBadge(
+                          text: esRechazado
+                              ? "RECHAZADO"
+                              : (tieneEvidencia
+                                    ? "EVIDENCIA OK"
+                                    : "FALTA FOTO"),
+                          color: colorEstado,
+                        ),
+                        if (tieneEvidencia) ...[
+                          const SizedBox(width: 6),
+                          _buildBadge(
+                            text: extension,
+                            color: esPdf
+                                ? Colors.red.shade700
+                                : Colors.blue.shade600,
+                            icon: esPdf ? Icons.picture_as_pdf : Icons.image,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+                trailing: Text(
+                  _formatMoney(gasto.monto),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              if (esRechazado &&
+                  comentario != null &&
+                  comentario.isNotEmpty) ...[
+                const Divider(color: Colors.red, height: 20, thickness: 0.5),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.comment, color: Colors.red, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "Observación: $comentario",
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

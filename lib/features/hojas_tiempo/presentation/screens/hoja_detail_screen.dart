@@ -34,7 +34,6 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
     if (semana == null) return;
 
     try {
-      // Usamos el NUEVO builder específico para semanal
       final pdfBytes = await HojaTiempoSemanalPdfBuilder.buildPdfSemanal(
         semana: semana,
         nombreUsuario: nombreUsuario,
@@ -65,6 +64,12 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
       "Domingo",
     ];
     return nombres[fecha.weekday - 1];
+  }
+
+  String _formatFecha(String fecha) {
+    final partes = fecha.split('-');
+    if (partes.length == 3) return "${partes[2]}-${partes[1]}-${partes[0]}";
+    return fecha;
   }
 
   TimeOfDay _parseTime(String timeStr) {
@@ -154,7 +159,6 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                       ? null
                       : () async {
                           setModalState(() => isSubmitting = true);
-
                           final provider = context.read<HojaTiempoProvider>();
                           final exito = await provider.enviarSemana(
                             idHoja,
@@ -165,7 +169,7 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                           setModalState(() => isSubmitting = false);
 
                           if (exito) {
-                            Navigator.pop(context); // Cierra el modal
+                            Navigator.pop(context);
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text("Semana enviada a validación"),
@@ -205,490 +209,1041 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          "Detalle de la Semana",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.print),
-            tooltip: 'Imprimir Reporte Semanal',
-            onPressed: _generarPdfSemanal,
-          ),
-        ],
-        backgroundColor: AppColors.primary,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Consumer<HojaTiempoProvider>(
-        builder: (context, provider, child) {
-          if (provider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 850;
 
-          final hoja = provider.hojaSeleccionada;
-          if (hoja == null) {
-            return const Center(child: Text("No se encontró información."));
-          }
+        return Scaffold(
+          backgroundColor: isDesktop
+              ? const Color(0xFFF4F6F8)
+              : Colors.grey.shade50,
 
-          final dias = hoja.dias ?? [];
-          final nombreServicio =
-              hoja.nombreServicio ?? "Servicio no especificado";
-
-          // --- LÓGICA DE SUMA SEMANAL ---
-          double sumHabiles = 0,
-              sumNoHabiles = 0,
-              sumFestivas = 0,
-              sumViaje = 0;
-
-          for (var dia in dias) {
-            sumViaje += (dia.viajeHoras).toDouble();
-
-            if (dia.actividades != null && dia.actividades!.isNotEmpty) {
-              String tipoDia = dia.tipoDia.toUpperCase();
-              TimeOfDay horInicio = dia.horarioInicio != null
-                  ? _parseTime(dia.horarioInicio!)
-                  : const TimeOfDay(hour: 8, minute: 0);
-              TimeOfDay horFin = dia.horarioFin != null
-                  ? _parseTime(dia.horarioFin!)
-                  : const TimeOfDay(hour: 18, minute: 0);
-
-              for (var act in dia.actividades!) {
-                TimeOfDay tInicio = _parseTime(act.horaInicio);
-                TimeOfDay tFin = _parseTime(act.horaFin);
-                double totalTramo = _calcularHorasBrutas(tInicio, tFin);
-
-                if (tipoDia == 'FERIADO') {
-                  sumFestivas += totalTramo;
-                } else if (tipoDia == 'NO_HABIL') {
-                  sumNoHabiles += totalTramo;
-                } else {
-                  int tramoI = tInicio.hour * 60 + tInicio.minute;
-                  int tramoF = tFin.hour * 60 + tFin.minute;
-                  if (tramoF < tramoI) tramoF += 1440;
-
-                  int hI = horInicio.hour * 60 + horInicio.minute;
-                  int hF = horFin.hour * 60 + horFin.minute;
-                  if (hF < hI) hF += 1440;
-
-                  int overlapI = tramoI > hI ? tramoI : hI;
-                  int overlapF = tramoF < hF ? tramoF : hF;
-                  int overlapMins = overlapF - overlapI;
-                  if (overlapMins < 0) overlapMins = 0;
-
-                  double habiles = overlapMins / 60.0;
-                  double noHabiles = totalTramo - habiles;
-                  if (noHabiles < 0.01) noHabiles = 0;
-
-                  sumHabiles += habiles;
-                  sumNoHabiles += noHabiles;
-                }
-              }
-            }
-          }
-
-          double sumTotalTrabajo = sumHabiles + sumNoHabiles + sumFestivas;
-
-          // --- NUEVA LÓGICA DE LECTURA ---
-          // Solo bloqueamos la edición si está Enviada o Aprobada.
-          // Si está en Borrador o Rechazada, el loco puede editar.
-          bool modoLectura =
-              (hoja.estado == 'Enviada' || hoja.estado == 'Aprobada');
-
-          // Colores del Badge del Header
-          Color colorEstado;
-          IconData iconEstado;
-          if (hoja.estado == 'Aprobada') {
-            colorEstado = Colors.green;
-            iconEstado = Icons.check_circle;
-          } else if (hoja.estado == 'Rechazada') {
-            colorEstado = Colors.red;
-            iconEstado = Icons.cancel;
-          } else if (hoja.estado == 'Enviada') {
-            colorEstado = Colors.blue;
-            iconEstado = Icons.access_time_filled;
-          } else {
-            colorEstado = Colors.orange;
-            iconEstado = Icons.edit_document;
-          }
-
-          return Column(
-            children: [
-              // --- 1. CABECERA INFORMATIVA ---
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 20,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border(
-                    bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+          // --- APPBAR ADAPTATIVO ---
+          appBar: isDesktop
+              ? AppBar(
+                  backgroundColor: AppColors.primary,
+                  elevation: 2,
+                  toolbarHeight: 70,
+                  title: Row(
+                    children: [
+                      const Image(
+                        image: AssetImage('assets/images/isotipo.png'),
+                        width: 45,
+                        height: 45,
+                      ),
+                      const SizedBox(width: 16),
+                      const Text(
+                        "Detalle de la Semana",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 22,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      hoja.nombreComprobante ?? "Sin Nombre",
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.primary,
-                        letterSpacing: 0.5,
+                  iconTheme: const IconThemeData(color: Colors.white),
+                  actions: [
+                    ElevatedButton.icon(
+                      onPressed: _generarPdfSemanal,
+                      icon: const Icon(Icons.print, size: 18),
+                      label: const Text("Imprimir Reporte"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppColors.primary,
+                        elevation: 0,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                nombreServicio,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
+                    const SizedBox(width: 32),
+                  ],
+                )
+              : AppBar(
+                  title: const Text(
+                    "Detalle de la Semana",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  actions: [
+                    IconButton(
+                      icon: const Icon(Icons.print),
+                      tooltip: 'Imprimir Reporte Semanal',
+                      onPressed: _generarPdfSemanal,
+                    ),
+                  ],
+                  backgroundColor: AppColors.primary,
+                  iconTheme: const IconThemeData(color: Colors.white),
+                  flexibleSpace: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [AppColors.primary, AppColors.secondary],
+                        begin: Alignment.bottomRight,
+                        end: Alignment.topLeft,
+                      ),
+                    ),
+                  ),
+                ),
+
+          // --- CUERPO ---
+          body: Consumer<HojaTiempoProvider>(
+            builder: (context, provider, child) {
+              if (provider.isLoading)
+                return const Center(child: CircularProgressIndicator());
+              final hoja = provider.hojaSeleccionada;
+              if (hoja == null)
+                return const Center(child: Text("No se encontró información."));
+
+              // Cálculos de la semana
+              final dias = hoja.dias ?? [];
+              final nombreServicio =
+                  hoja.nombreServicio ?? "Servicio no especificado";
+              double sumHabiles = 0,
+                  sumNoHabiles = 0,
+                  sumFestivas = 0,
+                  sumViaje = 0;
+
+              for (var dia in dias) {
+                sumViaje += (dia.viajeHoras).toDouble();
+                if (dia.actividades != null && dia.actividades!.isNotEmpty) {
+                  String tipoDia = dia.tipoDia.toUpperCase();
+                  TimeOfDay horInicio = dia.horarioInicio != null
+                      ? _parseTime(dia.horarioInicio!)
+                      : const TimeOfDay(hour: 8, minute: 0);
+                  TimeOfDay horFin = dia.horarioFin != null
+                      ? _parseTime(dia.horarioFin!)
+                      : const TimeOfDay(hour: 18, minute: 0);
+
+                  for (var act in dia.actividades!) {
+                    TimeOfDay tInicio = _parseTime(act.horaInicio);
+                    TimeOfDay tFin = _parseTime(act.horaFin);
+                    double totalTramo = _calcularHorasBrutas(tInicio, tFin);
+
+                    if (tipoDia == 'FERIADO') {
+                      sumFestivas += totalTramo;
+                    } else if (tipoDia == 'NO_HABIL') {
+                      sumNoHabiles += totalTramo;
+                    } else {
+                      int tramoI = tInicio.hour * 60 + tInicio.minute;
+                      int tramoF = tFin.hour * 60 + tFin.minute;
+                      if (tramoF < tramoI) tramoF += 1440;
+
+                      int hI = horInicio.hour * 60 + horInicio.minute;
+                      int hF = horFin.hour * 60 + horFin.minute;
+                      if (hF < hI) hF += 1440;
+
+                      int overlapI = tramoI > hI ? tramoI : hI;
+                      int overlapF = tramoF < hF ? tramoF : hF;
+                      int overlapMins = overlapF - overlapI;
+                      if (overlapMins < 0) overlapMins = 0;
+
+                      double habiles = overlapMins / 60.0;
+                      double noHabiles = totalTramo - habiles;
+                      if (noHabiles < 0.01) noHabiles = 0;
+
+                      sumHabiles += habiles;
+                      sumNoHabiles += noHabiles;
+                    }
+                  }
+                }
+              }
+              double sumTotalTrabajo = sumHabiles + sumNoHabiles + sumFestivas;
+              bool modoLectura =
+                  (hoja.estado == 'Enviada' || hoja.estado == 'Aprobada');
+
+              Color colorEstado;
+              IconData iconEstado;
+              if (hoja.estado == 'Aprobada') {
+                colorEstado = Colors.green;
+                iconEstado = Icons.check_circle;
+              } else if (hoja.estado == 'Rechazada') {
+                colorEstado = Colors.red;
+                iconEstado = Icons.cancel;
+              } else if (hoja.estado == 'Enviada') {
+                colorEstado = Colors.blue;
+                iconEstado = Icons.access_time_filled;
+              } else {
+                colorEstado = Colors.orange;
+                iconEstado = Icons.edit_document;
+              }
+
+              // =====================================
+              // VISTA ESCRITORIO (PANEL DIVIDIDO)
+              // =====================================
+              if (isDesktop) {
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1200),
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // PANEL IZQUIERDO: Info, Calendario y Resumen
+                          Expanded(
+                            flex: 4,
+                            child: SingleChildScrollView(
+                              child: Column(
+                                children: [
+                                  // Tarjeta de Cabecera
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(24),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: Colors.grey.shade200,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.05),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          hoja.nombreComprobante ??
+                                              "Sin Nombre",
+                                          style: const TextStyle(
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.w900,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          nombreServicio,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          "${hoja.centroCosto}",
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey.shade700,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          "Periodo: ${_formatFecha(hoja.fechaInicio)} al ${_formatFecha(hoja.fechaFin)}",
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.grey.shade800,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 8,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: colorEstado.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                            border: Border.all(
+                                              color: colorEstado.withOpacity(
+                                                0.5,
+                                              ),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                iconEstado,
+                                                size: 18,
+                                                color: colorEstado,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                hoja.estado.toUpperCase(),
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 13,
+                                                  color: colorEstado,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+
+                                  // --- EL CALENDARIO VISUAL A PRUEBA DE FALLOS ---
+                                  _buildDesktopCalendar(
+                                    hoja.fechaInicio,
+                                    hoja.fechaFin,
+                                  ),
+
+                                  const SizedBox(height: 24),
+
+                                  // Resumen de Horas
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      border: Border.all(
+                                        color: Colors.grey.shade200,
+                                      ),
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.05),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.shade100,
+                                            borderRadius:
+                                                const BorderRadius.vertical(
+                                                  top: Radius.circular(16),
+                                                ),
+                                          ),
+                                          child: const Text(
+                                            "Resumen de Horas Semanal",
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black87,
+                                            ),
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 20,
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceEvenly,
+                                            children: [
+                                              _BuildResumenItem(
+                                                "Hábiles",
+                                                sumHabiles,
+                                                Colors.blue,
+                                              ),
+                                              _BuildResumenItem(
+                                                "Extras",
+                                                sumNoHabiles,
+                                                Colors.orange,
+                                              ),
+                                              _BuildResumenItem(
+                                                "Feriado",
+                                                sumFestivas,
+                                                Colors.red,
+                                              ),
+                                              _BuildResumenItem(
+                                                "Total",
+                                                sumTotalTrabajo,
+                                                Colors.green,
+                                              ),
+                                              Container(
+                                                width: 1,
+                                                height: 35,
+                                                color: Colors.grey.shade300,
+                                              ),
+                                              _BuildResumenItem(
+                                                "Viajes",
+                                                sumViaje,
+                                                Colors.purple,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 24),
+                                  // Botón de Envío
+                                  if (hoja.estado == 'Borrador' ||
+                                      hoja.estado == 'Rechazada')
+                                    SizedBox(
+                                      width: double.infinity,
+                                      height: 55,
+                                      child: ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppColors.primary,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                        ),
+                                        onPressed: () => _mostrarDialogoEnvio(
+                                          context,
+                                          hoja.idHojaSemana!,
+                                        ),
+                                        child: Text(
+                                          hoja.estado == 'Rechazada'
+                                              ? "REENVIAR A VALIDAR"
+                                              : "ENVIAR A VALIDAR",
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                "${hoja.centroCosto}",
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.grey.shade700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colorEstado.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: colorEstado.withOpacity(0.5),
-                              width: 1.5,
                             ),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(iconEstado, size: 18, color: colorEstado),
-                              const SizedBox(width: 6),
-                              Text(
-                                hoja.estado.toUpperCase(),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 13,
-                                  letterSpacing: 0.5,
-                                  color: colorEstado,
+                          const SizedBox(width: 32),
+
+                          // PANEL DERECHO: Lista de Días interactivos
+                          Expanded(
+                            flex: 6,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.shade200),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.all(24.0),
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.date_range,
+                                          color: AppColors.primary,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          "Días Registrados (Semana ${hoja.numeroSemana})",
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Divider(height: 1),
+                                  Expanded(
+                                    child: dias.isEmpty
+                                        ? const Center(
+                                            child: Text(
+                                              "No hay días generados para esta semana.",
+                                            ),
+                                          )
+                                        : ListView.separated(
+                                            padding: const EdgeInsets.all(24),
+                                            itemCount: dias.length,
+                                            separatorBuilder: (_, __) =>
+                                                const SizedBox(height: 12),
+                                            itemBuilder: (context, index) =>
+                                                _buildDiaCard(
+                                                  dias[index],
+                                                  modoLectura,
+                                                  hoja.nombreCliente,
+                                                ),
+                                          ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              // =====================================
+              // VISTA MÓVIL (Mantenida exactamente igual a tu diseño)
+              // =====================================
+              return Column(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 20,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border(
+                        bottom: BorderSide(
+                          color: Colors.grey.shade300,
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          hoja.nombreComprobante ?? "Sin Nombre",
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.primary,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    nombreServicio,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "${hoja.centroCosto}",
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "Periodo: ${_formatFecha(hoja.fechaInicio)} al ${_formatFecha(hoja.fechaFin)}",
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.grey.shade800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorEstado.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: colorEstado.withOpacity(0.5),
+                                  width: 1.5,
                                 ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    iconEstado,
+                                    size: 18,
+                                    color: colorEstado,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    hoja.estado.toUpperCase(),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 13,
+                                      letterSpacing: 0.5,
+                                      color: colorEstado,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (hoja.estado == 'Rechazada' &&
+                      hoja.observacion != null &&
+                      hoja.observacion!.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        border: Border.all(color: Colors.red.shade300),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.warning_amber_rounded,
+                            color: Colors.red.shade800,
+                            size: 28,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Motivo del Rechazo:",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.red.shade800,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  hoja.observacion!,
+                                  style: TextStyle(
+                                    color: Colors.red.shade900,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  Container(
+                    margin: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(10),
+                            ),
+                          ),
+                          child: const Text(
+                            "Resumen de Horas (Toda la Semana)",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 12,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _BuildResumenItem(
+                                "Hábiles",
+                                sumHabiles,
+                                Colors.blue,
+                              ),
+                              _BuildResumenItem(
+                                "Extras",
+                                sumNoHabiles,
+                                Colors.orange,
+                              ),
+                              _BuildResumenItem(
+                                "Feriado",
+                                sumFestivas,
+                                Colors.red,
+                              ),
+                              _BuildResumenItem(
+                                "Total",
+                                sumTotalTrabajo,
+                                Colors.green,
+                              ),
+                              Container(
+                                width: 1,
+                                height: 35,
+                                color: Colors.grey.shade300,
+                              ),
+                              _BuildResumenItem(
+                                "Viajes",
+                                sumViaje,
+                                Colors.purple,
                               ),
                             ],
                           ),
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-
-              // --- 1.5 ALERTA DE RECHAZO ---
-              if (hoja.estado == 'Rechazada' &&
-                  hoja.observacion != null &&
-                  hoja.observacion!.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    border: Border.all(color: Colors.red.shade300),
-                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.warning_amber_rounded,
-                        color: Colors.red.shade800,
-                        size: 28,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Motivo del Rechazo:",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.red.shade800,
-                              ),
+                  Expanded(
+                    child: dias.isEmpty
+                        ? const Center(
+                            child: Text(
+                              "No hay días generados para esta semana.",
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              hoja.observacion!,
-                              style: TextStyle(
-                                color: Colors.red.shade900,
-                                fontSize: 13,
-                              ),
+                          )
+                        : ListView.builder(
+                            itemCount: dias.length,
+                            padding: const EdgeInsets.only(
+                              bottom: 24,
+                              left: 8,
+                              right: 8,
+                            ),
+                            itemBuilder: (context, index) => _buildDiaCard(
+                              dias[index],
+                              modoLectura,
+                              hoja.nombreCliente,
+                            ),
+                          ),
+                  ),
+                ],
+              );
+            },
+          ),
+          bottomNavigationBar: !isDesktop
+              ? Consumer<HojaTiempoProvider>(
+                  builder: (context, provider, child) {
+                    final hoja = provider.hojaSeleccionada;
+                    if (hoja == null ||
+                        (hoja.estado != 'Borrador' &&
+                            hoja.estado != 'Rechazada'))
+                      return const SizedBox.shrink();
+                    return SafeArea(
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).scaffoldBackgroundColor,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, -5),
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-
-              // --- 2. TABLA DE RESUMEN SEMANAL ---
-              Container(
-                margin: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(10),
-                        ),
-                      ),
-                      child: const Text(
-                        "Resumen de Horas (Toda la Semana)",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 12,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _BuildResumenItem("Hábiles", sumHabiles, Colors.blue),
-                          _BuildResumenItem(
-                            "Extras",
-                            sumNoHabiles,
-                            Colors.orange,
-                          ),
-                          _BuildResumenItem("Feriado", sumFestivas, Colors.red),
-                          _BuildResumenItem(
-                            "Total",
-                            sumTotalTrabajo,
-                            Colors.green,
-                          ),
-                          Container(
-                            width: 1,
-                            height: 35,
-                            color: Colors.grey.shade300,
-                          ),
-                          _BuildResumenItem("Viajes", sumViaje, Colors.purple),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // --- 3. LISTA DE LOS 7 DÍAS ---
-              Expanded(
-                child: dias.isEmpty
-                    ? const Center(
-                        child: Text("No hay días generados para esta semana."),
-                      )
-                    : ListView.builder(
-                        itemCount: dias.length,
-                        padding: const EdgeInsets.only(
-                          bottom: 24,
-                          left: 8,
-                          right: 8,
-                        ),
-                        itemBuilder: (context, index) {
-                          final dia = dias[index];
-                          final nombreDia = _obtenerNombreDia(dia.fecha);
-                          final cantidadActividades =
-                              dia.actividades?.length ?? 0;
-
-                          return Card(
-                            margin: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 6,
-                            ),
-                            elevation: 2,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              leading: CircleAvatar(
-                                backgroundColor: dia.tipoDia == 'HABIL'
-                                    ? Colors.blue
-                                    : dia.tipoDia == 'NO_HABIL'
-                                    ? Colors
-                                          .orange // Usamos naranjo/amarillo para mejor contraste con el texto blanco
-                                    : dia.tipoDia == 'FERIADO'
-                                    ? Colors.red
-                                    : Colors.grey,
-                                child: Text(
-                                  dia.fecha.day.toString(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              title: Text(
-                                nombreDia,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 4),
-                                  Text("${dia.tipoDia} • ${dia.lugar}"),
-                                  if (cantidadActividades > 0)
-                                    Text(
-                                      "$cantidadActividades actividad(es)",
-                                      style: const TextStyle(
-                                        color: Colors.green,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  if ((dia.viajeHoras) > 0)
-                                    Text(
-                                      "${dia.viajeHoras} hrs de viaje",
-                                      style: const TextStyle(
-                                        color: Colors.purple,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              trailing: const Icon(
-                                Icons.arrow_forward_ios,
-                                size: 16,
-                                color: Colors.grey,
-                              ), // Siempre mostramos la flecha
-
-                              onTap: () {
-                                // 1. Guardamos el provider en una variable ANTES de navegar
-                                // para asegurarnos de que no se pierda en la memoria.
-                                final provider = context
-                                    .read<HojaTiempoProvider>();
-
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => HojaDiaEditScreen(
-                                      dia: dia,
-                                      isReadOnly: modoLectura,
-                                      nombreCliente:
-                                          hoja.nombreCliente ?? 'Desconocido',
-                                    ),
-                                  ),
-                                ).then((_) {
-                                  // 2. Usamos el provider guardado para recargar
-                                  provider.cargarDetalleHoja(
-                                    widget.idHojaSemana,
-                                  );
-                                });
-                              },
+                          ),
+                          onPressed: () =>
+                              _mostrarDialogoEnvio(context, hoja.idHojaSemana!),
+                          child: Text(
+                            hoja.estado == 'Rechazada'
+                                ? "REENVIAR A VALIDAR"
+                                : "ENVIAR A VALIDAR",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
                             ),
-                          );
-                        },
+                          ),
+                        ),
                       ),
+                    );
+                  },
+                )
+              : null,
+        );
+      },
+    );
+  }
+
+  // --- WIDGET PARA LA TARJETA DEL DÍA ---
+  Widget _buildDiaCard(dynamic dia, bool modoLectura, String? nombreCliente) {
+    final nombreDia = _obtenerNombreDia(dia.fecha);
+    final cantidadActividades = dia.actividades?.length ?? 0;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          backgroundColor: dia.tipoDia == 'HABIL'
+              ? Colors.blue
+              : dia.tipoDia == 'NO_HABIL'
+              ? Colors.orange
+              : dia.tipoDia == 'FERIADO'
+              ? Colors.red
+              : Colors.grey,
+          child: Text(
+            dia.fecha.day.toString(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        title: Text(
+          nombreDia,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Text("${dia.tipoDia} • ${dia.lugar}"),
+            if (cantidadActividades > 0)
+              Text(
+                "$cantidadActividades actividad(es)",
+                style: const TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ],
-          );
+            if ((dia.viajeHoras) > 0)
+              Text(
+                "${dia.viajeHoras} hrs de viaje",
+                style: const TextStyle(
+                  color: Colors.purple,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+          ],
+        ),
+        trailing: const Icon(
+          Icons.arrow_forward_ios,
+          size: 16,
+          color: Colors.grey,
+        ),
+        onTap: () {
+          final provider = context.read<HojaTiempoProvider>();
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => HojaDiaEditScreen(
+                dia: dia,
+                isReadOnly: modoLectura,
+                nombreCliente: nombreCliente ?? 'Desconocido',
+              ),
+            ),
+          ).then((_) => provider.cargarDetalleHoja(widget.idHojaSemana));
         },
       ),
+    );
+  }
 
-      // --- 4. BOTÓN INFERIOR FIJO ---
-      bottomNavigationBar: Consumer<HojaTiempoProvider>(
-        builder: (context, provider, child) {
-          final hoja = provider.hojaSeleccionada;
+  // --- WIDGET DEL CALENDARIO VISUAL PARA WEB (CORREGIDO Y BLINDADO) ---
+  Widget _buildDesktopCalendar(String fechaInicioStr, String fechaFinStr) {
+    try {
+      // 1. Parseo a prueba de balas (No importa si viene DD-MM-YYYY o YYYY-MM-DD)
+      DateTime parseDateSafe(String d) {
+        if (d.contains('-') && d.split('-')[0].length == 2) {
+          final p = d.split('-');
+          return DateTime.parse("${p[2]}-${p[1]}-${p[0]}");
+        }
+        return DateTime.parse(d);
+      }
 
-          // Solo mostramos el botón si es Borrador o fue Rechazada
-          if (hoja == null ||
-              (hoja.estado != 'Borrador' && hoja.estado != 'Rechazada')) {
-            return const SizedBox.shrink();
-          }
+      final DateTime inicioBruto = parseDateSafe(fechaInicioStr);
+      final DateTime finBruto = parseDateSafe(fechaFinStr);
 
-          return SafeArea(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, -5),
-                  ),
-                ],
+      // Normalizamos las fechas a medianoche para comparaciones exactas
+      final DateTime inicio = DateTime(
+        inicioBruto.year,
+        inicioBruto.month,
+        inicioBruto.day,
+      );
+      final DateTime fin = DateTime(
+        finBruto.year,
+        finBruto.month,
+        finBruto.day,
+      );
+
+      // Nombre del mes sin depender del paquete intl localizado (evita errores)
+      const meses = [
+        'Enero',
+        'Febrero',
+        'Marzo',
+        'Abril',
+        'Mayo',
+        'Junio',
+        'Julio',
+        'Agosto',
+        'Septiembre',
+        'Octubre',
+        'Noviembre',
+        'Diciembre',
+      ];
+      final mesNombre = "${meses[inicio.month - 1]} ${inicio.year}";
+
+      // 2. Lógica del calendario
+      final primerDiaMes = DateTime(inicio.year, inicio.month, 1);
+      final ultimoDiaMes = DateTime(inicio.year, inicio.month + 1, 0);
+      int offsetDias = primerDiaMes.weekday - 1; // 0 = Lunes, 6 = Domingo
+
+      List<Widget> diasWidgets = [];
+
+      // Cabecera L M M J V S D
+      const diasSemana = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+      for (var d in diasSemana) {
+        diasWidgets.add(
+          Center(
+            child: Text(
+              d,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade500,
               ),
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+            ),
+          ),
+        );
+      }
+
+      // Espacios vacíos de relleno
+      for (int i = 0; i < offsetDias; i++) {
+        diasWidgets.add(const SizedBox.shrink());
+      }
+
+      // 3. Pintar los días
+      for (int day = 1; day <= ultimoDiaMes.day; day++) {
+        DateTime currentDate = DateTime(inicio.year, inicio.month, day);
+
+        bool isSelected =
+            currentDate.isAtSameMomentAs(inicio) ||
+            currentDate.isAtSameMomentAs(fin) ||
+            (currentDate.isAfter(inicio) && currentDate.isBefore(fin));
+
+        // Bordes redondeados en los extremos para dar efecto de "cinta seleccionada"
+        bool isStart = currentDate.isAtSameMomentAs(inicio);
+        bool isEnd = currentDate.isAtSameMomentAs(fin);
+
+        diasWidgets.add(
+          Container(
+            margin: const EdgeInsets.symmetric(
+              vertical: 4,
+            ), // Margen para separar filas
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? AppColors.primary.withOpacity(0.15)
+                  : Colors.transparent,
+              borderRadius: isStart && isEnd
+                  ? BorderRadius.circular(8)
+                  : isStart
+                  ? const BorderRadius.horizontal(left: Radius.circular(8))
+                  : isEnd
+                  ? const BorderRadius.horizontal(right: Radius.circular(8))
+                  : BorderRadius.zero,
+            ),
+            child: Center(
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: isSelected ? AppColors.primary : Colors.transparent,
+                  shape: BoxShape.circle,
                 ),
-                onPressed: () =>
-                    _mostrarDialogoEnvio(context, hoja.idHojaSemana!),
-                child: Text(
-                  hoja.estado == 'Rechazada'
-                      ? "REENVIAR A VALIDAR"
-                      : "ENVIAR A VALIDAR",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                child: Center(
+                  child: Text(
+                    day.toString(),
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.black87,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
                   ),
                 ),
               ),
             ),
-          );
-        },
-      ),
-    );
+          ),
+        );
+      }
+
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Text(
+              mesNombre.toUpperCase(),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.black87,
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: 16),
+            GridView.count(
+              crossAxisCount: 7,
+              shrinkWrap: true,
+              childAspectRatio: 1.2, // Proporción ideal para los números
+              physics: const NeverScrollableScrollPhysics(), // ARREGLADO
+              children: diasWidgets,
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      // Si la fecha falla por la razón que sea, mostramos un error en vez de romper la pantalla.
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.red.shade200),
+        ),
+        child: Text(
+          "Error al cargar calendario: $e",
+          style: const TextStyle(color: Colors.red),
+        ),
+      );
+    }
   }
 }
 

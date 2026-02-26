@@ -380,6 +380,60 @@ class RendicionesProvider extends ChangeNotifier {
     }
   }
 
+  // En tu RendicionesProvider:
+  // --- SUBIR COMPROBANTE DE PAGO EN WEB ---
+  // --- SUBIR COMPROBANTE DE PAGO EN WEB ---
+  Future<bool> pagarRendicionWeb(
+    int idRendicion,
+    Uint8List bytes,
+    String fileName,
+  ) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final token = await AuthService.getToken();
+
+      // ¡AQUÍ ESTÁ LA MAGIA! Agregamos el /admin/ a la ruta
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse(
+          '${AppConstants.apiUrl}/admin/rendiciones/$idRendicion/pagar',
+        ),
+      );
+
+      request.headers.addAll({
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      });
+
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'comprobante', // <-- OJO: Asegúrate de que en tu RendicionController de Laravel estés buscando $request->file('comprobante')
+          bytes,
+          filename: fileName,
+        ),
+      );
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        await cargarBandejaValidacion();
+        return true;
+      } else {
+        print("Error pago web: ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      print("Excepción pago web: $e");
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> actualizarContadorPendientes() async {
     try {
       final token = await AuthService.getToken();

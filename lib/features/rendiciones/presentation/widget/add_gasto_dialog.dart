@@ -21,9 +21,7 @@ class ThousandsSeparatorInputFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    if (newValue.text.isEmpty) {
-      return newValue;
-    }
+    if (newValue.text.isEmpty) return newValue;
 
     // 1. Limpiamos cualquier cosa que no sea número
     String newText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
@@ -87,43 +85,33 @@ class _AddGastoDialogState extends State<AddGastoDialog> {
     setState(() => _isSaving = true);
 
     // 1. Definir qué guardar en TIPO
-    String tipoFinalParaBD;
-    if (_tipoSeleccionado == 'Otro') {
-      tipoFinalParaBD = _otroTipoController.text.trim();
-    } else {
-      tipoFinalParaBD = _tipoSeleccionado;
-    }
+    String tipoFinalParaBD = _tipoSeleccionado == 'Otro'
+        ? _otroTipoController.text.trim()
+        : _tipoSeleccionado;
 
     // 2. Definir qué guardar en DETALLE
-    String detalleFinalParaBD;
-    if (_detalleSeleccionado == 'Otros') {
-      detalleFinalParaBD = _otroDetalleController.text.trim();
-    } else {
-      detalleFinalParaBD = _detalleSeleccionado;
-    }
+    String detalleFinalParaBD = _detalleSeleccionado == 'Otros'
+        ? _otroDetalleController.text.trim()
+        : _detalleSeleccionado;
 
-    // 3. CONVERSIÓN DE FECHA (Nuevo paso)
-    // El controller tiene "29-09-2025", pero la BD necesita "2025-09-29"
+    // 3. CONVERSIÓN DE FECHA
     String fechaParaBD = _fechaController.text;
     try {
-      // Leemos el formato chileno
       final DateTime fechaObj = DateFormat(
         'dd-MM-yyyy',
       ).parse(_fechaController.text);
-      // Lo convertimos a formato internacional (MySQL)
       fechaParaBD = DateFormat('yyyy-MM-dd').format(fechaObj);
     } catch (e) {
       print("Error al formatear fecha: $e");
-      // Si falla, enviamos lo que había por defecto para no romper el flujo
     }
 
-    // 4. Limpiar los puntos del monto ("20.000" -> "20000")
+    // 4. Limpiar los puntos del monto
     String montoLimpio = _montoController.text.replaceAll('.', '');
 
     // Enviamos a la BD
     final success = await context.read<GastoProvider>().crearGasto(
       idRendicion: widget.idRendicion,
-      fecha: fechaParaBD, // <--- AQUÍ USAMOS LA FECHA YA CONVERTIDA
+      fecha: fechaParaBD,
       monto: montoLimpio,
       numDocumento: _numDocController.text,
       tipoDoc: tipoFinalParaBD,
@@ -145,178 +133,258 @@ class _AddGastoDialogState extends State<AddGastoDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text("Nuevo Gasto"),
-      content: SingleChildScrollView(
-        child: SizedBox(
-          width: double.maxFinite,
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 1. FECHA
-                TextFormField(
-                  controller: _fechaController,
-                  readOnly: true,
-                  decoration: const InputDecoration(
-                    labelText: "Fecha",
-                    suffixIcon: Icon(Icons.calendar_today),
-                    border: OutlineInputBorder(),
-                  ),
-                  onTap: () async {
-                    DateTime? picked = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime(2023),
-                      lastDate: DateTime(2030),
-                    );
-                    if (picked != null) {
-                      _fechaController.text = DateFormat(
-                        'dd-MM-yyyy',
-                      ).format(picked);
-                    }
-                  },
-                ),
-                const SizedBox(height: 12),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 850;
 
-                // 2. TIPO DOCUMENTO
-                DropdownButtonFormField<String>(
-                  value: _tipoSeleccionado,
-                  decoration: const InputDecoration(
-                    labelText: "Tipo Documento",
-                    border: OutlineInputBorder(),
-                  ),
-                  items: _tipos
-                      .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                      .toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      _tipoSeleccionado = val!;
-                      if (val != 'Otro') _otroTipoController.clear();
-                    });
-                  },
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          title: Row(
+            children: [
+              const Icon(Icons.add_shopping_cart, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                "Nuevo Gasto",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                  fontSize: isDesktop ? 22 : 18,
                 ),
-
-                // CAMPO "OTRO TIPO"
-                if (_tipoSeleccionado == 'Otro') ...[
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _otroTipoController,
-                    decoration: const InputDecoration(
-                      labelText: "¿Qué tipo de documento es?",
-                      hintText: "Ej: Vale Vista, Recibo Simple...",
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.edit),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: isDesktop ? 500 : double.maxFinite, // Ancho controlado en PC
+            child: SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 1. FECHA
+                    TextFormField(
+                      controller: _fechaController,
+                      readOnly: true,
+                      decoration: InputDecoration(
+                        labelText: "Fecha del Gasto",
+                        prefixIcon: const Icon(Icons.calendar_today),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onTap: () async {
+                        DateTime? picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime(2023),
+                          lastDate: DateTime(2030),
+                        );
+                        if (picked != null) {
+                          _fechaController.text = DateFormat(
+                            'dd-MM-yyyy',
+                          ).format(picked);
+                        }
+                      },
                     ),
-                    validator: (v) {
-                      if (_tipoSeleccionado == 'Otro' &&
-                          (v == null || v.trim().isEmpty)) {
-                        return 'Debe especificar el nombre del documento';
-                      }
-                      return null;
-                    },
-                  ),
-                ],
+                    const SizedBox(height: 16),
 
-                const SizedBox(height: 12),
-
-                // 3. ÍTEM / CATEGORÍA
-                DropdownButtonFormField<String>(
-                  value: _detalleSeleccionado,
-                  decoration: const InputDecoration(
-                    labelText: "Ítem / Categoría",
-                    border: OutlineInputBorder(),
-                  ),
-                  items: _detalles
-                      .map((d) => DropdownMenuItem(value: d, child: Text(d)))
-                      .toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      _detalleSeleccionado = val!;
-                      if (val != 'Otros') _otroDetalleController.clear();
-                    });
-                  },
-                ),
-
-                // CAMPO "OTRO DETALLE"
-                if (_detalleSeleccionado == 'Otros') ...[
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _otroDetalleController,
-                    decoration: const InputDecoration(
-                      labelText: "¿Cuál es el ítem?",
-                      hintText: "Ej: Reparación Neumático...",
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.edit),
+                    // 2. TIPO DOCUMENTO
+                    DropdownButtonFormField<String>(
+                      value: _tipoSeleccionado,
+                      decoration: InputDecoration(
+                        labelText: "Tipo Documento",
+                        prefixIcon: const Icon(Icons.description_outlined),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      items: _tipos
+                          .map(
+                            (t) => DropdownMenuItem(value: t, child: Text(t)),
+                          )
+                          .toList(),
+                      onChanged: (val) {
+                        setState(() {
+                          _tipoSeleccionado = val!;
+                          if (val != 'Otro') _otroTipoController.clear();
+                        });
+                      },
                     ),
-                    validator: (v) {
-                      if (_detalleSeleccionado == 'Otros' &&
-                          (v == null || v.trim().isEmpty)) {
-                        return 'Debe especificar el detalle';
-                      }
-                      return null;
-                    },
-                  ),
-                ],
 
-                const SizedBox(height: 12),
+                    // CAMPO "OTRO TIPO"
+                    if (_tipoSeleccionado == 'Otro') ...[
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _otroTipoController,
+                        decoration: InputDecoration(
+                          labelText: "¿Qué tipo de documento es?",
+                          hintText: "Ej: Vale Vista, Recibo Simple...",
+                          prefixIcon: const Icon(Icons.edit),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        validator: (v) {
+                          if (_tipoSeleccionado == 'Otro' &&
+                              (v == null || v.trim().isEmpty)) {
+                            return 'Debe especificar el nombre del documento';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
 
-                // 4. N° DOCUMENTO
-                TextFormField(
-                  controller: _numDocController,
-                  decoration: const InputDecoration(
-                    labelText: "N° Documento (Opcional)",
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
+                    const SizedBox(height: 16),
 
-                // 5. MONTO
-                TextFormField(
-                  controller: _montoController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    ThousandsSeparatorInputFormatter(),
+                    // 3. N° DOCUMENTO
+                    TextFormField(
+                      controller: _numDocController,
+                      decoration: InputDecoration(
+                        labelText: "N° Documento (Opcional)",
+                        prefixIcon: const Icon(Icons.numbers),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Divider(height: 1),
+                    ),
+
+                    // 4. ÍTEM / CATEGORÍA
+                    DropdownButtonFormField<String>(
+                      value: _detalleSeleccionado,
+                      decoration: InputDecoration(
+                        labelText: "Categoría del Gasto",
+                        prefixIcon: const Icon(Icons.category_outlined),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      items: _detalles
+                          .map(
+                            (d) => DropdownMenuItem(value: d, child: Text(d)),
+                          )
+                          .toList(),
+                      onChanged: (val) {
+                        setState(() {
+                          _detalleSeleccionado = val!;
+                          if (val != 'Otros') _otroDetalleController.clear();
+                        });
+                      },
+                    ),
+
+                    // CAMPO "OTRO DETALLE"
+                    if (_detalleSeleccionado == 'Otros') ...[
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _otroDetalleController,
+                        decoration: InputDecoration(
+                          labelText: "¿Cuál es el ítem?",
+                          hintText: "Ej: Reparación Neumático...",
+                          prefixIcon: const Icon(Icons.edit_note),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        validator: (v) {
+                          if (_detalleSeleccionado == 'Otros' &&
+                              (v == null || v.trim().isEmpty)) {
+                            return 'Debe especificar el detalle';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+
+                    // 5. MONTO
+                    TextFormField(
+                      controller: _montoController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        ThousandsSeparatorInputFormatter(),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: "Monto Total",
+                        prefixStyle: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                          fontSize: 16,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.attach_money,
+                          color: Colors.green,
+                        ),
+                        hintText: "Ej: 10.000",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      validator: (v) =>
+                          v!.isEmpty ? "El monto es obligatorio" : null,
+                    ),
                   ],
-                  decoration: const InputDecoration(
-                    labelText: "Monto Total",
-                    prefixText: "\$ ",
-                    border: OutlineInputBorder(),
-                    hintText: "Ej: 10.000",
-                  ),
-                  validator: (v) =>
-                      v!.isEmpty ? "El monto es obligatorio" : null,
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("Cancelar"),
-        ),
-        ElevatedButton(
-          onPressed: _isSaving ? null : _guardar,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
+          actionsPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 16,
           ),
-          child: _isSaving
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Text("Guardar"),
-        ),
-      ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                "Cancelar",
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ElevatedButton.icon(
+              onPressed: _isSaving ? null : _guardar,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              icon: _isSaving
+                  ? const SizedBox.shrink()
+                  : const Icon(Icons.save, size: 18),
+              label: _isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      "Guardar Gasto",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
