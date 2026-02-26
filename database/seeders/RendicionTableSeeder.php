@@ -107,6 +107,28 @@ class RendicionTableSeeder extends Seeder
                 'id_servicio' => 17,
                 'id_usuario' => 8,
             ),
+            8 => 
+            array (
+                'id_rendicion' => 9,
+                'fecha' => '2026-02-24',
+                'proposito' => 'MCEN Terreno',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '01-1-016',
+                'id_servicio' => 17,
+                'id_usuario' => 8,
+            ),
+            9 => 
+            array (
+                'id_rendicion' => 10,
+                'fecha' => '2026-02-24',
+                'proposito' => 'DRR',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '01-1-016',
+                'id_servicio' => 17,
+                'id_usuario' => 12,
+            ),
         ));
         
         

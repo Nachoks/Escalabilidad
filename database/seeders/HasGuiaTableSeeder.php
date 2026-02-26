@@ -571,6 +571,12 @@ class HasGuiaTableSeeder extends Seeder
                 'id_oc_cliente' => 165,
                 'cod_has_guia' => 'F352',
             ),
+            92 => 
+            array (
+                'id_has_guia' => 95,
+                'id_oc_cliente' => 126,
+                'cod_has_guia' => '1111',
+            ),
         ));
         
         

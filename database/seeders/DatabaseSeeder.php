@@ -50,5 +50,6 @@ class DatabaseSeeder extends Seeder
         // 3. Volver a activar la protección
         Schema::enableForeignKeyConstraints();
 
+        
     }
 }
