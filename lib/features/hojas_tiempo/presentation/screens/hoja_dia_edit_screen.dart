@@ -781,7 +781,7 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          "Tramos de Trabajo",
+                          "Detalle Actividades",
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,

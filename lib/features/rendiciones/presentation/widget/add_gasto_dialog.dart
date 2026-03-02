@@ -76,7 +76,8 @@ class _AddGastoDialogState extends State<AddGastoDialog> {
   @override
   void initState() {
     super.initState();
-    _fechaController.text = DateFormat('dd-MM-yyyy').format(DateTime.now());
+    // ❌ ELIMINADO: Ya no ponemos la fecha de hoy por defecto.
+    // _fechaController.text = DateFormat('dd-MM-yyyy').format(DateTime.now());
   }
 
   Future<void> _guardar() async {
@@ -165,24 +166,45 @@ class _AddGastoDialogState extends State<AddGastoDialog> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // 1. FECHA
+                    // 1. FECHA (AHORA OBLIGATORIA Y VACÍA POR DEFECTO)
                     TextFormField(
                       controller: _fechaController,
                       readOnly: true,
                       decoration: InputDecoration(
-                        labelText: "Fecha del Gasto",
+                        labelText: "Fecha del Gasto *",
+                        hintText: "Seleccione una fecha",
                         prefixIcon: const Icon(Icons.calendar_today),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
+                      // ✅ NUEVO: Validador para obligar a seleccionar
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Debe seleccionar la fecha del gasto';
+                        }
+                        return null;
+                      },
                       onTap: () async {
+                        // Calcular fecha inicial para abrir el calendario
+                        DateTime fechaInicial = DateTime.now();
+                        if (_fechaController.text.isNotEmpty) {
+                          try {
+                            fechaInicial = DateFormat(
+                              'dd-MM-yyyy',
+                            ).parse(_fechaController.text);
+                          } catch (e) {
+                            // Ignorar si falla el parseo
+                          }
+                        }
+
                         DateTime? picked = await showDatePicker(
                           context: context,
-                          initialDate: DateTime.now(),
+                          initialDate: fechaInicial,
                           firstDate: DateTime(2023),
                           lastDate: DateTime(2030),
                         );
+
                         if (picked != null) {
                           _fechaController.text = DateFormat(
                             'dd-MM-yyyy',

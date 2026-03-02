@@ -86,227 +86,6 @@ class _AddUserDialogState extends State<AddUserDialog> {
     return null;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Nuevo Usuario'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // --- DATOS PERSONALES ---
-                _buildSectionTitle("Datos Personales"),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildTextField(
-                        _nombrePersonalCtrl,
-                        'Nombre',
-                        Icons.person,
-                        validator: _validarRequerido,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _buildTextField(
-                        _apellidoPersonalCtrl,
-                        'Apellido',
-                        Icons.person_outline,
-                        validator: _validarRequerido,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                _buildTextField(
-                  _rutCtrl,
-                  'RUT',
-                  Icons.badge,
-                  validator: _validarRequerido,
-                ),
-                const SizedBox(height: 10),
-                _buildTextField(
-                  _emailCtrl,
-                  'Correo',
-                  Icons.email_outlined,
-                  validator: _validarEmail,
-                ),
-                const SizedBox(height: 10),
-
-                // --- DROPDOWN EMPRESA ---
-                _isLoadingEmpresas
-                    ? const Center(child: LinearProgressIndicator())
-                    : DropdownButtonFormField<int>(
-                        value: _selectedEmpresaId,
-                        decoration: const InputDecoration(
-                          labelText: 'Empresa',
-                          prefixIcon: Icon(Icons.business),
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                        ),
-                        items: _empresasDisponibles.map((empresa) {
-                          return DropdownMenuItem<int>(
-                            value: empresa.id,
-                            child: Text(
-                              empresa.nombre,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (int? newValue) {
-                          setState(() {
-                            _selectedEmpresaId = newValue;
-                          });
-                        },
-                        validator: (value) =>
-                            value == null ? 'Seleccione una empresa' : null,
-                      ),
-
-                const SizedBox(height: 20),
-
-                // --- CUENTA DE USUARIO ---
-                _buildSectionTitle("Cuenta de Usuario"),
-                const SizedBox(height: 10),
-                _buildTextField(
-                  _usuarioCtrl,
-                  'Nombre de Usuario',
-                  Icons.account_circle,
-                  validator: _validarRequerido,
-                ),
-                const SizedBox(height: 10),
-
-                TextFormField(
-                  controller: _passwordCtrl,
-                  obscureText: _obscurePassword,
-                  validator: _validarPassword,
-                  decoration: InputDecoration(
-                    labelText: 'Contraseña',
-                    prefixIcon: const Icon(Icons.lock),
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility
-                            : Icons.visibility_off,
-                      ),
-                      onPressed: () =>
-                          setState(() => _obscurePassword = !_obscurePassword),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // --- ROLES ---
-                _buildSectionTitle("Asignar Roles"),
-                const Divider(),
-                if (_rolesSeleccionados.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 8.0),
-                    child: Text(
-                      "⚠️ Selecciona al menos un rol",
-                      style: TextStyle(color: Colors.red, fontSize: 12),
-                    ),
-                  ),
-
-                ..._rolesDisponibles.map((rol) {
-                  final isSelected = _rolesSeleccionados.contains(rol);
-                  return CheckboxListTile(
-                    title: Text(rol),
-                    value: isSelected,
-                    activeColor: AppColors.primary,
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    secondary: Icon(
-                      RoleHelper.getIconForRole(rol),
-                      color: RoleHelper.getColorForRole(rol),
-                    ),
-                    onChanged: (bool? valor) {
-                      setState(() {
-                        if (valor == true)
-                          _rolesSeleccionados.add(rol);
-                        else
-                          _rolesSeleccionados.remove(rol);
-                      });
-                    },
-                  );
-                }),
-              ],
-            ),
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
-          child: const Text("Cancelar", style: TextStyle(color: Colors.grey)),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-          ),
-          onPressed: _isSaving ? null : _guardarUsuario,
-          child: _isSaving
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
-                )
-              : const Text("Guardar Usuario"),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontWeight: FontWeight.bold,
-        color: AppColors.primary,
-        fontSize: 16,
-      ),
-    );
-  }
-
-  Widget _buildTextField(
-    TextEditingController controller,
-    String label,
-    IconData icon, {
-    String? Function(String?)? validator,
-  }) {
-    return TextFormField(
-      controller: controller,
-      validator: validator,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, size: 20),
-        border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        isDense: true,
-      ),
-    );
-  }
-
   Future<void> _guardarUsuario() async {
     // 1. Validaciones
     if (!_formKey.currentState!.validate()) return;
@@ -367,5 +146,316 @@ class _AddUserDialogState extends State<AddUserDialog> {
         ),
       );
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 850;
+
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          title: Row(
+            children: [
+              const Icon(Icons.person_add, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                "Nuevo Usuario",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                  fontSize: isDesktop ? 22 : 18,
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            // --- CONTROL DE ANCHO PARA WEB ---
+            width: isDesktop ? 500 : double.maxFinite,
+            child: SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // --- DATOS PERSONALES ---
+                    _buildSectionTitle("Datos Personales"),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTextField(
+                            _nombrePersonalCtrl,
+                            'Nombre',
+                            Icons.person,
+                            validator: _validarRequerido,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildTextField(
+                            _apellidoPersonalCtrl,
+                            'Apellido',
+                            Icons.person_outline,
+                            validator: _validarRequerido,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _buildTextField(
+                      _rutCtrl,
+                      'RUT',
+                      Icons.badge,
+                      validator: _validarRequerido,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildTextField(
+                      _emailCtrl,
+                      'Correo',
+                      Icons.email_outlined,
+                      validator: _validarEmail,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // --- DROPDOWN EMPRESA ---
+                    _isLoadingEmpresas
+                        ? const Center(child: LinearProgressIndicator())
+                        : DropdownButtonFormField<int>(
+                            value: _selectedEmpresaId,
+                            decoration: InputDecoration(
+                              labelText: 'Empresa',
+                              prefixIcon: const Icon(Icons.business, size: 20),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                            ),
+                            items: _empresasDisponibles.map((empresa) {
+                              return DropdownMenuItem<int>(
+                                value: empresa.id,
+                                child: Text(
+                                  empresa.nombre,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (int? newValue) {
+                              setState(() {
+                                _selectedEmpresaId = newValue;
+                              });
+                            },
+                            validator: (value) =>
+                                value == null ? 'Seleccione una empresa' : null,
+                          ),
+
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Divider(),
+                    ),
+
+                    // --- CUENTA DE USUARIO ---
+                    _buildSectionTitle("Cuenta de Usuario"),
+                    const SizedBox(height: 12),
+                    _buildTextField(
+                      _usuarioCtrl,
+                      'Nombre de Usuario',
+                      Icons.account_circle,
+                      validator: _validarRequerido,
+                    ),
+                    const SizedBox(height: 12),
+
+                    TextFormField(
+                      controller: _passwordCtrl,
+                      obscureText: _obscurePassword,
+                      validator: _validarPassword,
+                      decoration: InputDecoration(
+                        labelText: 'Contraseña',
+                        prefixIcon: const Icon(Icons.lock, size: 20),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                            size: 20,
+                          ),
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Divider(),
+                    ),
+
+                    // --- ROLES ---
+                    _buildSectionTitle("Asignar Roles"),
+                    const SizedBox(height: 8),
+                    if (_rolesSeleccionados.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 8.0),
+                        child: Text(
+                          "⚠️ Selecciona al menos un rol",
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Column(
+                        children: _rolesDisponibles.map((rol) {
+                          final isSelected = _rolesSeleccionados.contains(rol);
+                          return CheckboxListTile(
+                            title: Text(
+                              rol,
+                              style: TextStyle(
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                            value: isSelected,
+                            activeColor: AppColors.primary,
+                            dense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 0,
+                            ),
+                            secondary: Icon(
+                              RoleHelper.getIconForRole(rol),
+                              color: RoleHelper.getColorForRole(rol),
+                              size: 20,
+                            ),
+                            onChanged: (bool? valor) {
+                              setState(() {
+                                if (valor == true) {
+                                  _rolesSeleccionados.add(rol);
+                                } else {
+                                  _rolesSeleccionados.remove(rol);
+                                }
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actionsPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 16,
+          ),
+          actions: [
+            TextButton(
+              onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+              child: const Text(
+                "Cancelar",
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: _isSaving ? null : _guardarUsuario,
+              icon: _isSaving
+                  ? const SizedBox.shrink()
+                  : const Icon(Icons.save, size: 18),
+              label: _isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text(
+                      "Guardar Usuario",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontWeight: FontWeight.bold,
+        color: Colors.black87,
+        fontSize: 16,
+      ),
+    );
+  }
+
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      validator: validator,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, size: 20),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+        ), // Bordes redondeados modernos
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ), // Más espacio para respirar
+        isDense: true,
+      ),
+    );
   }
 }

@@ -48,7 +48,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Registro Control de Conduccion',
+      title: 'Intranet IAA',
       navigatorKey: navigatorKey, // <--- Esto permite la navegación global
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFF35F34)),

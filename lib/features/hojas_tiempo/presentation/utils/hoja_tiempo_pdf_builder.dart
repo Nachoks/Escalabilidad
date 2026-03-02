@@ -13,14 +13,11 @@ class HojaTiempoPdfBuilder {
   }) async {
     final pdf = pw.Document();
 
-    // 1. Cargar LOGO
     final imageBytes = await rootBundle.load('assets/images/LOGO.png');
     final logoImage = pw.MemoryImage(imageBytes.buffer.asUint8List());
 
-    // --- COLOR: Naranjo Corporativo (0xFFEF6C00) ---
     final PdfColor baseColor = PdfColor.fromInt(0xFFEF6C00);
 
-    // Cálculos
     double sumHabiles = 0, sumNoHabiles = 0, sumFestivas = 0, sumTotal = 0;
     final actividades = dia.actividades ?? [];
     for (var act in actividades) {
@@ -38,13 +35,8 @@ class HojaTiempoPdfBuilder {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(30),
         build: (context) => [
-          _buildHeader(
-            semana.nombreComprobante ?? 'BORRADOR',
-            logoImage,
-            baseColor,
-          ),
+          _buildHeader(logoImage, baseColor),
           pw.SizedBox(height: 25),
-          // Aquí pasamos el Centro de Costo (semana.centroCosto)
           _buildInfoSection(semana, dia, nombreUsuario, fechaDia, baseColor),
           pw.SizedBox(height: 30),
           _buildActivitiesTable(actividades, baseColor),
@@ -65,12 +57,7 @@ class HojaTiempoPdfBuilder {
     return pdf.save();
   }
 
-  // --- 1. ENCABEZADO (Logo + Título + Código) ---
-  static pw.Widget _buildHeader(
-    String codigo,
-    pw.MemoryImage logo,
-    PdfColor color,
-  ) {
+  static pw.Widget _buildHeader(pw.MemoryImage logo, PdfColor color) {
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       crossAxisAlignment: pw.CrossAxisAlignment.center,
@@ -87,33 +74,12 @@ class HojaTiempoPdfBuilder {
                 color: color,
               ),
             ),
-            pw.SizedBox(height: 4),
-            pw.Container(
-              padding: const pw.EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 4,
-              ),
-              decoration: pw.BoxDecoration(
-                color: PdfColors.grey200,
-                borderRadius: pw.BorderRadius.circular(4),
-              ),
-              child: pw.Text(
-                codigo, // Ej: CC-HTC-05
-                style: pw.TextStyle(
-                  fontSize: 12,
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.black,
-                ),
-              ),
-            ),
           ],
         ),
       ],
     );
   }
 
-  // --- 2. INFORMACIÓN GENERAL (Estilizada y Correcta) ---
-  // --- 2. INFORMACIÓN GENERAL (Estilizada y Correcta) ---
   static pw.Widget _buildInfoSection(
     HojaTiempoSemana semana,
     HojaTiempoDiaria dia,
@@ -145,14 +111,12 @@ class HojaTiempoPdfBuilder {
           ),
           pw.Divider(color: PdfColors.grey200),
           _buildDataRow(
-            "Usuario",
+            "Nombre",
             usuario,
             "Semana N°",
             "${semana.numeroSemana}",
           ),
           pw.Divider(color: PdfColors.grey200),
-
-          // --- 👇 NUEVA FILA: LUGAR Y ÁREA 👇 ---
           _buildDataRow(
             "Lugar",
             dia.lugar,
@@ -160,9 +124,6 @@ class HojaTiempoPdfBuilder {
             dia.area ?? 'No especificada',
           ),
           pw.Divider(color: PdfColors.grey200),
-          // ----------------------------------------
-
-          // Fila fusionada (Fecha + Tipo + Viaje)
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
@@ -207,7 +168,6 @@ class HojaTiempoPdfBuilder {
     );
   }
 
-  // --- 3. TABLA DE ACTIVIDADES (Estilo Naranjo) ---
   static pw.Widget _buildActivitiesTable(
     List<HojaTiempoActividad> actividades,
     PdfColor baseColor,
@@ -259,7 +219,6 @@ class HojaTiempoPdfBuilder {
     );
   }
 
-  // --- 4. RESUMEN HORIZONTAL (Estilo Full Width) ---
   static pw.Widget _buildResumenTableHorizontal(
     double habiles,
     double noHabiles,
@@ -312,7 +271,6 @@ class HojaTiempoPdfBuilder {
           ),
           cellStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12),
           cellDecoration: (index, data, rowNum) {
-            // CORRECCIÓN: Usamos PdfColors.orange50 que sí existe y es seguro
             if (index == 3) {
               return const pw.BoxDecoration(color: PdfColors.orange50);
             }
@@ -336,7 +294,6 @@ class HojaTiempoPdfBuilder {
     );
   }
 
-  // --- 5. PIE DE PÁGINA ---
   static pw.Widget _buildFooter() {
     return pw.Column(
       children: [
@@ -345,8 +302,8 @@ class HojaTiempoPdfBuilder {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text(
-              "Somnolence App - Reporte Oficial",
-              style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey),
+              "Validado por: ___________________________",
+              style: const pw.TextStyle(fontSize: 10, color: PdfColors.black),
             ),
             pw.Text(
               "Generado el: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}",

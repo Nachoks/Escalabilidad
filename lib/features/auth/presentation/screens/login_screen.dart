@@ -259,6 +259,8 @@ class _LoginFormState extends State<_LoginForm> {
           TextFormField(
             controller: _usuarioController,
             enabled: !isLoading,
+            // --- AGREGADO: Al apretar Enter salta a la contraseña ---
+            textInputAction: TextInputAction.next,
             decoration: InputDecoration(
               labelText: 'Nombre de Usuario',
               prefixIcon: const Icon(Icons.person_outline),
@@ -278,6 +280,13 @@ class _LoginFormState extends State<_LoginForm> {
             controller: _passwordController,
             enabled: !isLoading,
             obscureText: _obscurePassword,
+            // --- AGREGADO: Muestra "Listo" y al apretar Enter ejecuta el Login ---
+            textInputAction: TextInputAction.done,
+            onFieldSubmitted: (_) {
+              if (!isLoading) {
+                _handleLogin();
+              }
+            },
             decoration: InputDecoration(
               labelText: 'Contraseña',
               prefixIcon: const Icon(Icons.lock_outline),
