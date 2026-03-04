@@ -14,7 +14,6 @@ class HojaTiempoService {
 
   Future<Map<String, String>> _getHeaders() async {
     final prefs = await SharedPreferences.getInstance();
-    // CAMBIO AQUI: de 'auth_token' a 'token'
     final token = prefs.getString('token') ?? '';
     return {
       'Content-Type': 'application/json',
@@ -26,23 +25,16 @@ class HojaTiempoService {
   // --- DROPDOWNS ---
   Future<List<dynamic>> obtenerClientes() async {
     final url = Uri.parse('$_baseUrl/dropdowns/clientes');
-    debugPrint("=== DEBUG API ===");
-    debugPrint("1. Llamando a: $url");
-
     try {
       final headers = await _getHeaders();
       final response = await http.get(url, headers: headers);
-
-      debugPrint("2. Status Code: ${response.statusCode}");
-      debugPrint("3. Body: ${response.body}");
-
       if (response.statusCode == 200) {
         return jsonDecode(response.body)['data'];
       } else {
         return [];
       }
     } catch (e) {
-      debugPrint("4. ERROR DE CONEXIÓN: $e");
+      debugPrint("ERROR DE CONEXIÓN: $e");
       return [];
     }
   }
@@ -64,17 +56,32 @@ class HojaTiempoService {
   // --- OPERACIONES ---
   Future<List<HojaTiempoSemana>> obtenerMisHojas(int idUsuario) async {
     final url = Uri.parse('$_baseUrl/hoja-tiempo/mis-hojas');
-    final response = await http.post(
-      url,
-      headers: await _getHeaders(),
-      body: jsonEncode({'id_usuario': idUsuario}),
-    );
 
-    if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body)['data'];
-      return data.map((e) => HojaTiempoSemana.fromJson(e)).toList();
+    try {
+      final response = await http.post(
+        url,
+        headers: await _getHeaders(),
+        body: jsonEncode({'id_usuario': idUsuario}),
+      );
+
+      if (response.statusCode == 200) {
+        try {
+          final Map<String, dynamic> decoded = jsonDecode(response.body);
+          final List data = decoded['data'] ?? [];
+          return data.map((e) => HojaTiempoSemana.fromJson(e)).toList();
+        } catch (parseError) {
+          debugPrint("Error de parseo en misHojas: $parseError");
+          throw Exception("Error de lectura de datos (JSON): $parseError");
+        }
+      } else {
+        throw Exception(
+          'Error del servidor: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } catch (e) {
+      debugPrint("Excepción en obtenerMisHojas: $e");
+      rethrow;
     }
-    throw Exception('Error al cargar historial de hojas');
   }
 
   Future<bool> crearSemana({
@@ -113,7 +120,7 @@ class HojaTiempoService {
       final data = jsonDecode(response.body)['data'];
       return HojaTiempoSemana.fromJson(data);
     }
-    throw Exception('Error al cargar el detalle de la hoja');
+    throw Exception('Error al cargar el detalle de la hoja: ${response.body}');
   }
 
   Future<bool> guardarDia(int idHojaDiaria, Map<String, dynamic> data) async {
@@ -127,8 +134,23 @@ class HojaTiempoService {
     if (response.statusCode == 200) {
       return true;
     } else {
-      debugPrint("Error al guardar día: ${response.body}");
-      throw Exception('Error al guardar el día');
+      throw Exception('Error al guardar el día: ${response.body}');
+    }
+  }
+
+  // --- NUEVA RUTA: ENVIAR UN SOLO DÍA ---
+  Future<bool> enviarDia(int idHojaDiaria) async {
+    final url = Uri.parse('$_baseUrl/hoja-tiempo/dia/$idHojaDiaria/enviar');
+    final response = await http.post(url, headers: await _getHeaders());
+
+    if (response.statusCode == 200) return true;
+
+    // Intentar extraer el mensaje de error real
+    try {
+      final errorData = jsonDecode(response.body);
+      throw Exception(errorData['error'] ?? 'Error al enviar el día');
+    } catch (_) {
+      throw Exception('Error al enviar el día: ${response.body}');
     }
   }
 
@@ -140,33 +162,60 @@ class HojaTiempoService {
       body: jsonEncode({'observacion': observacion}),
     );
 
-    return response.statusCode == 200;
+    if (response.statusCode == 200) return true;
+    throw Exception('Error al enviar semana: ${response.body}');
   }
 
+  // --- ADMINISTRACIÓN ---
   Future<List<HojaTiempoSemana>> obtenerPendientesAdmin() async {
     final url = Uri.parse('$_baseUrl/admin/hoja-tiempo/pendientes');
-    debugPrint("=== DEBUG PENDIENTES ADMIN ===");
-    debugPrint("Llamando a: $url");
-
     try {
       final response = await http.get(url, headers: await _getHeaders());
-
-      debugPrint("Status Code: ${response.statusCode}");
-      debugPrint("Body: ${response.body}");
-
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body)['data'];
         return data.map((e) => HojaTiempoSemana.fromJson(e)).toList();
       } else {
-        // Ahora si falla, nos mostrará el mensaje real de Laravel en pantalla
-        final errorData = jsonDecode(response.body);
+        throw Exception('Error al cargar pendientes: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Error de conexión: $e');
+    }
+  }
+
+  // --- NUEVA RUTA: OBTENER DÍAS PENDIENTES ---
+  Future<List<HojaTiempoDiaria>> obtenerPendientesDiariasAdmin() async {
+    // ⚠️ CORRECCIÓN DE LA URL: Quitamos '/admin' para que coincida con routes/api.php
+    final url = Uri.parse('$_baseUrl/admin/hoja-tiempo/pendientes-diarias');
+
+    try {
+      final response = await http.get(url, headers: await _getHeaders());
+
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body)['data'];
+        return data.map((e) => HojaTiempoDiaria.fromJson(e)).toList();
+      } else {
+        throw Exception('Error al cargar días pendientes: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint("ERROR AL OBTENER DÍAS PENDIENTES: $e");
+      throw Exception('Error de conexión: $e');
+    }
+  }
+
+  Future<List<HojaTiempoSemana>> obtenerHistorialAdmin() async {
+    final url = Uri.parse('$_baseUrl/admin/hoja-tiempo/historial');
+    try {
+      final response = await http.get(url, headers: await _getHeaders());
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body)['data'];
+        return data.map((e) => HojaTiempoSemana.fromJson(e)).toList();
+      } else {
         throw Exception(
-          errorData['message'] ?? 'Error desconocido del servidor',
+          'Error del servidor: ${response.statusCode} - ${response.body}',
         );
       }
     } catch (e) {
-      debugPrint("Error atrapado: $e");
-      throw Exception('Error al cargar hojas pendientes: $e');
+      throw Exception('Excepción al cargar historial: $e');
     }
   }
 
@@ -185,7 +234,31 @@ class HojaTiempoService {
     if (response.statusCode == 200) {
       return true;
     } else {
-      throw Exception('Error al evaluar la hoja de tiempo');
+      throw Exception('Error al evaluar: ${response.body}');
+    }
+  }
+
+  // --- NUEVA RUTA: EVALUAR UN SOLO DÍA ---
+  Future<bool> evaluarDia(
+    int idHojaDiaria,
+    String estado,
+    String observacion,
+  ) async {
+    // ⚠️ CORRECCIÓN DE LA URL: Quitamos '/admin'
+    final url = Uri.parse(
+      '$_baseUrl/admin/hoja-tiempo/dia/$idHojaDiaria/evaluar',
+    );
+
+    final response = await http.post(
+      url,
+      headers: await _getHeaders(),
+      body: jsonEncode({'estado': estado, 'observacion': observacion}),
+    );
+
+    if (response.statusCode == 200) {
+      return true;
+    } else {
+      throw Exception('Error al evaluar el día: ${response.body}');
     }
   }
 }

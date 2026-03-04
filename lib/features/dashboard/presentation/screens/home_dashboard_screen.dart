@@ -15,6 +15,7 @@ import 'package:somnolence_app/features/rendiciones/presentation/screens/validat
 import 'control_salida_screen.dart';
 import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/hojas_list_screen.dart';
 import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/admin_hoja_pendientes_screen.dart';
+import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/admin_hoja_historial_screen.dart'; // <-- NUEVA IMPORTACIÓN
 
 class HomeDashboardScreen extends StatefulWidget {
   const HomeDashboardScreen({super.key});
@@ -183,6 +184,24 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           },
         ),
         const Divider(),
+        // --- NUEVA OPCIÓN AÑADIDA AQUÍ ---
+        _buildModalListItem(
+          icon: Icons.history, // Ícono representativo de historial
+          color:
+              Colors.orange[800]!, // Color que usamos en el AppBar de esa vista
+          text: "Historial Global HCT",
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const AdminHojaHistorialScreen(),
+              ),
+            );
+          },
+        ),
+        const Divider(),
+        // ----------------------------------
         _buildModalListItem(
           icon: Icons.access_time,
           color: Colors.deepPurple,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_slidable/flutter_slidable.dart'; // <--- PAQUETE PARA EL DESLIZAR (SLIDABLE)
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/hoja_dia_edit_screen.dart';
@@ -89,6 +90,7 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
     return diff / 60.0;
   }
 
+  // --- DIÁLOGO PARA ENVIAR LA SEMANA COMPLETA ---
   void _mostrarDialogoEnvio(BuildContext context, int idHoja) {
     final TextEditingController obsController = TextEditingController();
     bool isSubmitting = false;
@@ -108,7 +110,7 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                   Icon(Icons.send, color: AppColors.primary),
                   SizedBox(width: 8),
                   Text(
-                    "Enviar a Validación",
+                    "Enviar Semana",
                     style: TextStyle(
                       color: AppColors.primary,
                       fontWeight: FontWeight.bold,
@@ -122,7 +124,7 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    "Una vez enviada, no podrás editar las horas hasta que sea revisada.",
+                    "Se enviarán a validación todos los días que sigan en estado borrador. Una vez enviados, no podrás editarlos.",
                     style: TextStyle(fontSize: 13, color: Colors.grey),
                   ),
                   const SizedBox(height: 16),
@@ -180,6 +182,112 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text("Error al enviar la semana"),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        },
+                  child: isSubmitting
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          "Confirmar Envío",
+                          style: TextStyle(color: Colors.white),
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // --- DIÁLOGO NUEVO: ENVIAR UN SOLO DÍA ---
+  void _mostrarDialogoEnvioDia(
+    BuildContext context,
+    int idHojaDiaria,
+    int idHojaSemana,
+    String nombreDia,
+  ) {
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  const Icon(Icons.send, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Text(
+                    "Enviar $nombreDia",
+                    style: const TextStyle(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ],
+              ),
+              content: Text(
+                "¿Estás seguro de enviar tu registro del día $nombreDia a validación?\n\nUna vez enviado, no podrás modificar las horas de este día hasta que sea revisado por un administrador.",
+                style: const TextStyle(fontSize: 14),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(context),
+                  child: const Text(
+                    "Cancelar",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          setModalState(() => isSubmitting = true);
+                          final provider = context.read<HojaTiempoProvider>();
+                          final exito = await provider.enviarDia(
+                            idHojaDiaria,
+                            idHojaSemana,
+                          );
+
+                          if (!context.mounted) return;
+                          setModalState(() => isSubmitting = false);
+
+                          if (exito) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  "$nombreDia enviado a validación",
+                                ),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Error al enviar el día"),
                                 backgroundColor: Colors.red,
                               ),
                             );
@@ -288,11 +396,13 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
           // --- CUERPO ---
           body: Consumer<HojaTiempoProvider>(
             builder: (context, provider, child) {
-              if (provider.isLoading)
+              if (provider.isLoading) {
                 return const Center(child: CircularProgressIndicator());
+              }
               final hoja = provider.hojaSeleccionada;
-              if (hoja == null)
+              if (hoja == null) {
                 return const Center(child: Text("No se encontró información."));
+              }
 
               // Cálculos de la semana
               final dias = hoja.dias ?? [];
@@ -348,24 +458,6 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                 }
               }
               double sumTotalTrabajo = sumHabiles + sumNoHabiles + sumFestivas;
-              bool modoLectura =
-                  (hoja.estado == 'Enviada' || hoja.estado == 'Aprobada');
-
-              Color colorEstado;
-              IconData iconEstado;
-              if (hoja.estado == 'Aprobada') {
-                colorEstado = Colors.green;
-                iconEstado = Icons.check_circle;
-              } else if (hoja.estado == 'Rechazada') {
-                colorEstado = Colors.red;
-                iconEstado = Icons.cancel;
-              } else if (hoja.estado == 'Enviada') {
-                colorEstado = Colors.blue;
-                iconEstado = Icons.access_time_filled;
-              } else {
-                colorEstado = Colors.orange;
-                iconEstado = Icons.edit_document;
-              }
 
               // =====================================
               // VISTA ESCRITORIO (PANEL DIVIDIDO)
@@ -442,49 +534,12 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                                             color: Colors.grey.shade800,
                                           ),
                                         ),
-                                        const SizedBox(height: 16),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 8,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: colorEstado.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(
-                                              20,
-                                            ),
-                                            border: Border.all(
-                                              color: colorEstado.withOpacity(
-                                                0.5,
-                                              ),
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                iconEstado,
-                                                size: 18,
-                                                color: colorEstado,
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                hoja.estado.toUpperCase(),
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 13,
-                                                  color: colorEstado,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
                                       ],
                                     ),
                                   ),
                                   const SizedBox(height: 24),
 
-                                  // --- EL CALENDARIO VISUAL A PRUEBA DE FALLOS ---
+                                  // --- EL CALENDARIO VISUAL ---
                                   _buildDesktopCalendar(
                                     hoja.fechaInicio,
                                     hoja.fechaFin,
@@ -575,7 +630,7 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                                   ),
 
                                   const SizedBox(height: 24),
-                                  // Botón de Envío
+                                  // Botón de Envío Global (Semana)
                                   if (hoja.estado == 'Borrador' ||
                                       hoja.estado == 'Rechazada')
                                     SizedBox(
@@ -594,11 +649,9 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                                           context,
                                           hoja.idHojaSemana!,
                                         ),
-                                        child: Text(
-                                          hoja.estado == 'Rechazada'
-                                              ? "REENVIAR A VALIDAR"
-                                              : "ENVIAR A VALIDAR",
-                                          style: const TextStyle(
+                                        child: const Text(
+                                          "ENVIAR SEMANA RESTANTE",
+                                          style: TextStyle(
                                             color: Colors.white,
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
@@ -666,8 +719,8 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                                             itemBuilder: (context, index) =>
                                                 _buildDiaCard(
                                                   dias[index],
-                                                  modoLectura,
                                                   hoja.nombreCliente,
+                                                  isDesktop, // <--- LE PASAMOS LA VISTA ACTUAL
                                                 ),
                                           ),
                                   ),
@@ -683,7 +736,7 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
               }
 
               // =====================================
-              // VISTA MÓVIL (Mantenida exactamente igual a tu diseño)
+              // VISTA MÓVIL
               // =====================================
               return Column(
                 children: [
@@ -750,90 +803,11 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colorEstado.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: colorEstado.withOpacity(0.5),
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    iconEstado,
-                                    size: 18,
-                                    color: colorEstado,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    hoja.estado.toUpperCase(),
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 13,
-                                      letterSpacing: 0.5,
-                                      color: colorEstado,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  if (hoja.estado == 'Rechazada' &&
-                      hoja.observacion != null &&
-                      hoja.observacion!.isNotEmpty)
-                    Container(
-                      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        border: Border.all(color: Colors.red.shade300),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.warning_amber_rounded,
-                            color: Colors.red.shade800,
-                            size: 28,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Motivo del Rechazo:",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.red.shade800,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  hoja.observacion!,
-                                  style: TextStyle(
-                                    color: Colors.red.shade900,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   Container(
                     margin: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -929,8 +903,8 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                             ),
                             itemBuilder: (context, index) => _buildDiaCard(
                               dias[index],
-                              modoLectura,
                               hoja.nombreCliente,
+                              isDesktop, // <--- LE PASAMOS LA VISTA ACTUAL
                             ),
                           ),
                   ),
@@ -944,8 +918,9 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                     final hoja = provider.hojaSeleccionada;
                     if (hoja == null ||
                         (hoja.estado != 'Borrador' &&
-                            hoja.estado != 'Rechazada'))
+                            hoja.estado != 'Rechazada')) {
                       return const SizedBox.shrink();
+                    }
                     return SafeArea(
                       child: Container(
                         padding: const EdgeInsets.all(16),
@@ -969,11 +944,9 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                           ),
                           onPressed: () =>
                               _mostrarDialogoEnvio(context, hoja.idHojaSemana!),
-                          child: Text(
-                            hoja.estado == 'Rechazada'
-                                ? "REENVIAR A VALIDAR"
-                                : "ENVIAR A VALIDAR",
-                            style: const TextStyle(
+                          child: const Text(
+                            "ENVIAR SEMANA RESTANTE",
+                            style: TextStyle(
                               color: Colors.white,
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -990,79 +963,215 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
     );
   }
 
-  // --- WIDGET PARA LA TARJETA DEL DÍA ---
-  Widget _buildDiaCard(dynamic dia, bool modoLectura, String? nombreCliente) {
+  // --- WIDGET PARA LA TARJETA DEL DÍA ACTUALIZADO (SLIDABLE Y BOTÓN) ---
+  Widget _buildDiaCard(dynamic dia, String? nombreCliente, bool isDesktop) {
     final nombreDia = _obtenerNombreDia(dia.fecha);
     final cantidadActividades = dia.actividades?.length ?? 0;
 
+    // El modo lectura ahora depende del estado de ESTE día en particular
+    final modoLecturaDia = dia.estado == 'Enviada' || dia.estado == 'Aprobada';
+
+    // Solo se puede enviar si está en Borrador o Rechazada, y si tiene algo registrado
+    final bool sePuedeEnviar =
+        (dia.estado == 'Borrador' || dia.estado == 'Rechazada') &&
+        (cantidadActividades > 0 || dia.viajeHoras > 0);
+
+    // Colores y diseño según el estado individual
+    Color colorEstado;
+    IconData iconEstado;
+    if (dia.estado == 'Aprobada') {
+      colorEstado = Colors.green;
+      iconEstado = Icons.check_circle;
+    } else if (dia.estado == 'Rechazada') {
+      colorEstado = Colors.red;
+      iconEstado = Icons.cancel;
+    } else if (dia.estado == 'Enviada') {
+      colorEstado = Colors.blue;
+      iconEstado = Icons.access_time_filled;
+    } else {
+      colorEstado = Colors.orange;
+      iconEstado = Icons.edit_document;
+    }
+
+    Widget contentTile = ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: CircleAvatar(
+        backgroundColor: dia.tipoDia == 'HABIL'
+            ? Colors.blue.withOpacity(0.8)
+            : dia.tipoDia == 'NO_HABIL'
+            ? Colors.orange.withOpacity(0.8)
+            : dia.tipoDia == 'FERIADO'
+            ? Colors.red.withOpacity(0.8)
+            : Colors.grey,
+        child: Text(
+          dia.fecha.day.toString(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            nombreDia,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          // Etiqueta del estado
+          Row(
+            children: [
+              Icon(iconEstado, size: 14, color: colorEstado),
+              const SizedBox(width: 4),
+              Text(
+                dia.estado.toUpperCase(),
+                style: TextStyle(
+                  color: colorEstado,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 6),
+          Text("${dia.tipoDia} • ${dia.lugar}"),
+          if (cantidadActividades > 0)
+            Text(
+              "$cantidadActividades actividad(es)",
+              style: const TextStyle(
+                color: Colors.green,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          if ((dia.viajeHoras) > 0)
+            Text(
+              "${dia.viajeHoras} hrs de viaje",
+              style: const TextStyle(
+                color: Colors.purple,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          if (dia.estado == 'Rechazada' && dia.observacion != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Text(
+                "Rechazo: ${dia.observacion}",
+                style: TextStyle(
+                  color: Colors.red.shade700,
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+        ],
+      ),
+      trailing: isDesktop
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (sePuedeEnviar)
+                  ElevatedButton.icon(
+                    onPressed: () => _mostrarDialogoEnvioDia(
+                      context,
+                      dia.idHojaDiaria,
+                      dia.idHojaSemana,
+                      nombreDia,
+                    ),
+                    icon: const Icon(Icons.send, size: 16),
+                    label: const Text("Enviar Día"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 12),
+                Icon(
+                  modoLecturaDia ? Icons.visibility : Icons.arrow_forward_ios,
+                  size: 18,
+                  color: Colors.grey,
+                ),
+              ],
+            )
+          : Icon(
+              modoLecturaDia ? Icons.visibility : Icons.arrow_forward_ios,
+              size: 16,
+              color: Colors.grey,
+            ),
+      onTap: () {
+        final provider = context.read<HojaTiempoProvider>();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => HojaDiaEditScreen(
+              dia: dia,
+              isReadOnly:
+                  modoLecturaDia, // Pasamos el modo lectura especifico de ESTE dia
+              nombreCliente: nombreCliente ?? 'Desconocido',
+            ),
+          ),
+        ).then((_) => provider.cargarDetalleHoja(widget.idHojaSemana));
+      },
+    );
+
+    // Si es móvil y se puede enviar, envolvemos en un Slidable
+    if (!isDesktop && sePuedeEnviar) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Slidable(
+          endActionPane: ActionPane(
+            motion: const ScrollMotion(),
+            extentRatio: 0.35,
+            children: [
+              SlidableAction(
+                onPressed: (context) => _mostrarDialogoEnvioDia(
+                  context,
+                  dia.idHojaDiaria,
+                  dia.idHojaSemana,
+                  nombreDia,
+                ),
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                icon: Icons.send,
+                label: 'Enviar',
+                borderRadius: BorderRadius.circular(
+                  10,
+                ), // Para que coincida con el borde de la tarjeta
+              ),
+            ],
+          ),
+          child: Card(
+            margin: EdgeInsets
+                .zero, // Quitamos el margen interior porque el Padding ya lo separa
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: contentTile,
+          ),
+        ),
+      );
+    }
+
+    // Si es Web o no se puede enviar, mostramos la tarjeta normal
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: CircleAvatar(
-          backgroundColor: dia.tipoDia == 'HABIL'
-              ? Colors.blue
-              : dia.tipoDia == 'NO_HABIL'
-              ? Colors.orange
-              : dia.tipoDia == 'FERIADO'
-              ? Colors.red
-              : Colors.grey,
-          child: Text(
-            dia.fecha.day.toString(),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        title: Text(
-          nombreDia,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text("${dia.tipoDia} • ${dia.lugar}"),
-            if (cantidadActividades > 0)
-              Text(
-                "$cantidadActividades actividad(es)",
-                style: const TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            if ((dia.viajeHoras) > 0)
-              Text(
-                "${dia.viajeHoras} hrs de viaje",
-                style: const TextStyle(
-                  color: Colors.purple,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-          ],
-        ),
-        trailing: const Icon(
-          Icons.arrow_forward_ios,
-          size: 16,
-          color: Colors.grey,
-        ),
-        onTap: () {
-          final provider = context.read<HojaTiempoProvider>();
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => HojaDiaEditScreen(
-                dia: dia,
-                isReadOnly: modoLectura,
-                nombreCliente: nombreCliente ?? 'Desconocido',
-              ),
-            ),
-          ).then((_) => provider.cargarDetalleHoja(widget.idHojaSemana));
-        },
-      ),
+      child: contentTile,
     );
   }
 
