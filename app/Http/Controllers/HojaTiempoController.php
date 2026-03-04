@@ -1,6 +1,8 @@
 <?php
 
+
 namespace App\Http\Controllers;
+
 
 use Illuminate\Http\Request;
 use App\Models\HojaTiempoSemana;
@@ -11,47 +13,45 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use App\Models\Cliente;
 use App\Models\OcCliente;
-use App\Models\User; 
-use App\Services\OneSignalService; 
+use App\Models\User;
+use App\Services\OneSignalService;
+
 
 class HojaTiempoController extends Controller
 {
     // =========================================================================
     // 1. DROPDOWNS EN CASCADA (Clientes -> Servicios -> OC)
     // =========================================================================
-    
+   
     public function getClientes()
     {
-        // Usamos el Modelo Cliente. Asegúrate de que en App\Models\Cliente
-        // tengas definido: protected $table = 'clientes'; (o el nombre real de tu tabla)
         $clientes = Cliente::select('id_cliente', 'nombre_cliente')->get();
-        
         return response()->json(['success' => true, 'data' => $clientes]);
     }
 
+
     public function getServiciosPorCliente($id_cliente)
     {
-        // Usamos el Modelo Servicio
         $servicios = Servicio::where('id_cliente', $id_cliente)
             ->select('id_servicio', 'nombre_servicio', 'correlativo', 'centro_costo')
             ->get();
-            
         return response()->json(['success' => true, 'data' => $servicios]);
     }
 
+
     public function getOcsPorServicio($id_servicio)
     {
-        // Usamos el Modelo OcCliente
         $ocs = OcCliente::where('id_servicio', $id_servicio)
             ->select('id_oc_cliente', 'cod_oc_cliente')
             ->get();
-            
         return response()->json(['success' => true, 'data' => $ocs]);
     }
+
 
     // =========================================================================
     // 2. GESTIÓN DE HOJAS DE TIEMPO (Crear, Listar, Detalle, Guardar Día)
     // =========================================================================
+
 
     public function crearSemana(Request $request)
     {
@@ -63,74 +63,74 @@ class HojaTiempoController extends Controller
             'numero_hct' => 'required|integer|between:1,99',
         ]);
 
-        // Regla de unicidad
+
         $existe = \App\Models\HojaTiempoSemana::where('id_servicio', $request->id_servicio)
             ->where('numero_hct', $request->numero_hct)
             ->exists();
 
+
         if ($existe) {
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'message' => "La HCT N°{$request->numero_hct} ya existe para este servicio."
             ], 422);
         }
 
+
         try {
             \Illuminate\Support\Facades\DB::beginTransaction();
 
-            // 1. Buscamos el servicio
-            $servicio = \Illuminate\Support\Facades\DB::table('servicio')->where('id_servicio', $request->id_servicio)->first();
-            
-            // 2. ¡AQUÍ ESTÁ EL CAMBIO! Usamos centro_costo en lugar de correlativo.
-            $centroCostoFijo = $servicio->centro_costo ?? 'SIN-CENTRO-COSTO';
-            
-            // 3. Formateamos estrictamente el número ingresado para que tenga 2 dígitos (Ej: 3 -> "03")
-            $numeroFormateado = str_pad($request->numero_hct, 2, "0", STR_PAD_LEFT);
 
-            // 4. Armamos la cadena final: Centro de Costo + HTC + Número
+            $servicio = \Illuminate\Support\Facades\DB::table('servicio')->where('id_servicio', $request->id_servicio)->first();
+            $centroCostoFijo = $servicio->centro_costo ?? 'SIN-CENTRO-COSTO';
+            $numeroFormateado = str_pad($request->numero_hct, 2, "0", STR_PAD_LEFT);
             $nombreHct = "{$centroCostoFijo}-HTC-{$numeroFormateado}";
 
-            // Fechas
+
             $fechaRef = \Carbon\Carbon::parse($request->fecha);
             $inicio = $fechaRef->startOfWeek()->format('Y-m-d');
             $fin = $fechaRef->endOfWeek()->format('Y-m-d');
 
-            // Crear Semana (Padre)
+
             $semana = \App\Models\HojaTiempoSemana::create([
                 'id_usuario' => $request->id_usuario,
                 'id_servicio' => $request->id_servicio,
                 'id_oc_cliente' => $request->id_oc_cliente,
                 'numero_hct' => $request->numero_hct,
                 'nombre_comprobante' => $nombreHct,
-                'centro_costo' => $servicio->centro_costo, // Esto se sigue guardando igual
+                'centro_costo' => $servicio->centro_costo,
                 'numero_semana' => $fechaRef->weekOfYear,
                 'fecha_inicio' => $inicio,
                 'fecha_fin' => $fin,
                 'estado' => 'Borrador',
             ]);
 
-            // Crear los 7 Días (Hijos)
+
             $diasInsert = [];
             for ($i = 0; $i < 7; $i++) {
                 $diasInsert[] = [
                     'id_hoja_semana' => $semana->id_hoja_semana,
                     'fecha' => \Carbon\Carbon::parse($inicio)->addDays($i)->format('Y-m-d'),
-                    'lugar' => 'DESCANSO', // Valor por defecto
-                    'tipo_dia' => 'NO_HABIL', // Valor por defecto
+                    'lugar' => 'DESCANSO',
+                    'tipo_dia' => 'NO_HABIL',
                     'viaje_horas' => 0,
+                    'estado' => 'Borrador', // Estado inicial del día
                     'created_at' => now(),
                     'updated_at' => now(),
                 ];
             }
             \App\Models\HojaTiempoDiaria::insert($diasInsert);
 
+
             \Illuminate\Support\Facades\DB::commit();
 
+
             return response()->json([
-                'success' => true, 
+                'success' => true,
                 'message' => 'Semana creada',
                 'data' => $semana
             ], 201);
+
 
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
@@ -138,42 +138,58 @@ class HojaTiempoController extends Controller
         }
     }
 
+
     public function misHojas(Request $request)
     {
         $request->validate(['id_usuario' => 'required']);
 
-        // Hacemos un JOIN con servicio y cliente para traer el nombre_cliente a la primera capa del JSON
-        $hojas = \App\Models\HojaTiempoSemana::select('hojas_tiempo_semanas.*', 'cliente.nombre_cliente')
+
+        $hojas = \App\Models\HojaTiempoSemana::select(
+                'hojas_tiempo_semanas.*',
+                'cliente.nombre_cliente',
+                'personal.nombre_personal as usuario_nombre',
+                'personal.apellido_personal as usuario_apellido'
+            )
             ->join('servicio', 'hojas_tiempo_semanas.id_servicio', '=', 'servicio.id_servicio')
             ->join('cliente', 'servicio.id_cliente', '=', 'cliente.id_cliente')
+            ->leftJoin('usuarios', 'hojas_tiempo_semanas.id_usuario', '=', 'usuarios.id_usuario')
+            ->leftJoin('personal', 'usuarios.id_personal', '=', 'personal.id_personal')
             ->with(['servicio', 'ocCliente'])
             ->where('hojas_tiempo_semanas.id_usuario', $request->id_usuario)
             ->orderBy('hojas_tiempo_semanas.fecha_inicio', 'desc')
             ->get();
 
+
         return response()->json(['success' => true, 'data' => $hojas]);
     }
 
+
    public function detalleHoja($id_hoja_semana)
     {
-        // Agregamos el JOIN con 'cliente' y seleccionamos 'cliente.nombre_cliente'
-        $hoja = HojaTiempoSemana::select(
-                'hojas_tiempo_semanas.*', 
+        $hoja = \App\Models\HojaTiempoSemana::select(
+                'hojas_tiempo_semanas.*',
                 'servicio.nombre_servicio',
-                'cliente.nombre_cliente' // <--- IMPORTANTE: Traer este campo
+                'cliente.nombre_cliente',
+                'personal.nombre_personal as usuario_nombre',
+                'personal.apellido_personal as usuario_apellido'
             )
             ->join('servicio', 'hojas_tiempo_semanas.id_servicio', '=', 'servicio.id_servicio')
-            ->join('cliente', 'servicio.id_cliente', '=', 'cliente.id_cliente') // <--- JOIN FALTANTE
-            ->with(['ocCliente', 'dias.actividades']) 
+            ->join('cliente', 'servicio.id_cliente', '=', 'cliente.id_cliente')
+            ->leftJoin('usuarios', 'hojas_tiempo_semanas.id_usuario', '=', 'usuarios.id_usuario')
+            ->leftJoin('personal', 'usuarios.id_personal', '=', 'personal.id_personal')
+            ->with(['ocCliente', 'dias.actividades'])
             ->where('hojas_tiempo_semanas.id_hoja_semana', $id_hoja_semana)
             ->first();
+
 
         if (!$hoja) {
             return response()->json(['success' => false, 'message' => 'No encontrada'], 404);
         }
 
+
         return response()->json(['success' => true, 'data' => $hoja]);
     }
+
 
     public function guardarDia(Request $request, $id_hoja_diaria)
     {
@@ -182,25 +198,39 @@ class HojaTiempoController extends Controller
             'tipo_dia' => 'required|in:HABIL,NO_HABIL,FERIADO',
             'viaje_horas' => 'nullable|numeric|min:0',
             'actividades' => 'nullable|array',
-            'area' => 'nullable|string|max:255', // Nueva validación para el área
+            'area' => 'nullable|string|max:255',
         ]);
+
 
         try {
             DB::beginTransaction();
 
-            // 1. Actualizar el Día
+
             $dia = HojaTiempoDiaria::findOrFail($id_hoja_diaria);
+
+
+            // Validación de Bloqueo: No permite guardar si ya fue enviado o aprobado
+            if ($dia->estado === 'Enviada' || $dia->estado === 'Aprobada') {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'No puedes editar un día que se encuentra en revisión o aprobado.'
+                ], 403);
+            }
+
+
             $dia->update([
                 'lugar' => $request->lugar,
                 'tipo_dia' => $request->tipo_dia,
                 'horario_inicio' => $request->horario_inicio,
                 'horario_fin' => $request->horario_fin,
                 'viaje_horas' => $request->viaje_horas ?? 0,
-                'area' => $request->area, // Guardamos el área también
+                'area' => $request->area,
+                'estado' => 'Borrador', // Si estaba rechazada, vuelve a borrador al guardar cambios
             ]);
 
-            // 2. Reemplazar Actividades (Borramos las viejas, insertamos las nuevas)
+
             $dia->actividades()->delete();
+
 
             if ($request->has('actividades') && count($request->actividades) > 0) {
                 $acts = [];
@@ -220,10 +250,10 @@ class HojaTiempoController extends Controller
                 HojaTiempoActividad::insert($acts);
             }
 
-            DB::commit();
 
-            // Devolver el día actualizado con sus nuevas actividades
+            DB::commit();
             return response()->json(['success' => true, 'message' => 'Guardado Correctamente']);
+
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -231,103 +261,312 @@ class HojaTiempoController extends Controller
         }
     }
 
-    public function enviarSemana(Request $request, $id_hoja_semana)
+
+    // --- NUEVO: ENVIAR UN DÍA ESPECÍFICO A REVISIÓN ---
+    public function enviarDia(Request $request, $id_hoja_diaria)
     {
-        $request->validate([
-            'observacion' => 'nullable|string'
-        ]);
-
         try {
-            // Cargamos la relación 'usuario' si existe en el modelo, o buscamos el usuario después
-            $hoja = \App\Models\HojaTiempoSemana::findOrFail($id_hoja_semana);
-            
-            $hoja->estado = 'Enviada';
-            $hoja->observacion = $request->observacion;
-            $hoja->save();
+            $dia = HojaTiempoDiaria::findOrFail($id_hoja_diaria);
+            $hoja = HojaTiempoSemana::findOrFail($dia->id_hoja_semana);
 
-            // --- LÓGICA DE NOTIFICACIÓN (NUEVO) ---
+
+            if ($dia->estado === 'Enviada' || $dia->estado === 'Aprobada') {
+                return response()->json(['success' => false, 'error' => 'Este día ya se encuentra en validación o fue aprobado.'], 403);
+            }
+
+
+            $dia->estado = 'Enviada';
+            $dia->save();
+
+
+            // Notificación al administrador
             try {
-                // 1. Obtener datos del trabajador para el mensaje
                 $trabajador = User::find($hoja->id_usuario);
-                // Usamos nombre_usuario o los atributos virtuales nombre/apellido si están disponibles
-                $nombreTrabajador = $trabajador ? ($trabajador->nombre . ' ' . $trabajador->apellido) : 'Un trabajador';
-                if (trim($nombreTrabajador) == '') $nombreTrabajador = $trabajador->nombre_usuario;
+                $nombreTrabajador = $trabajador ? ($trabajador->nombre_usuario) : 'Un trabajador';
 
-                // 2. Buscar IDs de usuarios con rol Administrador o Validador
-                // (Reutilizando la lógica exacta de tu RendicionController)
+
                 $validadoresIds = User::whereHas('roles', function($q) {
                     $q->whereIn('tipo_usuario', ['Administrador', 'Validador']);
                 })->pluck('id_usuario')->toArray();
 
-                // 3. Enviar usando tu servicio
+
                 OneSignalService::enviar(
-                    $validadoresIds, // Array de IDs de usuario (Laravel)
-                    "Hoja de Tiempo Pendiente ⏱️", 
-                    "{$nombreTrabajador} ha enviado hoja de tiempo de la semana numero {$hoja->numero_semana} para ser validada.", 
+                    $validadoresIds,
+                    "Día Pendiente de Validación ⏱️",
+                    "{$nombreTrabajador} ha enviado su registro del día {$dia->fecha} para ser validado.",
                     [
-                        'id_hoja_semana' => $hoja->id_hoja_semana, 
-                        'tipo' => 'hoja_tiempo_pendiente'
+                        'id_hoja_diaria' => $dia->id_hoja_diaria,
+                        'tipo' => 'hoja_tiempo_diaria_pendiente'
                     ]
                 );
             } catch (\Exception $ex) {
-                // Si falla la notificación, solo lo logueamos para no detener el flujo
-                \Log::error("Error enviando notificación OneSignal (HojaTiempo): " . $ex->getMessage());
+                \Log::error("Error enviando notificación: " . $ex->getMessage());
             }
-            // ---------------------------------------
 
-            return response()->json([
-                'success' => true, 
-                'message' => 'Hoja de tiempo enviada a validación correctamente',
-                'data' => $hoja
-            ]);
+
+            return response()->json(['success' => true, 'message' => 'Día enviado a validación correctamente']);
+
 
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
 
+
+    public function enviarSemana(Request $request, $id_hoja_semana)
+    {
+        $request->validate([
+            'observacion' => 'nullable|string'
+        ]);
+
+
+        try {
+            DB::beginTransaction();
+
+
+            $hoja = \App\Models\HojaTiempoSemana::findOrFail($id_hoja_semana);
+            $hoja->estado = 'Enviada';
+            $hoja->observacion = $request->observacion;
+            $hoja->save();
+
+
+            // NUEVO: Al enviar la semana completa, todos los días que sigan en Borrador o Rechazados pasan a Enviada.
+            HojaTiempoDiaria::where('id_hoja_semana', $id_hoja_semana)
+                ->whereIn('estado', ['Borrador', 'Rechazada'])
+                ->update(['estado' => 'Enviada']);
+
+
+            DB::commit();
+
+
+            try {
+                $trabajador = User::find($hoja->id_usuario);
+                $nombreTrabajador = $trabajador ? ($trabajador->nombre_usuario) : 'Un trabajador';
+
+
+                $validadoresIds = User::whereHas('roles', function($q) {
+                    $q->whereIn('tipo_usuario', ['Administrador', 'Validador']);
+                })->pluck('id_usuario')->toArray();
+
+
+                OneSignalService::enviar(
+                    $validadoresIds,
+                    "Semana Pendiente de Validación ⏱️",
+                    "{$nombreTrabajador} ha enviado la semana número {$hoja->numero_semana} para ser validada.",
+                    [
+                        'id_hoja_semana' => $hoja->id_hoja_semana,
+                        'tipo' => 'hoja_tiempo_pendiente'
+                    ]
+                );
+            } catch (\Exception $ex) {
+                \Log::error("Error enviando notificación OneSignal: " . $ex->getMessage());
+            }
+
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Hoja y días pendientes enviados a validación correctamente',
+                'data' => $hoja
+            ]);
+
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
+
+    // =========================================================================
+    // 3. ADMINISTRACIÓN (Pendientes, Historial Global y Evaluar)
+    // =========================================================================
+
+
+    // Listado de Semanas Pendientes
     public function pendientesAdmin()
-{
-    $hojas = \App\Models\HojaTiempoSemana::select('hojas_tiempo_semanas.*', 'cliente.nombre_cliente')
-        ->join('servicio', 'hojas_tiempo_semanas.id_servicio', '=', 'servicio.id_servicio')
-        ->join('cliente', 'servicio.id_cliente', '=', 'cliente.id_cliente')
-        ->with(['servicio', 'ocCliente'])
-        ->where('hojas_tiempo_semanas.estado', 'Enviada')
-        ->orderBy('hojas_tiempo_semanas.updated_at', 'asc')
-        ->get();
+    {
+        $hojas = \App\Models\HojaTiempoSemana::select(
+                'hojas_tiempo_semanas.*',
+                'cliente.nombre_cliente',
+                'personal.nombre_personal as usuario_nombre',
+                'personal.apellido_personal as usuario_apellido'
+            )
+            ->join('servicio', 'hojas_tiempo_semanas.id_servicio', '=', 'servicio.id_servicio')
+            ->join('cliente', 'servicio.id_cliente', '=', 'cliente.id_cliente')
+            ->leftJoin('usuarios', 'hojas_tiempo_semanas.id_usuario', '=', 'usuarios.id_usuario')
+            ->leftJoin('personal', 'usuarios.id_personal', '=', 'personal.id_personal')
+            ->with(['servicio', 'ocCliente'])
+            ->where('hojas_tiempo_semanas.estado', 'Enviada')
+            ->orderBy('hojas_tiempo_semanas.updated_at', 'asc')
+            ->get();
 
-    return response()->json(['success' => true, 'data' => $hojas]);
-}
 
-public function evaluarHoja(Request $request, $id)
+        return response()->json(['success' => true, 'data' => $hojas]);
+    }
+
+
+    // --- NUEVO: Listado de Días Pendientes ---
+    public function pendientesDiariasAdmin()
+    {
+        try {
+            $dias = \App\Models\HojaTiempoDiaria::select(
+                    'hojas_tiempo_diarias.*',
+                    'hojas_tiempo_semanas.numero_hct',
+                    'hojas_tiempo_semanas.numero_semana',
+                    'hojas_tiempo_semanas.id_usuario',
+                    'cliente.nombre_cliente',
+                    'servicio.nombre_servicio',
+                    'personal.nombre_personal as usuario_nombre',
+                    'personal.apellido_personal as usuario_apellido'
+                )
+                ->join('hojas_tiempo_semanas', 'hojas_tiempo_diarias.id_hoja_semana', '=', 'hojas_tiempo_semanas.id_hoja_semana')
+                ->join('servicio', 'hojas_tiempo_semanas.id_servicio', '=', 'servicio.id_servicio')
+                ->join('cliente', 'servicio.id_cliente', '=', 'cliente.id_cliente')
+                ->leftJoin('usuarios', 'hojas_tiempo_semanas.id_usuario', '=', 'usuarios.id_usuario')
+                ->leftJoin('personal', 'usuarios.id_personal', '=', 'personal.id_personal')
+                ->with(['actividades'])
+                ->where('hojas_tiempo_diarias.estado', 'Enviada')
+                ->orderBy('hojas_tiempo_diarias.fecha', 'asc')
+                ->get();
+
+
+            return response()->json(['success' => true, 'data' => $dias]);
+           
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
+
+    public function historialAdmin()
+    {
+        try {
+            $hojas = \App\Models\HojaTiempoSemana::select(
+                    'hojas_tiempo_semanas.*',
+                    'cliente.nombre_cliente',
+                    'personal.nombre_personal as usuario_nombre',
+                    'personal.apellido_personal as usuario_apellido'
+                )
+                ->join('servicio', 'hojas_tiempo_semanas.id_servicio', '=', 'servicio.id_servicio')
+                ->join('cliente', 'servicio.id_cliente', '=', 'cliente.id_cliente')
+                ->leftJoin('usuarios', 'hojas_tiempo_semanas.id_usuario', '=', 'usuarios.id_usuario')
+                ->leftJoin('personal', 'usuarios.id_personal', '=', 'personal.id_personal')
+                ->with(['servicio', 'ocCliente'])
+                ->where('hojas_tiempo_semanas.estado', '!=', 'Borrador')
+                ->orderBy('hojas_tiempo_semanas.updated_at', 'desc')
+                ->get();
+
+
+            return response()->json(['success' => true, 'data' => $hojas]);
+           
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'error' => 'Error al obtener historial: ' . $e->getMessage()], 500);
+        }
+    }
+
+
+    // --- NUEVO: Evaluar un día específico ---
+    public function evaluarDia(Request $request, $id)
     {
         $request->validate([
             'estado' => 'required|in:Aprobada,Rechazada',
             'observacion' => 'nullable|string'
         ]);
 
+
+        try {
+            $dia = \App\Models\HojaTiempoDiaria::findOrFail($id);
+            $dia->estado = $request->estado;
+           
+            if ($request->filled('observacion')) {
+                $dia->observacion = $request->observacion;
+            } else {
+                $dia->observacion = null;
+            }
+
+
+            $dia->save();
+
+
+            $hoja = \App\Models\HojaTiempoSemana::findOrFail($dia->id_hoja_semana);
+
+
+            // Notificación al empleado
+            try {
+                $titulo = $request->estado === 'Aprobada' ? "Día Aprobado ✅" : "Día Rechazado ❌";
+                $mensaje = $request->estado === 'Aprobada'
+                    ? "Tu registro del día {$dia->fecha} ha sido aprobado."
+                    : "Tu registro del día {$dia->fecha} ha sido rechazado. Revisa la observación.";
+
+
+                OneSignalService::enviar(
+                    [$hoja->id_usuario],
+                    $titulo,
+                    $mensaje,
+                    [
+                        'id_hoja_diaria' => $dia->id_hoja_diaria,
+                        'tipo' => 'hoja_tiempo_diaria_evaluada'
+                    ]
+                );
+            } catch (\Exception $ex) {
+                \Log::error("Error enviando notificación evaluación: " . $ex->getMessage());
+            }
+
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Día evaluado correctamente',
+                'data' => $dia
+            ]);
+
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
+
+    // Evaluar la semana completa (Mantiene lógica anterior)
+    public function evaluarHoja(Request $request, $id)
+    {
+        $request->validate([
+            'estado' => 'required|in:Aprobada,Rechazada',
+            'observacion' => 'nullable|string'
+        ]);
+
+
         try {
             $hoja = \App\Models\HojaTiempoSemana::findOrFail($id);
             $hoja->estado = $request->estado;
-            
+           
             if ($request->filled('observacion')) {
                 $hoja->observacion = $request->observacion;
             }
 
+
             $hoja->save();
 
-            // --- LÓGICA DE NOTIFICACIÓN (NUEVO) ---
+
+            // NUEVO: Al evaluar la semana, reflejamos el mismo estado a los días que estén "Enviados"
+            HojaTiempoDiaria::where('id_hoja_semana', $id)
+                ->where('estado', 'Enviada')
+                ->update([
+                    'estado' => $request->estado,
+                    'observacion' => $request->observacion ?? null
+                ]);
+
+
             try {
                 $titulo = $request->estado === 'Aprobada' ? "Hoja Aprobada ✅" : "Hoja Rechazada ❌";
-                
-                $mensaje = $request->estado === 'Aprobada' 
-                    ? "Tu hoja de tiempo (Semana {$hoja->numero_semana}) ha sido aprobada." 
+               
+                $mensaje = $request->estado === 'Aprobada'
+                    ? "Tu hoja de tiempo (Semana {$hoja->numero_semana}) ha sido aprobada."
                     : "Tu hoja de tiempo (Semana {$hoja->numero_semana}) ha sido rechazada. Revisa la observación.";
 
-                // Tu servicio OneSignalService recibe un ARRAY de IDs de usuario
+
                 OneSignalService::enviar(
-                    [$hoja->id_usuario], 
-                    $titulo, 
+                    [$hoja->id_usuario],
+                    $titulo,
                     $mensaje,
                     [
                         'id_hoja_semana' => $hoja->id_hoja_semana,
@@ -335,16 +574,18 @@ public function evaluarHoja(Request $request, $id)
                     ]
                 );
 
+
             } catch (\Exception $ex) {
-                \Log::error("Error enviando notificación evaluación (HojaTiempo): " . $ex->getMessage());
+                \Log::error("Error enviando notificación evaluación: " . $ex->getMessage());
             }
-            // ---------------------------------------
+
 
             return response()->json([
-                'success' => true, 
-                'message' => 'Hoja evaluada',
+                'success' => true,
+                'message' => 'Semana evaluada correctamente',
                 'data' => $hoja
             ]);
+
 
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);

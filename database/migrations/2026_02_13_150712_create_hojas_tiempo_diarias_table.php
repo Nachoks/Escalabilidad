@@ -34,8 +34,12 @@ return new class extends Migration
             $table->time('horario_inicio')->nullable();
             $table->time('horario_fin')->nullable();
             
-            // 6. VIAJES INTEGRADOS (Como acordamos, solo el total numérico)
+            // 6. VIAJES INTEGRADOS
             $table->float('viaje_horas')->default(0);
+
+            // 7. NUEVOS CAMPOS PARA VALIDACIÓN DIARIA <--- ¡AQUÍ ESTÁ LA MAGIA!
+            $table->enum('estado', ['Borrador', 'Enviada', 'Aprobada', 'Rechazada'])->default('Borrador');
+            $table->text('observacion')->nullable();
             
             $table->timestamps();
         });
@@ -46,7 +50,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // También corregí el nombre aquí para que el rollback funcione bien
         Schema::dropIfExists('hojas_tiempo_diarias');
     }
 };

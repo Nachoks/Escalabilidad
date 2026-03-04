@@ -88,10 +88,10 @@ class RendicionTableSeeder extends Seeder
             6 => 
             array (
                 'id_rendicion' => 7,
-                'fecha' => NULL,
-                'proposito' => 'Compras',
+                'fecha' => '2026-02-26',
+                'proposito' => 'Gastos Varios',
                 'monto_entregado' => 0,
-                'estado' => 'Borrador',
+                'estado' => 'Pagada',
                 'centro_costo' => '00-1-001',
                 'id_servicio' => 148,
                 'id_usuario' => 11,
@@ -128,6 +128,61 @@ class RendicionTableSeeder extends Seeder
                 'centro_costo' => '01-1-016',
                 'id_servicio' => 17,
                 'id_usuario' => 12,
+            ),
+            10 => 
+            array (
+                'id_rendicion' => 11,
+                'fecha' => NULL,
+                'proposito' => 'xxxx',
+                'monto_entregado' => 0,
+                'estado' => 'Borrador',
+                'centro_costo' => '00-1-001',
+                'id_servicio' => 148,
+                'id_usuario' => 11,
+            ),
+            11 => 
+            array (
+                'id_rendicion' => 12,
+                'fecha' => '2026-02-26',
+                'proposito' => 'Compra de equipos',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '01-1-016',
+                'id_servicio' => 17,
+                'id_usuario' => 14,
+            ),
+            12 => 
+            array (
+                'id_rendicion' => 13,
+                'fecha' => NULL,
+                'proposito' => 'Prueba2',
+                'monto_entregado' => 0,
+                'estado' => 'Borrador',
+                'centro_costo' => '06-1-001',
+                'id_servicio' => 105,
+                'id_usuario' => 14,
+            ),
+            13 => 
+            array (
+                'id_rendicion' => 14,
+                'fecha' => '2026-02-27',
+                'proposito' => 'Gasto por encomienda',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '00-1-001',
+                'id_servicio' => 148,
+                'id_usuario' => 10,
+            ),
+            14 => 
+            array (
+                'id_rendicion' => 15,
+                'fecha' => '2026-03-02',
+                'proposito' => 'TERRENO MCEN',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '01-1-016',
+                'id_servicio' => 17,
+                'id_usuario' => 8,
             ),
         ));
         
