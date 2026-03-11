@@ -35,38 +35,76 @@ class HojaTiempoSemanalPdfBuilder {
     final diasOrdenados = List<HojaTiempoDiaria>.from(semana.dias ?? []);
     diasOrdenados.sort((a, b) => a.fecha.compareTo(b.fecha));
 
+    // ==========================================
+    // HOJA 1: RESUMEN Y FIRMAS (Página Estática)
+    // ==========================================
     pdf.addPage(
-      pw.MultiPage(
-        // CAMBIO: Usamos Portrait (Vertical) para un look más formal
+      pw.Page(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(30),
-        build: (context) => [
-          // 1. Encabezado
-          _buildHeader(
-            semana.nombreComprobante ?? 'BORRADOR',
-            logoImage,
-            baseColor,
-          ),
-          pw.SizedBox(height: 20),
-
-          // 2. Información General
-          _buildInfoSection(semana, nombreUsuario, periodo),
-          pw.SizedBox(height: 25),
-
-          // 3. TABLA 1: Resumen Numérico (Limpia, sin texto largo)
-          pw.Text(
-            "1. Resumen de Horas",
-            style: pw.TextStyle(
-              fontSize: 12,
-              fontWeight: pw.FontWeight.bold,
-              color: baseColor,
+        build: (context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            // Encabezado
+            _buildHeader(
+              semana.nombreComprobante ?? 'BORRADOR',
+              logoImage,
+              baseColor,
             ),
-          ),
-          pw.SizedBox(height: 5),
-          _buildNumericSummaryTable(diasOrdenados, baseColor),
-          pw.SizedBox(height: 25),
+            pw.SizedBox(height: 20),
 
-          // 4. TABLA 2: Detalle de Actividades (Aquí va el texto)
+            // Información General
+            _buildInfoSection(semana, nombreUsuario, periodo),
+            pw.SizedBox(height: 25),
+
+            // PUNTO 1: Resumen de Horas Numérico
+            pw.Text(
+              "1. Resumen de Horas",
+              style: pw.TextStyle(
+                fontSize: 12,
+                fontWeight: pw.FontWeight.bold,
+                color: baseColor,
+              ),
+            ),
+            pw.SizedBox(height: 5),
+            _buildNumericSummaryTable(diasOrdenados, baseColor),
+
+            // ESPACIADOR FLEXIBLE: Empuja las firmas hacia el final de la página
+            pw.Spacer(),
+
+            // FIRMAS
+            _buildSignaturesSection(),
+            pw.SizedBox(height: 20),
+
+            // PIE DE PÁGINA
+            _buildFooter(),
+          ],
+        ),
+      ),
+    );
+
+    // ==========================================
+    // HOJA 2+: DETALLE DE ACTIVIDADES (Página Múltiple)
+    // ==========================================
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(30),
+        // Configuramos para que si hay 3 páginas, todas repitan el header y footer
+        header: (context) => pw.Column(
+          children: [
+            _buildHeader(
+              semana.nombreComprobante ?? 'BORRADOR',
+              logoImage,
+              baseColor,
+            ),
+            pw.SizedBox(height: 20),
+          ],
+        ),
+        footer: (context) =>
+            pw.Column(children: [pw.SizedBox(height: 10), _buildFooter()]),
+        build: (context) => [
+          // PUNTO 2: Detalle de Actividades
           pw.Text(
             "2. Detalle de Actividades",
             style: pw.TextStyle(
@@ -79,17 +117,9 @@ class HojaTiempoSemanalPdfBuilder {
           _buildActivitiesDetailTable(diasOrdenados, baseColor),
           pw.SizedBox(height: 15),
 
-          // 5. Observaciones
+          // Observaciones (Si las hay)
           if (semana.observacion != null && semana.observacion!.isNotEmpty)
             _buildObservacionBox(semana.observacion!, baseColor),
-
-          pw.SizedBox(height: 30),
-
-          // 6. Firmas (Usamos un Widget que intenta no romperse entre páginas)
-          pw.Wrap(children: [_buildSignaturesSection()]),
-
-          pw.SizedBox(height: 10),
-          _buildFooter(),
         ],
       ),
     );
@@ -264,26 +294,26 @@ class HojaTiempoSemanalPdfBuilder {
         border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey200)),
       ),
       cellDecoration: (index, data, rowNum) {
-        if (rowNum == dias.length)
+        if (rowNum == dias.length) {
           return const pw.BoxDecoration(
             color: PdfColors.orange50,
           ); // Fila Totales
-        if (index == 6)
-          return pw.BoxDecoration(
+        }
+        if (index == 6) {
+          return const pw.BoxDecoration(
             color: PdfColors.grey100,
           ); // Columna Total sombreada
+        }
         return const pw.BoxDecoration();
       },
     );
   }
 
   // --- 4. TABLA DETALLE ACTIVIDADES (TEXTO) ---
-  // --- 4. TABLA DETALLE ACTIVIDADES (TEXTO) ---
   static pw.Widget _buildActivitiesDetailTable(
     List<HojaTiempoDiaria> dias,
     PdfColor baseColor,
   ) {
-    // 1. Añadimos la columna "Ubicación"
     final headers = [
       'Día',
       'Ubicación',
@@ -326,9 +356,18 @@ class HojaTiempoSemanalPdfBuilder {
     }
 
     if (data.isEmpty) {
-      return pw.Text(
-        "Sin actividades detalladas.",
-        style: const pw.TextStyle(color: PdfColors.grey),
+      return pw.Container(
+        padding: const pw.EdgeInsets.all(15),
+        decoration: pw.BoxDecoration(
+          color: PdfColors.grey100,
+          borderRadius: pw.BorderRadius.circular(6),
+        ),
+        child: pw.Center(
+          child: pw.Text(
+            "Sin actividades detalladas.",
+            style: const pw.TextStyle(color: PdfColors.grey),
+          ),
+        ),
       );
     }
 
@@ -355,9 +394,7 @@ class HojaTiempoSemanalPdfBuilder {
         3: const pw.FlexColumnWidth(), // Descripción (ocupa todo el resto)
       },
       cellAlignments: {
-        0: pw
-            .Alignment
-            .topCenter, // Alineados arriba para que no floten si la descripción es larga
+        0: pw.Alignment.topCenter, // Alineados arriba para que no floten
         1: pw.Alignment.topCenter,
         2: pw.Alignment.topCenter,
         3: pw.Alignment.topLeft,

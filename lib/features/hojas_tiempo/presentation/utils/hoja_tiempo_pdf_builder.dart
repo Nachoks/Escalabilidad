@@ -302,7 +302,7 @@ class HojaTiempoPdfBuilder {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text(
-              "Validado por: ___________________________",
+              "Somnolence App - Control de Conducción",
               style: const pw.TextStyle(fontSize: 10, color: PdfColors.black),
             ),
             pw.Text(

@@ -192,7 +192,9 @@ class RendicionesProvider extends ChangeNotifier {
 
     try {
       final token = await AuthService.getToken();
-      final url = Uri.parse('${AppConstants.apiUrl}/admin/historial');
+      final url = Uri.parse(
+        '${AppConstants.apiUrl}/admin/historial-rendiciones',
+      );
 
       final response = await http.get(
         url,
