@@ -286,7 +286,7 @@ class HojaTiempoController extends Controller
 
 
                 $validadoresIds = User::whereHas('roles', function($q) {
-                    $q->whereIn('tipo_usuario', ['Administrador', 'Validador']);
+                    $q->whereIn('tipo_usuario', ['Administrador', 'Validador HT']);
                 })->pluck('id_usuario')->toArray();
 
 
