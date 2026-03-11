@@ -31,12 +31,13 @@ class _AddUserDialogState extends State<AddUserDialog> {
   bool _obscurePassword = true;
   bool _isSaving = false; // Para bloquear el botón mientras guarda
 
-  // Roles
+  // --- ROLES ACTUALIZADOS ---
   final List<String> _rolesDisponibles = [
     'Administrador',
     'Conductor',
     'Validador',
-    'Rendidor',
+    'Validador HT', // <--- NUEVO ROL
+    'Usuario', // <--- RENDIDOR CAMBIADO A USUARIO
   ];
   final Set<String> _rolesSeleccionados = {};
 

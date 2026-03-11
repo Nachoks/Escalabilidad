@@ -15,7 +15,7 @@ import 'package:somnolence_app/features/rendiciones/presentation/screens/validat
 import 'control_salida_screen.dart';
 import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/hojas_list_screen.dart';
 import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/admin_hoja_pendientes_screen.dart';
-import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/admin_hoja_historial_screen.dart'; // <-- NUEVA IMPORTACIÓN
+import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/admin_hoja_historial_screen.dart';
 
 class HomeDashboardScreen extends StatefulWidget {
   const HomeDashboardScreen({super.key});
@@ -30,7 +30,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = context.read<AuthProvider>().currentUser;
-      if (user != null && user.esAdmin) {
+      // Solo actualiza pendientes si es Admin o Validador normal (gastos)
+      if (user != null &&
+          (user.esAdmin || RoleHelper.isValidador(user.roles))) {
         context.read<RendicionesProvider>().actualizarContadorPendientes();
       }
     });
@@ -184,11 +186,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           },
         ),
         const Divider(),
-        // --- NUEVA OPCIÓN AÑADIDA AQUÍ ---
         _buildModalListItem(
-          icon: Icons.history, // Ícono representativo de historial
-          color:
-              Colors.orange[800]!, // Color que usamos en el AppBar de esa vista
+          icon: Icons.history,
+          color: Colors.orange[800]!,
           text: "Historial Global HCT",
           onTap: () {
             Navigator.pop(context);
@@ -201,7 +201,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           },
         ),
         const Divider(),
-        // ----------------------------------
         _buildModalListItem(
           icon: Icons.access_time,
           color: Colors.deepPurple,
@@ -296,12 +295,20 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     final provider = context.watch<RendicionesProvider>();
     final int pendientes = provider.cantidadPendientes;
 
-    if (user == null)
+    if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
-    // CONFIGURACIÓN DE MENÚS (Ahora incluimos un 'subtitle' para la vista Web)
+    // Comprobaciones de roles basadas en el Helper actualizado
+    final bool esAdmin = RoleHelper.isAdmin(user.roles);
+    final bool esValidadorGastos = RoleHelper.isValidador(user.roles);
+    final bool esValidadorHT = RoleHelper.isValidadorHT(user.roles);
+    final bool esConductor = RoleHelper.isConductor(user.roles);
+
+    // CONFIGURACIÓN DE MENÚS
     final List<Map<String, dynamic>> menuItems = [];
 
+    // Perfil para todos
     menuItems.add({
       'title': 'Mi Perfil',
       'subtitle': 'Ajustes y credenciales',
@@ -310,7 +317,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       'page': const PerfilScreen(),
     });
 
-    if (user.esAdmin) {
+    // ==========================================
+    // SECCIÓN HOJAS DE TIEMPO
+    // ==========================================
+    if (esAdmin || esValidadorHT) {
       menuItems.add({
         'title': 'Hojas de Tiempo',
         'subtitle': 'Control y validación de horas',
@@ -320,6 +330,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         'action': (BuildContext ctx) => _mostrarMenuHojasTiempoAdmin(ctx),
       });
     } else {
+      // Si NO es Admin ni Validador HT, solo ve sus propias hojas
       menuItems.add({
         'title': 'Hojas de Tiempo',
         'subtitle': 'Registra tus horas',
@@ -329,7 +340,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       });
     }
 
-    if (user.esConductor) {
+    // ==========================================
+    // SECCIÓN CONDUCTOR
+    // ==========================================
+    if (esConductor) {
       menuItems.add({
         'title': 'Control Salida',
         'subtitle': 'Test de Somnolencia',
@@ -339,8 +353,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       });
     }
 
-    if (user.esAdmin || user.esValidador) {
-      if (user.esAdmin) {
+    // ==========================================
+    // SECCIÓN ADMINISTRACIÓN Y RENDICIONES
+    // ==========================================
+    if (esAdmin || esValidadorGastos) {
+      if (esAdmin) {
+        // Solo Admin ve gestión de Usuarios y Clientes
         menuItems.add({
           'title': 'Usuarios',
           'subtitle': 'Gestión de personal',
@@ -356,6 +374,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           'page': const GestionClientesScreen(),
         });
       }
+
+      // Admin y Validador de Gastos ven el menú administrativo de Rendiciones
       menuItems.add({
         'title': 'Rendiciones',
         'subtitle': 'Control de viáticos y gastos',
@@ -367,6 +387,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             _mostrarMenuRendicionesAdmin(ctx, pendientes),
       });
     } else {
+      // Conductores, Usuarios y Validadores HT solo ven sus propias rendiciones
       menuItems.add({
         'title': 'Mis Rendiciones',
         'subtitle': 'Envío de boletas y gastos',
@@ -465,7 +486,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     const SizedBox(width: 16),
                   ],
                 )
-              : null, // En móvil no usamos AppBar, usamos el Header gigante
+              : null,
 
           body: Column(
             children: [
@@ -601,9 +622,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: 1100,
-                    ), // Ancho máximo centrado
+                    constraints: const BoxConstraints(maxWidth: 1100),
                     child: GridView.builder(
                       padding: EdgeInsets.symmetric(
                         horizontal: isDesktop ? 40 : 20,
@@ -611,11 +630,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       ),
                       itemCount: menuItems.length,
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        // En PC mostramos 3 columnas, en móvil 2
                         crossAxisCount: isDesktop ? 3 : 2,
                         crossAxisSpacing: isDesktop ? 24 : 16,
                         mainAxisSpacing: isDesktop ? 24 : 16,
-                        // El secreto del diseño Web: Tarjetas rectangulares (aspectRatio alto)
                         childAspectRatio: isDesktop ? 2.5 : 1.0,
                       ),
                       itemBuilder: (context, index) {
@@ -623,7 +640,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
                         return isDesktop
                             ? _WebCardMenu(
-                                // DISEÑO NUEVO PARA PC
                                 title: item['title'],
                                 subtitle: item['subtitle'],
                                 icon: item['icon'],
@@ -632,11 +648,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                                 onTap: () => _manejarNavegacion(
                                   item,
                                   context,
-                                  user.esAdmin,
+                                  esAdmin || esValidadorGastos,
                                 ),
                               )
                             : _MobileSquareCard(
-                                // DISEÑO ORIGINAL PARA CELULAR
                                 title: item['title'],
                                 icon: item['icon'],
                                 color: item['color'],
@@ -644,7 +659,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                                 onTap: () => _manejarNavegacion(
                                   item,
                                   context,
-                                  user.esAdmin,
+                                  esAdmin || esValidadorGastos,
                                 ),
                               );
                       },
@@ -662,7 +677,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   Future<void> _manejarNavegacion(
     Map<String, dynamic> item,
     BuildContext context,
-    bool esAdmin,
+    bool esAdminOValidador,
   ) async {
     if (item['isAction'] == true) {
       item['action'](context);
@@ -671,13 +686,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         context,
         MaterialPageRoute(builder: (_) => item['page']),
       );
-      if (context.mounted && esAdmin) _actualizarContador();
+      if (context.mounted && esAdminOValidador) _actualizarContador();
     }
   }
 }
 
 // ==========================================================
-// 🎨 DISEÑO 1: TARJETA HORIZONTAL MODERNA (SOLO PARA WEB)
+// TARJETA HORIZONTAL(SOLO PARA WEB)
 // ==========================================================
 class _WebCardMenu extends StatelessWidget {
   final String title;

@@ -27,12 +27,13 @@ class _EditUserDialogState extends State<EditUserDialog> {
   bool _obscurePass = true;
   bool _isSaving = false; // Para deshabilitar botón mientras guarda
 
-  // Roles
+  // --- ROLES ACTUALIZADOS ---
   final List<String> _rolesDisponibles = [
     'Administrador',
     'Conductor',
     'Validador',
-    'Rendidor',
+    'Validador HT', // <--- NUEVO ROL
+    'Usuario', // <--- RENDIDOR CAMBIADO A USUARIO
   ];
   late Set<String> _rolesSeleccionados;
 
@@ -63,10 +64,19 @@ class _EditUserDialogState extends State<EditUserDialog> {
     // 2. Cargar Roles Actuales
     _rolesSeleccionados = {};
     for (var rolUsuario in widget.user.roles) {
+      final rolStr = rolUsuario.toLowerCase().trim();
+
       // Normalizamos: 'admin' -> 'Administrador'
-      if (rolUsuario.toLowerCase() == 'admin' ||
-          rolUsuario.toLowerCase() == 'administrador') {
+      if (rolStr == 'admin' || rolStr == 'administrador') {
         _rolesSeleccionados.add('Administrador');
+      }
+      // Mapeamos el antiguo 'rendidor' al nuevo 'Usuario' por retrocompatibilidad
+      else if (rolStr == 'rendidor' || rolStr == 'usuario') {
+        _rolesSeleccionados.add('Usuario');
+      }
+      // Manejo específico para Validador HT
+      else if (rolStr == 'validador ht') {
+        _rolesSeleccionados.add('Validador HT');
       } else {
         // Capitalizar: 'conductor' -> 'Conductor'
         // Nos aseguramos de que el string no esté vacío antes de operar
