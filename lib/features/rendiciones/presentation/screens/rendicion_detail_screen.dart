@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:url_launcher/url_launcher.dart'; // <--- Volvemos a url_launcher
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/core/constants/app_constants.dart';
 import 'package:somnolence_app/features/rendiciones/data/models/rendicion_model.dart';
@@ -78,11 +79,72 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     }
   }
 
+  // --- WIDGET PARA MOSTRAR BOTÓN DE PDF EN WEB ---
+  Widget _buildPdfWebFallback(String url) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.picture_as_pdf, size: 80, color: Colors.red),
+          const SizedBox(height: 16),
+          const Text(
+            "Documento PDF",
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "Haz clic abajo para abrir el documento de forma segura en una nueva pestaña.",
+            style: TextStyle(color: Colors.grey),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () async {
+              final uri = Uri.parse(url);
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(
+                  uri,
+                  mode: LaunchMode.externalApplication,
+                ); // Abre en nueva pestaña
+              } else {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("No se pudo abrir el enlace."),
+                    ),
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.open_in_new),
+            label: const Text(
+              "Ver PDF",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // --- VER EVIDENCIA ---
   void _verEvidencia(BuildContext context, dynamic archivo) {
     String rutaLimpia = archivo.rutaRelativa.replaceAll('\\', '/');
-    if (rutaLimpia.startsWith('public/'))
+    if (rutaLimpia.startsWith('public/')) {
       rutaLimpia = rutaLimpia.replaceFirst('public/', '');
+    }
     if (rutaLimpia.startsWith('/')) rutaLimpia = rutaLimpia.substring(1);
 
     final apiUrl = AppConstants.apiUrl.endsWith('/')
@@ -129,19 +191,22 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                   const Divider(height: 1),
                   Expanded(
                     child: esPdf
-                        ? const PDF(
-                            enableSwipe: true,
-                            swipeHorizontal: true,
-                            autoSpacing: false,
-                            pageFling: false,
-                          ).fromUrl(
-                            urlImagen,
-                            placeholder: (progress) =>
-                                Center(child: Text('$progress %')),
-                            errorWidget: (error) => Center(
-                              child: Text("Error al cargar PDF: $error"),
-                            ),
-                          )
+                        // 👇 SI ES WEB MOSTRAMOS EL BOTÓN, SI ES MÓVIL EL PDFVIEWER 👇
+                        ? (kIsWeb
+                              ? _buildPdfWebFallback(urlImagen)
+                              : const PDF(
+                                  enableSwipe: true,
+                                  swipeHorizontal: true,
+                                  autoSpacing: false,
+                                  pageFling: false,
+                                ).fromUrl(
+                                  urlImagen,
+                                  placeholder: (progress) =>
+                                      Center(child: Text('$progress %')),
+                                  errorWidget: (error) => Center(
+                                    child: Text("Error al cargar PDF: $error"),
+                                  ),
+                                ))
                         : InteractiveViewer(
                             panEnabled: true,
                             minScale: 0.5,
@@ -198,12 +263,133 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     );
   }
 
+  // --- VER COMPROBANTE DE PAGO ---
+  void _verComprobanteDePago() {
+    final ruta = widget.rendicion.rutaComprobante;
+    if (ruta == null) return;
+
+    String rutaLimpia = ruta.replaceAll('\\', '/');
+    if (rutaLimpia.startsWith('public/')) {
+      rutaLimpia = rutaLimpia.replaceFirst('public/', '');
+    }
+    if (rutaLimpia.startsWith('/')) rutaLimpia = rutaLimpia.substring(1);
+
+    final apiUrl = AppConstants.apiUrl.endsWith('/')
+        ? AppConstants.apiUrl.substring(0, AppConstants.apiUrl.length - 1)
+        : AppConstants.apiUrl;
+    final urlFinal = "$apiUrl/evidencia/$rutaLimpia";
+    final urlCodificada = Uri.encodeFull(urlFinal);
+    final bool esPdf = rutaLimpia.toLowerCase().endsWith('.pdf');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(10),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: double.infinity,
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+                maxWidth: 800,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      "Comprobante de Pago",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green[800],
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: esPdf
+                        // 👇 SI ES WEB MOSTRAMOS EL BOTÓN, SI ES MÓVIL EL PDFVIEWER 👇
+                        ? (kIsWeb
+                              ? _buildPdfWebFallback(urlCodificada)
+                              : const PDF(
+                                  enableSwipe: true,
+                                  swipeHorizontal: true,
+                                  autoSpacing: false,
+                                  pageFling: false,
+                                ).fromUrl(
+                                  urlCodificada,
+                                  placeholder: (progress) =>
+                                      Center(child: Text('$progress %')),
+                                  errorWidget: (error) =>
+                                      Center(child: Text("Error PDF: $error")),
+                                ))
+                        : InteractiveViewer(
+                            panEnabled: true,
+                            minScale: 0.5,
+                            maxScale: 4,
+                            child: Image.network(
+                              urlCodificada,
+                              fit: BoxFit.contain,
+                              headers: const {
+                                'User-Agent': 'SomnolenceApp/1.0',
+                              },
+                              loadingBuilder: (_, child, prog) => prog == null
+                                  ? child
+                                  : const Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                              errorBuilder: (_, __, ___) => const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.broken_image,
+                                    size: 50,
+                                    color: Colors.grey,
+                                  ),
+                                  Text("No se pudo cargar la imagen"),
+                                ],
+                              ),
+                            ),
+                          ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              top: 0,
+              right: 0,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(ctx),
+                child: Container(
+                  margin: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 24),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // --- SUBIR ARCHIVO ADAPTATIVO A WEB ---
   Future<void> _adjuntarEvidencia(int idGasto, bool isDesktop) async {
     final ImagePicker picker = ImagePicker();
     String? pathSeleccionado;
-    Uint8List? fileBytes; // <--- Agregamos variable para los Bytes
-    String? fileName; // <--- Agregamos variable para el nombre en Web
+    Uint8List? fileBytes;
+    String? fileName;
 
     // Menú de opciones (Cámara solo en móvil)
     Widget menuOpciones = Column(
@@ -262,11 +448,9 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
 
       if (photo != null) {
         if (kIsWeb) {
-          // Si es web, extraemos bytes
           fileBytes = await photo.readAsBytes();
           fileName = photo.name;
         } else {
-          // Si es móvil, extraemos ruta
           pathSeleccionado = photo.path;
         }
       }
@@ -274,7 +458,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf'],
-        withData: kIsWeb, // ESTO ES CLAVE PARA LA WEB
+        withData: kIsWeb,
       );
 
       if (result != null) {
@@ -297,7 +481,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
       );
 
       if (kIsWeb && fileBytes != null && fileName != null) {
-        // LLAMADA PARA LA WEB (Necesitarás tener esta función en tu GastoProvider)
         await context.read<GastoProvider>().subirEvidenciaWeb(
           idGasto,
           widget.rendicion.idRendicion!,
@@ -305,7 +488,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
           fileName,
         );
       } else if (!kIsWeb && pathSeleccionado != null) {
-        // LLAMADA PARA MÓVIL (La que ya tenías)
         await context.read<GastoProvider>().subirEvidencia(
           idGasto,
           widget.rendicion.idRendicion!,
@@ -371,123 +553,6 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     } catch (e) {
       return fechaString;
     }
-  }
-
-  // --- VER COMPROBANTE DE PAGO ---
-  void _verComprobanteDePago() {
-    final ruta = widget.rendicion.rutaComprobante;
-    if (ruta == null) return;
-
-    String rutaLimpia = ruta.replaceAll('\\', '/');
-    if (rutaLimpia.startsWith('public/'))
-      rutaLimpia = rutaLimpia.replaceFirst('public/', '');
-    if (rutaLimpia.startsWith('/')) rutaLimpia = rutaLimpia.substring(1);
-
-    final apiUrl = AppConstants.apiUrl.endsWith('/')
-        ? AppConstants.apiUrl.substring(0, AppConstants.apiUrl.length - 1)
-        : AppConstants.apiUrl;
-    final urlFinal = "$apiUrl/evidencia/$rutaLimpia";
-    final urlCodificada = Uri.encodeFull(urlFinal);
-    final bool esPdf = rutaLimpia.toLowerCase().endsWith('.pdf');
-
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(10),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Container(
-              width: double.infinity,
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.85,
-                maxWidth: 800,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      "Comprobante de Pago",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green[800],
-                      ),
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  Expanded(
-                    child: esPdf
-                        ? const PDF(
-                            enableSwipe: true,
-                            swipeHorizontal: true,
-                            autoSpacing: false,
-                            pageFling: false,
-                          ).fromUrl(
-                            urlCodificada,
-                            placeholder: (progress) =>
-                                Center(child: Text('$progress %')),
-                            errorWidget: (error) =>
-                                Center(child: Text("Error PDF: $error")),
-                          )
-                        : InteractiveViewer(
-                            panEnabled: true,
-                            minScale: 0.5,
-                            maxScale: 4,
-                            child: Image.network(
-                              urlCodificada,
-                              fit: BoxFit.contain,
-                              headers: const {
-                                'User-Agent': 'SomnolenceApp/1.0',
-                              },
-                              loadingBuilder: (_, child, prog) => prog == null
-                                  ? child
-                                  : const Center(
-                                      child: CircularProgressIndicator(),
-                                    ),
-                              errorBuilder: (_, __, ___) => const Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.broken_image,
-                                    size: 50,
-                                    color: Colors.grey,
-                                  ),
-                                  Text("No se pudo cargar la imagen"),
-                                ],
-                              ),
-                            ),
-                          ),
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              top: 0,
-              right: 0,
-              child: GestureDetector(
-                onTap: () => Navigator.pop(ctx),
-                child: Container(
-                  margin: const EdgeInsets.all(8),
-                  padding: const EdgeInsets.all(6),
-                  decoration: const BoxDecoration(
-                    color: Colors.black54,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 24),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   @override
@@ -798,8 +863,9 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
                                 const SizedBox(height: 16),
                             itemBuilder: (context, index) {
                               final gasto = gastos[index];
-                              if (gasto.idGasto == null)
+                              if (gasto.idGasto == null) {
                                 return const SizedBox.shrink();
+                              }
 
                               final bool tieneEvidencia =
                                   gasto.fotos.isNotEmpty;
@@ -1082,10 +1148,11 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
           if (esEditable)
             SlidableAction(
               onPressed: (_) {
-                if (tieneEvidencia)
+                if (tieneEvidencia) {
                   _borrarArchivo(gasto.idGasto!);
-                else
+                } else {
                   _adjuntarEvidencia(gasto.idGasto!, false);
+                }
               },
               backgroundColor: tieneEvidencia ? Colors.deepOrange : Colors.blue,
               foregroundColor: Colors.white,

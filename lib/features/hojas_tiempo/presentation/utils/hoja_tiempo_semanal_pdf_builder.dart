@@ -56,8 +56,8 @@ class HojaTiempoSemanalPdfBuilder {
             ),
             pw.SizedBox(height: 20),
 
-            // Información General
-            _buildInfoSection(semana, nombreUsuario, periodo),
+            // Información General (AHORA INCLUYE EL VALIDADOR AQUÍ)
+            _buildInfoSection(semana, nombreUsuario, periodo, nombreValidador),
             pw.SizedBox(height: 25),
 
             // PUNTO 1: Resumen de Horas Numérico
@@ -75,12 +75,12 @@ class HojaTiempoSemanalPdfBuilder {
             // ESPACIADOR FLEXIBLE: Empuja las firmas hacia el final de la página
             pw.Spacer(),
 
-            // FIRMAS
+            // FIRMAS (Vuelven a su estado simple)
             _buildSignaturesSection(),
             pw.SizedBox(height: 20),
 
-            // PIE DE PÁGINA (Aquí va el nombre del validador)
-            _buildFooter(nombreValidador),
+            // PIE DE PÁGINA
+            _buildFooter(),
           ],
         ),
       ),
@@ -104,12 +104,8 @@ class HojaTiempoSemanalPdfBuilder {
             pw.SizedBox(height: 20),
           ],
         ),
-        footer: (context) => pw.Column(
-          children: [
-            pw.SizedBox(height: 10),
-            _buildFooter(nombreValidador), // <-- Inyectado en el pie de página
-          ],
-        ),
+        footer: (context) =>
+            pw.Column(children: [pw.SizedBox(height: 10), _buildFooter()]),
         build: (context) => [
           // PUNTO 2: Detalle de Actividades
           pw.Text(
@@ -179,11 +175,12 @@ class HojaTiempoSemanalPdfBuilder {
     );
   }
 
-  // --- 2. INFO GENERAL ---
+  // --- 2. INFO GENERAL (AQUÍ AGREGAMOS LA SEMANA N° Y EL VALIDADOR) ---
   static pw.Widget _buildInfoSection(
     HojaTiempoSemana semana,
     String usuario,
     String periodo,
+    String validador,
   ) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(12),
@@ -208,7 +205,20 @@ class HojaTiempoSemanalPdfBuilder {
             semana.centroCosto ?? 'S/I',
           ),
           pw.Divider(color: PdfColors.grey200, thickness: 0.5),
-          _buildDataRow("Persona", usuario, "Periodo", periodo),
+          _buildDataRow(
+            "Nombre",
+            usuario,
+            "Semana N°",
+            "${semana.numeroSemana ?? 'S/I'}",
+          ),
+          pw.Divider(color: PdfColors.grey200, thickness: 0.5),
+          // Integrado el validador en esta fila
+          _buildDataRow(
+            "Periodo",
+            periodo,
+            "Validado por",
+            validador.isNotEmpty ? validador : 'Pendiente de Aprobación',
+          ),
         ],
       ),
     );
@@ -442,11 +452,12 @@ class HojaTiempoSemanalPdfBuilder {
     );
   }
 
+  // --- FIRMAS (Restauradas a su estado original simple) ---
   static pw.Widget _buildSignaturesSection() {
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
       children: [
-        _buildSignatureLine("Firma Validador / Supervisor"),
+        _buildSignatureLine("Firma Cliente"),
         _buildSignatureLine("Firma Emisor (Trabajador)"),
       ],
     );
@@ -504,8 +515,8 @@ class HojaTiempoSemanalPdfBuilder {
     );
   }
 
-  // --- PIE DE PÁGINA (AHORA MÁS EVINDENTE SI ESTÁ VACÍO) ---
-  static pw.Widget _buildFooter(String validador) {
+  // --- PIE DE PÁGINA (ESTÁNDAR) ---
+  static pw.Widget _buildFooter() {
     return pw.Column(
       children: [
         pw.Divider(color: PdfColors.grey300),
@@ -513,19 +524,8 @@ class HojaTiempoSemanalPdfBuilder {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text(
-              validador.isNotEmpty
-                  ? "Validado por: $validador"
-                  : "Validado por: Pendiente de Aprobación",
-              style: pw.TextStyle(
-                fontSize: 10,
-                // Si está validado lo pinta azul oscuro para resaltar
-                color: validador.isNotEmpty
-                    ? PdfColors.blue900
-                    : PdfColors.grey700,
-                fontWeight: validador.isNotEmpty
-                    ? pw.FontWeight.bold
-                    : pw.FontWeight.normal,
-              ),
+              "Intranet IAA",
+              style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey),
             ),
             pw.Text(
               "Generado el: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}",

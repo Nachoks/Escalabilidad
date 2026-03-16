@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart'; // <--- IMPORTANTE: Añadido para dar formato bonito a las fechas
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/auth/presentation/providers/auth_provider.dart';
 import '../../data/services/hoja_tiempo_service.dart';
@@ -16,7 +17,8 @@ class _ModalCrearSemanaState extends State<ModalCrearSemana> {
   final HojaTiempoService _service = HojaTiempoService();
   final TextEditingController _hctController = TextEditingController();
 
-  DateTime _fechaSeleccionada = DateTime.now();
+  // 👇 AHORA INICIA NULA PARA OBLIGAR A SELECCIONARLA 👇
+  DateTime? _fechaSeleccionada;
 
   List<dynamic> _clientes = [];
   List<dynamic> _servicios = [];
@@ -38,6 +40,21 @@ class _ModalCrearSemanaState extends State<ModalCrearSemana> {
   void dispose() {
     _hctController.dispose();
     super.dispose();
+  }
+
+  // --- MAGIA: CÁLCULOS AUTOMÁTICOS DE LA SEMANA ---
+  // Obtiene el Lunes de la semana del día seleccionado
+  DateTime? get _lunesDeLaSemana {
+    if (_fechaSeleccionada == null) return null;
+    int daysToSubtract = _fechaSeleccionada!.weekday - 1;
+    return _fechaSeleccionada!.subtract(Duration(days: daysToSubtract));
+  }
+
+  // Obtiene el Domingo de la semana del día seleccionado
+  DateTime? get _domingoDeLaSemana {
+    if (_fechaSeleccionada == null) return null;
+    int daysToAdd = 7 - _fechaSeleccionada!.weekday;
+    return _fechaSeleccionada!.add(Duration(days: daysToAdd));
   }
 
   Future<void> _cargarClientes() async {
@@ -77,12 +94,16 @@ class _ModalCrearSemanaState extends State<ModalCrearSemana> {
   }
 
   Future<void> _crearSemana() async {
+    // 👇 AÑADIMOS VALIDACIÓN DE FECHA 👇
     if (_servicioSeleccionado == null ||
         _ocSeleccionada == null ||
-        _hctController.text.trim().isEmpty) {
+        _hctController.text.trim().isEmpty ||
+        _fechaSeleccionada == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Completa todos los campos obligatorios"),
+          content: Text(
+            "Completa todos los campos obligatorios y selecciona una fecha",
+          ),
           backgroundColor: Colors.orange,
         ),
       );
@@ -92,8 +113,10 @@ class _ModalCrearSemanaState extends State<ModalCrearSemana> {
     final user = context.read<AuthProvider>().currentUser;
     if (user == null) return;
 
+    // Le enviamos la fecha del LUNES al backend, para mantener todo perfectamente ordenado
+    final lunes = _lunesDeLaSemana!;
     final String fechaFormat =
-        "${_fechaSeleccionada.year}-${_fechaSeleccionada.month.toString().padLeft(2, '0')}-${_fechaSeleccionada.day.toString().padLeft(2, '0')}";
+        "${lunes.year}-${lunes.month.toString().padLeft(2, '0')}-${lunes.day.toString().padLeft(2, '0')}";
 
     final provider = context.read<HojaTiempoProvider>();
     final exito = await provider.crearNuevaSemana(
@@ -128,6 +151,16 @@ class _ModalCrearSemanaState extends State<ModalCrearSemana> {
   Widget build(BuildContext context) {
     final isCreating = context.watch<HojaTiempoProvider>().isLoading;
 
+    // Generamos los textos visuales para el usuario
+    final lunes = _lunesDeLaSemana;
+    final domingo = _domingoDeLaSemana;
+    final formatoFecha = DateFormat('dd/MM/yyyy');
+
+    // Si no hay fecha, mostramos un texto invitando a seleccionarla
+    final String textoRango = (lunes != null && domingo != null)
+        ? "Del ${formatoFecha.format(lunes)} al ${formatoFecha.format(domingo)}"
+        : "Toca para seleccionar una fecha";
+
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -155,29 +188,85 @@ class _ModalCrearSemanaState extends State<ModalCrearSemana> {
             ),
             const SizedBox(height: 20),
 
+            // --- VISUALIZACIÓN DEL RANGO DE LA SEMANA ---
             ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(
-                Icons.calendar_month,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 4,
+              ),
+              tileColor: _fechaSeleccionada != null
+                  ? AppColors.primary.withOpacity(0.05)
+                  : Colors.orange.shade50, // Fondo de alerta si está vacío
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _fechaSeleccionada != null
+                      ? AppColors.primary.withOpacity(0.1)
+                      : Colors.orange.shade100,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.date_range,
+                  color: _fechaSeleccionada != null
+                      ? AppColors.primary
+                      : Colors.orange.shade800,
+                ),
+              ),
+              title: const Text(
+                "Semana a registrar",
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              subtitle: Text(
+                textoRango,
+                style: TextStyle(
+                  fontWeight: _fechaSeleccionada != null
+                      ? FontWeight.bold
+                      : FontWeight.w600,
+                  color: _fechaSeleccionada != null
+                      ? AppColors.primary
+                      : Colors.orange.shade900,
+                  fontSize: _fechaSeleccionada != null ? 15 : 14,
+                ),
+              ),
+              trailing: const Icon(
+                Icons.edit,
+                size: 20,
                 color: AppColors.primary,
               ),
-              title: const Text("Semana a registrar"),
-              subtitle: Text(
-                "${_fechaSeleccionada.day}-${_fechaSeleccionada.month}-${_fechaSeleccionada.year}",
-              ),
-              trailing: const Icon(Icons.edit, size: 18),
               onTap: () async {
                 final picked = await showDatePicker(
                   context: context,
-                  initialDate: _fechaSeleccionada,
+                  initialDate:
+                      _fechaSeleccionada ??
+                      DateTime.now(), // Usa hoy solo al abrir el calendario
                   firstDate: DateTime(2023),
                   lastDate: DateTime(2030),
+                  locale: const Locale('es', 'ES'), // Calendario en español
+                  builder: (context, child) {
+                    return Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: const ColorScheme.light(
+                          primary: AppColors.primary,
+                          onPrimary: Colors.white,
+                          onSurface: Colors.black87,
+                        ),
+                        textButtonTheme: TextButtonThemeData(
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                      child: child!,
+                    );
+                  },
                 );
                 if (picked != null) setState(() => _fechaSeleccionada = picked);
               },
             ),
-            const Divider(),
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
 
             DropdownButtonFormField<String>(
               decoration: InputDecoration(

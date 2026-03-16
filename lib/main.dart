@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
+import 'package:flutter_localizations/flutter_localizations.dart'; // <--- IMPORTACIÓN DE IDIOMAS
 import 'package:somnolence_app/core/services/notification_service.dart';
 import 'package:somnolence_app/core/api/api_service.dart';
 import 'package:somnolence_app/features/admin/presentation/providers/admin_users_provider.dart';
@@ -50,6 +51,18 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Intranet IAA',
       navigatorKey: navigatorKey, // <--- Esto permite la navegación global
+      // 👇 CONFIGURACIÓN MUNDIAL DE IDIOMAS PARA FLUTTER 👇
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('es', 'ES'), // Español
+        Locale('en', 'US'), // Inglés (Fallback)
+      ],
+
+      // 👆 FIN CONFIGURACIÓN DE IDIOMAS 👆
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFF35F34)),
         useMaterial3: true,
