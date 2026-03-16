@@ -1930,6 +1930,45 @@ class ServicioTableSeeder extends Seeder
                 'facturacion' => 'No facturado',
                 'correlativo' => 1,
             ),
+            147 => 
+            array (
+                'id_servicio' => 149,
+                'nombre_servicio' => 'Aplicación Químicos Pulper PP3',
+                'id_cliente' => 3,
+                'id_area' => 1,
+                'centro_costo' => '02-1-066',
+                'fecha_inicio' => NULL,
+                'fecha_termino' => NULL,
+                'estado_servicio' => 'Activo',
+                'facturacion' => 'No facturado',
+                'correlativo' => 66,
+            ),
+            148 => 
+            array (
+                'id_servicio' => 150,
+                'nombre_servicio' => 'Levantamiento Forzados y Apoyo PEM',
+                'id_cliente' => 3,
+                'id_area' => 1,
+                'centro_costo' => '02-1-067',
+                'fecha_inicio' => NULL,
+                'fecha_termino' => NULL,
+                'estado_servicio' => 'Activo',
+                'facturacion' => 'No facturado',
+                'correlativo' => 67,
+            ),
+            149 => 
+            array (
+                'id_servicio' => 151,
+                'nombre_servicio' => 'Mantención Cogeneración',
+                'id_cliente' => 3,
+                'id_area' => 1,
+                'centro_costo' => '02-1-068',
+                'fecha_inicio' => NULL,
+                'fecha_termino' => NULL,
+                'estado_servicio' => 'Activo',
+                'facturacion' => 'No facturado',
+                'correlativo' => 68,
+            ),
         ));
         
         

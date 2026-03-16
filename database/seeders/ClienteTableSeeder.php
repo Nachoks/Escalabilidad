@@ -113,7 +113,7 @@ class ClienteTableSeeder extends Seeder
             array (
                 'id_cliente' => 10,
                 'cod_cliente' => '09',
-                'nombre_cliente' => 'Engine Energia',
+                'nombre_cliente' => 'ENGIE Energia',
                 'correo_representante' => 'nodefinido@no.cl',
                 'nombre_representante' => 'No Definido',
                 'created_at' => '2026-02-05 18:42:45',

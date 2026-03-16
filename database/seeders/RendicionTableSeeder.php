@@ -131,17 +131,6 @@ class RendicionTableSeeder extends Seeder
             ),
             10 => 
             array (
-                'id_rendicion' => 11,
-                'fecha' => NULL,
-                'proposito' => 'xxxx',
-                'monto_entregado' => 0,
-                'estado' => 'Borrador',
-                'centro_costo' => '00-1-001',
-                'id_servicio' => 148,
-                'id_usuario' => 11,
-            ),
-            11 => 
-            array (
                 'id_rendicion' => 12,
                 'fecha' => '2026-02-26',
                 'proposito' => 'Compra de equipos',
@@ -151,7 +140,7 @@ class RendicionTableSeeder extends Seeder
                 'id_servicio' => 17,
                 'id_usuario' => 14,
             ),
-            12 => 
+            11 => 
             array (
                 'id_rendicion' => 13,
                 'fecha' => NULL,
@@ -162,7 +151,7 @@ class RendicionTableSeeder extends Seeder
                 'id_servicio' => 105,
                 'id_usuario' => 14,
             ),
-            13 => 
+            12 => 
             array (
                 'id_rendicion' => 14,
                 'fecha' => '2026-02-27',
@@ -173,7 +162,7 @@ class RendicionTableSeeder extends Seeder
                 'id_servicio' => 148,
                 'id_usuario' => 10,
             ),
-            14 => 
+            13 => 
             array (
                 'id_rendicion' => 15,
                 'fecha' => '2026-03-02',
@@ -183,6 +172,94 @@ class RendicionTableSeeder extends Seeder
                 'centro_costo' => '01-1-016',
                 'id_servicio' => 17,
                 'id_usuario' => 8,
+            ),
+            14 => 
+            array (
+                'id_rendicion' => 16,
+                'fecha' => '2026-03-10',
+                'proposito' => 'Turno MCEN',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '01-1-017',
+                'id_servicio' => 18,
+                'id_usuario' => 5,
+            ),
+            15 => 
+            array (
+                'id_rendicion' => 17,
+                'fecha' => '2026-03-09',
+                'proposito' => 'viaje a los loros',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '09-1-010',
+                'id_servicio' => 120,
+                'id_usuario' => 4,
+            ),
+            16 => 
+            array (
+                'id_rendicion' => 18,
+                'fecha' => NULL,
+                'proposito' => 'Varios',
+                'monto_entregado' => 0,
+                'estado' => 'Borrador',
+                'centro_costo' => '00-1-001',
+                'id_servicio' => 148,
+                'id_usuario' => 11,
+            ),
+            17 => 
+            array (
+                'id_rendicion' => 19,
+                'fecha' => '2026-03-09',
+                'proposito' => 'suministros mantención gabinetes',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '02-1-068',
+                'id_servicio' => 151,
+                'id_usuario' => 10,
+            ),
+            18 => 
+            array (
+                'id_rendicion' => 20,
+                'fecha' => '2026-03-09',
+                'proposito' => 'Abono estadía mantención Softys COG',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '02-1-068',
+                'id_servicio' => 151,
+                'id_usuario' => 10,
+            ),
+            19 => 
+            array (
+                'id_rendicion' => 21,
+                'fecha' => '2026-03-11',
+                'proposito' => 'Terreno semana 6 y 8',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '01-1-016',
+                'id_servicio' => 17,
+                'id_usuario' => 7,
+            ),
+            20 => 
+            array (
+                'id_rendicion' => 22,
+                'fecha' => '2026-03-12',
+                'proposito' => 'Traslados',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '09-1-010',
+                'id_servicio' => 120,
+                'id_usuario' => 2,
+            ),
+            21 => 
+            array (
+                'id_rendicion' => 23,
+                'fecha' => '2026-03-12',
+                'proposito' => 'Asado de cumpleaños y bienvenida',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '00-1-001',
+                'id_servicio' => 148,
+                'id_usuario' => 1,
             ),
         ));
         
