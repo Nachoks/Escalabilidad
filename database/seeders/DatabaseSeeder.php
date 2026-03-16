@@ -50,21 +50,6 @@ class DatabaseSeeder extends Seeder
         // 3. Volver a activar la protección
         Schema::enableForeignKeyConstraints();
 
-        $this->call(EmpresaTableSeeder::class);
-        $this->call(AreasEmpresaTableSeeder::class);
-        $this->call(TipoUsuarioTableSeeder::class);
-        $this->call(UsuariosTableSeeder::class);
-        $this->call(UsuarioRolTableSeeder::class);
-        $this->call(PersonalTableSeeder::class);
-        $this->call(VehiculoTableSeeder::class);
-        $this->call(ClienteTableSeeder::class);
-        $this->call(ServicioTableSeeder::class);
-        $this->call(OcClienteTableSeeder::class);
-        $this->call(HasGuiaTableSeeder::class);
-        $this->call(HasGuiaArchivosTableSeeder::class);
-        $this->call(RendicionTableSeeder::class);
-        $this->call(GastoTableSeeder::class);
-        $this->call(GastoArchivoTableSeeder::class);
-        $this->call(RegistrosTableSeeder::class);
+
     }
 }

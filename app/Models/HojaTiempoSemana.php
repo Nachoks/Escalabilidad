@@ -1,16 +1,21 @@
 <?php
 
+
 namespace App\Models;
+
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+
 
 class HojaTiempoSemana extends Model
 {
     use HasFactory;
 
+
     protected $table = 'hojas_tiempo_semanas';
     protected $primaryKey = 'id_hoja_semana';
+
 
     protected $fillable = [
         'id_usuario',
@@ -24,7 +29,9 @@ class HojaTiempoSemana extends Model
         'fecha_fin',
         'estado',
         'observacion',
+        'validador_id', // <--- NUEVO CAMPO AGREGADO
     ];
+
 
     // Relación hacia los días (1 Semana tiene 7 Días)
     public function dias()
@@ -32,15 +39,25 @@ class HojaTiempoSemana extends Model
         return $this->hasMany(HojaTiempoDiaria::class, 'id_hoja_semana', 'id_hoja_semana');
     }
 
+
     // Relación hacia el Servicio (Para poder traer el nombre y correlativo fácilmente)
     public function servicio()
     {
         return $this->belongsTo(Servicio::class, 'id_servicio', 'id_servicio');
     }
 
+
     // Relación hacia la OC
     public function ocCliente()
     {
         return $this->belongsTo(OcCliente::class, 'id_oc_cliente', 'id_oc_cliente');
+    }
+
+
+    // --- NUEVA RELACIÓN: VALIDADOR ---
+    // Permite obtener los datos del usuario que validó esta hoja
+    public function validador()
+    {
+        return $this->belongsTo(User::class, 'validador_id', 'id_usuario');
     }
 }

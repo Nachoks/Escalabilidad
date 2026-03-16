@@ -15,6 +15,7 @@ use App\Models\Cliente;
 use App\Models\OcCliente;
 use App\Models\User;
 use App\Services\OneSignalService;
+use Illuminate\Support\Facades\Auth; // <--- IMPORTACIÓN NECESARIA PARA CAPTURAR AL VALIDADOR
 
 
 class HojaTiempoController extends Controller
@@ -177,7 +178,8 @@ class HojaTiempoController extends Controller
             ->join('cliente', 'servicio.id_cliente', '=', 'cliente.id_cliente')
             ->leftJoin('usuarios', 'hojas_tiempo_semanas.id_usuario', '=', 'usuarios.id_usuario')
             ->leftJoin('personal', 'usuarios.id_personal', '=', 'personal.id_personal')
-            ->with(['ocCliente', 'dias.actividades'])
+            // Incluimos al validador para poder mostrarlo en el frontend después
+            ->with(['ocCliente', 'dias.actividades', 'validador.personal'])
             ->where('hojas_tiempo_semanas.id_hoja_semana', $id_hoja_semana)
             ->first();
 
@@ -330,7 +332,7 @@ class HojaTiempoController extends Controller
             $hoja->save();
 
 
-            // NUEVO: Al enviar la semana completa, todos los días que sigan en Borrador o Rechazados pasan a Enviada.
+            // Al enviar la semana completa, todos los días que sigan en Borrador o Rechazados pasan a Enviada.
             HojaTiempoDiaria::where('id_hoja_semana', $id_hoja_semana)
                 ->whereIn('estado', ['Borrador', 'Rechazada'])
                 ->update(['estado' => 'Enviada']);
@@ -345,7 +347,7 @@ class HojaTiempoController extends Controller
 
 
                 $validadoresIds = User::whereHas('roles', function($q) {
-                    $q->whereIn('tipo_usuario', ['Administrador', 'Validador']);
+                    $q->whereIn('tipo_usuario', ['Administrador', 'Validador HT']);
                 })->pluck('id_usuario')->toArray();
 
 
@@ -405,7 +407,7 @@ class HojaTiempoController extends Controller
     }
 
 
-    // --- NUEVO: Listado de Días Pendientes ---
+    // Listado de Días Pendientes
     public function pendientesDiariasAdmin()
     {
         try {
@@ -445,12 +447,16 @@ class HojaTiempoController extends Controller
                     'hojas_tiempo_semanas.*',
                     'cliente.nombre_cliente',
                     'personal.nombre_personal as usuario_nombre',
-                    'personal.apellido_personal as usuario_apellido'
+                    'personal.apellido_personal as usuario_apellido',
+                    'v_personal.nombre_personal as validador_nombre', // Nombres del validador
+                    'v_personal.apellido_personal as validador_apellido'
                 )
                 ->join('servicio', 'hojas_tiempo_semanas.id_servicio', '=', 'servicio.id_servicio')
                 ->join('cliente', 'servicio.id_cliente', '=', 'cliente.id_cliente')
                 ->leftJoin('usuarios', 'hojas_tiempo_semanas.id_usuario', '=', 'usuarios.id_usuario')
                 ->leftJoin('personal', 'usuarios.id_personal', '=', 'personal.id_personal')
+                ->leftJoin('usuarios as validadores', 'hojas_tiempo_semanas.validador_id', '=', 'validadores.id_usuario')
+                ->leftJoin('personal as v_personal', 'validadores.id_personal', '=', 'v_personal.id_personal')
                 ->with(['servicio', 'ocCliente'])
                 ->where('hojas_tiempo_semanas.estado', '!=', 'Borrador')
                 ->orderBy('hojas_tiempo_semanas.updated_at', 'desc')
@@ -465,7 +471,7 @@ class HojaTiempoController extends Controller
     }
 
 
-    // --- NUEVO: Evaluar un día específico ---
+    // --- Evaluar un día específico ---
     public function evaluarDia(Request $request, $id)
     {
         $request->validate([
@@ -485,6 +491,8 @@ class HojaTiempoController extends Controller
             }
 
 
+            // 👇 NUEVO: CAPTURAMOS EL ID DEL VALIDADOR 👇
+            $dia->validador_id = Auth::id();
             $dia->save();
 
 
@@ -544,6 +552,8 @@ class HojaTiempoController extends Controller
             }
 
 
+            // 👇 NUEVO: CAPTURAMOS EL ID DEL VALIDADOR EN LA HOJA SEMANAL 👇
+            $hoja->validador_id = Auth::id();
             $hoja->save();
 
 
@@ -552,7 +562,8 @@ class HojaTiempoController extends Controller
                 ->where('estado', 'Enviada')
                 ->update([
                     'estado' => $request->estado,
-                    'observacion' => $request->observacion ?? null
+                    'observacion' => $request->observacion ?? null,
+                    'validador_id' => Auth::id() // 👇 TAMBIÉN MARCAMOS LOS DÍAS HIJOS CON EL VALIDADOR 👇
                 ]);
 
 
@@ -592,3 +603,5 @@ class HojaTiempoController extends Controller
         }
     }
 }
+
+

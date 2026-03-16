@@ -9,16 +9,15 @@ use Illuminate\Database\Eloquent\Model;
 
 
 class HojaTiempoDiaria extends Model
-{  protected $primaryKey = 'id_hoja_diaria';
-
-
-
-
+{
     use HasFactory;
 
 
     protected $table = 'hojas_tiempo_diarias';
-      protected $fillable = [
+    protected $primaryKey = 'id_hoja_diaria';
+
+
+    protected $fillable = [
         'id_hoja_semana',
         'fecha',
         'lugar',
@@ -27,8 +26,9 @@ class HojaTiempoDiaria extends Model
         'horario_inicio',
         'horario_fin',
         'viaje_horas',
-        'estado',       // <--- NUEVO CAMPO AÑADIDO PARA LA VALIDACIÓN DIARIA
-        'observacion',  // <--- NUEVO CAMPO AÑADIDO PARA EL RECHAZO
+        'estado',      
+        'observacion',  
+        'validador_id', // <--- NUEVO CAMPO AÑADIDO PARA GUARDAR QUIÉN VALIDA
     ];
 
 
@@ -44,4 +44,14 @@ class HojaTiempoDiaria extends Model
     {
         return $this->hasMany(HojaTiempoActividad::class, 'id_hoja_diaria', 'id_hoja_diaria');
     }
+
+
+    // --- NUEVA RELACIÓN: VALIDADOR ---
+    // Permite obtener los datos del usuario que validó este día
+    public function validador()
+    {
+        return $this->belongsTo(User::class, 'validador_id', 'id_usuario');
+    }
 }
+
+
