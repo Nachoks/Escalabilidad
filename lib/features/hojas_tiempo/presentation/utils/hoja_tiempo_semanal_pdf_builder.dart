@@ -35,6 +35,9 @@ class HojaTiempoSemanalPdfBuilder {
     final diasOrdenados = List<HojaTiempoDiaria>.from(semana.dias ?? []);
     diasOrdenados.sort((a, b) => a.fecha.compareTo(b.fecha));
 
+    // --- CAPTURAR NOMBRE DEL VALIDADOR ---
+    String nombreValidador = semana.validadorNombre ?? '';
+
     // ==========================================
     // HOJA 1: RESUMEN Y FIRMAS (Página Estática)
     // ==========================================
@@ -76,8 +79,8 @@ class HojaTiempoSemanalPdfBuilder {
             _buildSignaturesSection(),
             pw.SizedBox(height: 20),
 
-            // PIE DE PÁGINA
-            _buildFooter(),
+            // PIE DE PÁGINA (Aquí va el nombre del validador)
+            _buildFooter(nombreValidador),
           ],
         ),
       ),
@@ -101,8 +104,12 @@ class HojaTiempoSemanalPdfBuilder {
             pw.SizedBox(height: 20),
           ],
         ),
-        footer: (context) =>
-            pw.Column(children: [pw.SizedBox(height: 10), _buildFooter()]),
+        footer: (context) => pw.Column(
+          children: [
+            pw.SizedBox(height: 10),
+            _buildFooter(nombreValidador), // <-- Inyectado en el pie de página
+          ],
+        ),
         build: (context) => [
           // PUNTO 2: Detalle de Actividades
           pw.Text(
@@ -201,7 +208,7 @@ class HojaTiempoSemanalPdfBuilder {
             semana.centroCosto ?? 'S/I',
           ),
           pw.Divider(color: PdfColors.grey200, thickness: 0.5),
-          _buildDataRow("Usuario", usuario, "Periodo", periodo),
+          _buildDataRow("Persona", usuario, "Periodo", periodo),
         ],
       ),
     );
@@ -439,7 +446,7 @@ class HojaTiempoSemanalPdfBuilder {
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
       children: [
-        _buildSignatureLine("Firma Responsable Cliente"),
+        _buildSignatureLine("Firma Validador / Supervisor"),
         _buildSignatureLine("Firma Emisor (Trabajador)"),
       ],
     );
@@ -497,7 +504,8 @@ class HojaTiempoSemanalPdfBuilder {
     );
   }
 
-  static pw.Widget _buildFooter() {
+  // --- PIE DE PÁGINA (AHORA MÁS EVINDENTE SI ESTÁ VACÍO) ---
+  static pw.Widget _buildFooter(String validador) {
     return pw.Column(
       children: [
         pw.Divider(color: PdfColors.grey300),
@@ -505,8 +513,19 @@ class HojaTiempoSemanalPdfBuilder {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text(
-              "Somnolence App - Gestión de Tiempos",
-              style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey),
+              validador.isNotEmpty
+                  ? "Validado por: $validador"
+                  : "Validado por: Pendiente de Aprobación",
+              style: pw.TextStyle(
+                fontSize: 10,
+                // Si está validado lo pinta azul oscuro para resaltar
+                color: validador.isNotEmpty
+                    ? PdfColors.blue900
+                    : PdfColors.grey700,
+                fontWeight: validador.isNotEmpty
+                    ? pw.FontWeight.bold
+                    : pw.FontWeight.normal,
+              ),
             ),
             pw.Text(
               "Generado el: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}",

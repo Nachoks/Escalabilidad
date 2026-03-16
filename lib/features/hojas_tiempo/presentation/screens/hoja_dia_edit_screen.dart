@@ -523,6 +523,9 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
       sumTotal += _calcularHorasBrutas(a.horaInicio, a.horaFin);
     }
 
+    // 👇 NUEVO: Mostrar botón solo si el estado es Aprobada
+    final bool mostrarBotonImprimir = widget.dia.estado == 'Aprobada';
+
     return WillPopScope(
       onWillPop: () async {
         if (widget.isReadOnly) return true;
@@ -562,16 +565,17 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                     ),
                     iconTheme: const IconThemeData(color: Colors.white),
                     actions: [
-                      ElevatedButton.icon(
-                        onPressed: _generarPdfDiario,
-                        icon: const Icon(Icons.print, size: 18),
-                        label: const Text("Imprimir Diario"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: AppColors.primary,
-                          elevation: 0,
+                      if (mostrarBotonImprimir) // <--- CONDICIÓN AQUÍ
+                        ElevatedButton.icon(
+                          onPressed: _generarPdfDiario,
+                          icon: const Icon(Icons.print, size: 18),
+                          label: const Text("Imprimir Diario"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: AppColors.primary,
+                            elevation: 0,
+                          ),
                         ),
-                      ),
                       const SizedBox(width: 32),
                     ],
                   )
@@ -586,10 +590,11 @@ class _HojaDiaEditScreenState extends State<HojaDiaEditScreen> {
                     backgroundColor: AppColors.primary,
                     iconTheme: const IconThemeData(color: Colors.white),
                     actions: [
-                      IconButton(
-                        icon: const Icon(Icons.print),
-                        onPressed: _generarPdfDiario,
-                      ),
+                      if (mostrarBotonImprimir) // <--- CONDICIÓN AQUÍ
+                        IconButton(
+                          icon: const Icon(Icons.print),
+                          onPressed: _generarPdfDiario,
+                        ),
                     ],
                   ),
 

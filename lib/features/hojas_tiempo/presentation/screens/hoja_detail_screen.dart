@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_slidable/flutter_slidable.dart'; // <--- PAQUETE PARA EL DESLIZAR (SLIDABLE)
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/auth/presentation/providers/auth_provider.dart';
 import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/hoja_dia_edit_screen.dart';
@@ -321,6 +321,12 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
       builder: (context, constraints) {
         final isDesktop = constraints.maxWidth >= 850;
 
+        // 👇 Lógica para saber si mostrar el botón de la impresora
+        final provider = context.watch<HojaTiempoProvider>();
+        final hoja = provider.hojaSeleccionada;
+        final bool mostrarBotonImprimir =
+            !provider.isLoading && hoja != null && hoja.estado == 'Aprobada';
+
         return Scaffold(
           backgroundColor: isDesktop
               ? const Color(0xFFF4F6F8)
@@ -352,16 +358,17 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                   ),
                   iconTheme: const IconThemeData(color: Colors.white),
                   actions: [
-                    ElevatedButton.icon(
-                      onPressed: _generarPdfSemanal,
-                      icon: const Icon(Icons.print, size: 18),
-                      label: const Text("Imprimir Reporte"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: AppColors.primary,
-                        elevation: 0,
+                    if (mostrarBotonImprimir) // <--- SOLO SI ESTÁ APROBADA
+                      ElevatedButton.icon(
+                        onPressed: _generarPdfSemanal,
+                        icon: const Icon(Icons.print, size: 18),
+                        label: const Text("Imprimir Reporte"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: AppColors.primary,
+                          elevation: 0,
+                        ),
                       ),
-                    ),
                     const SizedBox(width: 32),
                   ],
                 )
@@ -374,11 +381,12 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                     ),
                   ),
                   actions: [
-                    IconButton(
-                      icon: const Icon(Icons.print),
-                      tooltip: 'Imprimir Reporte Semanal',
-                      onPressed: _generarPdfSemanal,
-                    ),
+                    if (mostrarBotonImprimir) // <--- SOLO SI ESTÁ APROBADA
+                      IconButton(
+                        icon: const Icon(Icons.print),
+                        tooltip: 'Imprimir Reporte Semanal',
+                        onPressed: _generarPdfSemanal,
+                      ),
                   ],
                   backgroundColor: AppColors.primary,
                   iconTheme: const IconThemeData(color: Colors.white),
@@ -720,7 +728,7 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                                                 _buildDiaCard(
                                                   dias[index],
                                                   hoja.nombreCliente,
-                                                  isDesktop, // <--- LE PASAMOS LA VISTA ACTUAL
+                                                  isDesktop,
                                                 ),
                                           ),
                                   ),
@@ -904,7 +912,7 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                             itemBuilder: (context, index) => _buildDiaCard(
                               dias[index],
                               hoja.nombreCliente,
-                              isDesktop, // <--- LE PASAMOS LA VISTA ACTUAL
+                              isDesktop,
                             ),
                           ),
                   ),
@@ -1118,8 +1126,7 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
           MaterialPageRoute(
             builder: (context) => HojaDiaEditScreen(
               dia: dia,
-              isReadOnly:
-                  modoLecturaDia, // Pasamos el modo lectura especifico de ESTE dia
+              isReadOnly: modoLecturaDia,
               nombreCliente: nombreCliente ?? 'Desconocido',
             ),
           ),
@@ -1147,15 +1154,12 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
                 foregroundColor: Colors.white,
                 icon: Icons.send,
                 label: 'Enviar',
-                borderRadius: BorderRadius.circular(
-                  10,
-                ), // Para que coincida con el borde de la tarjeta
+                borderRadius: BorderRadius.circular(10),
               ),
             ],
           ),
           child: Card(
-            margin: EdgeInsets
-                .zero, // Quitamos el margen interior porque el Padding ya lo separa
+            margin: EdgeInsets.zero,
             elevation: 2,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
@@ -1175,10 +1179,9 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
     );
   }
 
-  // --- WIDGET DEL CALENDARIO VISUAL PARA WEB (CORREGIDO Y BLINDADO) ---
+  // --- WIDGET DEL CALENDARIO VISUAL PARA WEB ---
   Widget _buildDesktopCalendar(String fechaInicioStr, String fechaFinStr) {
     try {
-      // 1. Parseo a prueba de balas (No importa si viene DD-MM-YYYY o YYYY-MM-DD)
       DateTime parseDateSafe(String d) {
         if (d.contains('-') && d.split('-')[0].length == 2) {
           final p = d.split('-');
@@ -1190,7 +1193,6 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
       final DateTime inicioBruto = parseDateSafe(fechaInicioStr);
       final DateTime finBruto = parseDateSafe(fechaFinStr);
 
-      // Normalizamos las fechas a medianoche para comparaciones exactas
       final DateTime inicio = DateTime(
         inicioBruto.year,
         inicioBruto.month,
@@ -1202,7 +1204,6 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
         finBruto.day,
       );
 
-      // Nombre del mes sin depender del paquete intl localizado (evita errores)
       const meses = [
         'Enero',
         'Febrero',
@@ -1219,14 +1220,12 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
       ];
       final mesNombre = "${meses[inicio.month - 1]} ${inicio.year}";
 
-      // 2. Lógica del calendario
       final primerDiaMes = DateTime(inicio.year, inicio.month, 1);
       final ultimoDiaMes = DateTime(inicio.year, inicio.month + 1, 0);
-      int offsetDias = primerDiaMes.weekday - 1; // 0 = Lunes, 6 = Domingo
+      int offsetDias = primerDiaMes.weekday - 1;
 
       List<Widget> diasWidgets = [];
 
-      // Cabecera L M M J V S D
       const diasSemana = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
       for (var d in diasSemana) {
         diasWidgets.add(
@@ -1242,12 +1241,10 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
         );
       }
 
-      // Espacios vacíos de relleno
       for (int i = 0; i < offsetDias; i++) {
         diasWidgets.add(const SizedBox.shrink());
       }
 
-      // 3. Pintar los días
       for (int day = 1; day <= ultimoDiaMes.day; day++) {
         DateTime currentDate = DateTime(inicio.year, inicio.month, day);
 
@@ -1256,15 +1253,12 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
             currentDate.isAtSameMomentAs(fin) ||
             (currentDate.isAfter(inicio) && currentDate.isBefore(fin));
 
-        // Bordes redondeados en los extremos para dar efecto de "cinta seleccionada"
         bool isStart = currentDate.isAtSameMomentAs(inicio);
         bool isEnd = currentDate.isAtSameMomentAs(fin);
 
         diasWidgets.add(
           Container(
-            margin: const EdgeInsets.symmetric(
-              vertical: 4,
-            ), // Margen para separar filas
+            margin: const EdgeInsets.symmetric(vertical: 4),
             decoration: BoxDecoration(
               color: isSelected
                   ? AppColors.primary.withOpacity(0.15)
@@ -1331,15 +1325,14 @@ class _HojaDetailScreenState extends State<HojaDetailScreen> {
             GridView.count(
               crossAxisCount: 7,
               shrinkWrap: true,
-              childAspectRatio: 1.2, // Proporción ideal para los números
-              physics: const NeverScrollableScrollPhysics(), // ARREGLADO
+              childAspectRatio: 1.2,
+              physics: const NeverScrollableScrollPhysics(),
               children: diasWidgets,
             ),
           ],
         ),
       );
     } catch (e) {
-      // Si la fecha falla por la razón que sea, mostramos un error en vez de romper la pantalla.
       return Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(

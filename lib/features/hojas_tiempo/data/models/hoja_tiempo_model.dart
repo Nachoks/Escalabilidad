@@ -15,6 +15,9 @@ class HojaTiempoSemana {
   final String? observacion;
   final String? nombrePersonal;
 
+  // --- NUEVO: NOMBRE DEL VALIDADOR ---
+  final String? validadorNombre;
+
   // Relaciones
   final Map<String, dynamic>? servicio;
   final Map<String, dynamic>? ocCliente;
@@ -39,6 +42,7 @@ class HojaTiempoSemana {
     this.dias,
     this.nombreCliente,
     this.nombrePersonal,
+    this.validadorNombre, // <--- Añadido al constructor
   });
 
   factory HojaTiempoSemana.fromJson(Map<String, dynamic> json) {
@@ -50,6 +54,20 @@ class HojaTiempoSemana {
     // Fallback: Si el usuario no tiene personal asignado en la BD, mostramos el ID
     if (nombreComp.isEmpty) {
       nombreComp = "Usuario ID: ${json['id_usuario']}";
+    }
+
+    // --- NUEVO: EXTRAER EL NOMBRE DEL VALIDADOR ---
+    String? vNombre;
+    if (json['validador'] != null && json['validador']['personal'] != null) {
+      // Viene de la relación anidada (cuando llamamos a detalleHoja)
+      final p = json['validador']['personal'];
+      vNombre = "${p['nombre_personal'] ?? ''} ${p['apellido_personal'] ?? ''}"
+          .trim();
+    } else if (json['validador_nombre'] != null) {
+      // Viene de la consulta directa (cuando llamamos a historialAdmin)
+      vNombre =
+          "${json['validador_nombre']} ${json['validador_apellido'] ?? ''}"
+              .trim();
     }
 
     return HojaTiempoSemana(
@@ -70,6 +88,7 @@ class HojaTiempoSemana {
       nombreServicio: json['nombre_servicio'],
       ocCliente: json['oc_cliente'],
       nombrePersonal: nombreComp,
+      validadorNombre: vNombre, // <--- Asignado aquí
       dias: json['dias'] != null
           ? (json['dias'] as List)
                 .map((i) => HojaTiempoDiaria.fromJson(i))
@@ -91,17 +110,18 @@ class HojaTiempoDiaria {
   final double viajeHoras;
   final List<HojaTiempoActividad>? actividades;
 
-  // --- NUEVOS CAMPOS AÑADIDOS PARA VALIDACIÓN DIARIA ---
   final String estado;
   final String? observacion;
 
-  // --- CAMPOS OPCIONALES PARA LA VISTA DEL ADMIN (Pendientes Diarias) ---
   final int? numeroHct;
   final int? numeroSemana;
   final String? nombreCliente;
   final String? nombreServicio;
   final String? nombrePersonal;
   final int? idUsuario;
+
+  // --- NUEVO: NOMBRE DEL VALIDADOR ---
+  final String? validadorNombre;
 
   HojaTiempoDiaria({
     required this.idHojaDiaria,
@@ -114,7 +134,7 @@ class HojaTiempoDiaria {
     this.horarioFin,
     required this.viajeHoras,
     this.actividades,
-    this.estado = 'Borrador', // Por defecto será Borrador
+    this.estado = 'Borrador',
     this.observacion,
     this.numeroHct,
     this.numeroSemana,
@@ -122,6 +142,7 @@ class HojaTiempoDiaria {
     this.nombreServicio,
     this.nombrePersonal,
     this.idUsuario,
+    this.validadorNombre, // <--- Añadido al constructor
   });
 
   factory HojaTiempoDiaria.fromJson(Map<String, dynamic> json) {
@@ -131,6 +152,15 @@ class HojaTiempoDiaria {
     String nombreComp = "$nombre $apellido".trim();
     if (nombreComp.isEmpty && json['id_usuario'] != null) {
       nombreComp = "Usuario ID: ${json['id_usuario']}";
+    }
+
+    // --- NUEVO: EXTRAER EL NOMBRE DEL VALIDADOR ---
+    String? vNombreDia;
+    if (json['validador'] != null && json['validador']['personal'] != null) {
+      final p = json['validador']['personal'];
+      vNombreDia =
+          "${p['nombre_personal'] ?? ''} ${p['apellido_personal'] ?? ''}"
+              .trim();
     }
 
     return HojaTiempoDiaria(
@@ -143,18 +173,15 @@ class HojaTiempoDiaria {
       horarioInicio: json['horario_inicio'],
       horarioFin: json['horario_fin'],
       viajeHoras: double.tryParse(json['viaje_horas'].toString()) ?? 0.0,
-
-      // Capturamos el estado y la observación (NUEVO)
       estado: json['estado'] ?? 'Borrador',
       observacion: json['observacion'],
-
-      // Capturamos los datos extras si vienen desde la consulta del Admin (NUEVO)
       numeroHct: json['numero_hct'],
       numeroSemana: json['numero_semana'],
       nombreCliente: json['nombre_cliente'],
       nombreServicio: json['nombre_servicio'],
       nombrePersonal: nombreComp.isNotEmpty ? nombreComp : null,
       idUsuario: json['id_usuario'],
+      validadorNombre: vNombreDia, // <--- Asignado aquí
 
       actividades: json['actividades'] != null
           ? (json['actividades'] as List)

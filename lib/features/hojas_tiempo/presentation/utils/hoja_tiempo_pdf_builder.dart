@@ -30,6 +30,11 @@ class HojaTiempoPdfBuilder {
     final dateFormat = DateFormat('dd-MM-yyyy');
     final fechaDia = dateFormat.format(dia.fecha);
 
+    // --- NUEVO: OBTENER EL NOMBRE DEL VALIDADOR ---
+    // Si el día tiene su propio validador, lo usamos. Si no, heredamos el de la semana.
+    String nombreValidadorFinal =
+        dia.validadorNombre ?? semana.validadorNombre ?? '';
+
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
@@ -49,7 +54,7 @@ class HojaTiempoPdfBuilder {
             baseColor,
           ),
           pw.SizedBox(height: 40),
-          _buildFooter(),
+          _buildFooter(nombreValidadorFinal), // <-- Inyectamos el nombre al pie
         ],
       ),
     );
@@ -294,7 +299,8 @@ class HojaTiempoPdfBuilder {
     );
   }
 
-  static pw.Widget _buildFooter() {
+  // --- REEMPLAZO EXACTO QUE PEDISTE ---
+  static pw.Widget _buildFooter(String validador) {
     return pw.Column(
       children: [
         pw.Divider(color: PdfColors.grey300),
@@ -302,7 +308,9 @@ class HojaTiempoPdfBuilder {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text(
-              "Somnolence App - Control de Conducción",
+              validador.isNotEmpty
+                  ? "Validado por: $validador"
+                  : "Validado por: ___________________________",
               style: const pw.TextStyle(fontSize: 10, color: PdfColors.black),
             ),
             pw.Text(
