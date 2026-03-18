@@ -203,46 +203,25 @@ class GastoController extends Controller
 
    public function verEvidencia($ruta)
     {
-        // 1. CONSTRUIR LA RUTA FÍSICA (Igual que en el diagnóstico)
         $ruta = urldecode($ruta);
-        $rutaRelativaWindows = str_replace('/', '\\', $ruta);
-        $rootNas = config('filesystems.disks.nas_rendiciones.root');
-        
-        // Unimos quitando barras duplicadas
-        $pathAbsoluto = rtrim($rootNas, '\\') . '\\' . ltrim($rutaRelativaWindows, '\\');
 
-        // 2. VERIFICAR EXISTENCIA
-        if (!file_exists($pathAbsoluto)) {
-            return response()->json(['error' => 'Archivo no encontrado', 'path' => $pathAbsoluto], 404);
-        }
+        // TRADUCTOR AUTOMÁTICO:
+        // Busca si la ruta termina en un ".NUMERO.ext" (ej: .20000.pdf) 
+        // y lo cambia por "-NUMERO.ext" (ej: -20000.pdf) para coincidir con cómo se guarda físicamente.
+        $rutaFisica = preg_replace('/\.(\d+)\.(pdf|jpg|jpeg|png)$/i', '-$1.$2', $ruta);
 
-        // 3. DETERMINAR TIPO MIME (Manual para evitar errores de permisos al escanear el archivo)
-        $extension = strtolower(pathinfo($pathAbsoluto, PATHINFO_EXTENSION));
-        $mimeTypes = [
-            'jpg'  => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'png'  => 'image/png',
-            'pdf'  => 'application/pdf',
-        ];
-        // Si no es uno conocido, usamos octet-stream
-        $contentType = $mimeTypes[$extension] ?? 'application/octet-stream';
-
-        // 4. LEER Y SERVIR
-        try {
-            // Usamos file_get_contents dentro de un try/catch por si los permisos fallan
-            $contenido = file_get_contents($pathAbsoluto);
-            
-            return response($contenido, 200)
-                ->header('Content-Type', $contentType)
-                ->header('Content-Disposition', 'inline; filename="' . basename($pathAbsoluto) . '"');
-
-        } catch (\Exception $e) {
-            // SI FALLA AQUÍ: Es 100% un tema de permisos de Windows en la carpeta del NAS
+        // 1. Buscamos usando el disco de Laravel con la ruta ya corregida
+        if (!Storage::disk('nas_rendiciones')->exists($rutaFisica)) {
             return response()->json([
-                'error' => 'Error de Permisos', 
-                'mensaje' => 'El archivo existe pero el usuario de Windows no puede leerlo.',
-                'detalle' => $e->getMessage()
-            ], 403);
+                'error' => 'Archivo no encontrado en el NAS',
+                'ruta_solicitada' => $ruta,
+                'ruta_buscada_fisicamente' => $rutaFisica
+            ], 404);
         }
+
+        // 2. FORZAR LA DESCARGA:
+        // Cambiamos "response()" por "download()". 
+        // Esto le envía el archivo al navegador con la orden de guardarlo al instante.
+        return Storage::disk('nas_rendiciones')->download($rutaFisica);
     }
 }
