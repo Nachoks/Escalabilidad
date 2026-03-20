@@ -178,8 +178,8 @@ class HojaTiempoController extends Controller
             ->join('cliente', 'servicio.id_cliente', '=', 'cliente.id_cliente')
             ->leftJoin('usuarios', 'hojas_tiempo_semanas.id_usuario', '=', 'usuarios.id_usuario')
             ->leftJoin('personal', 'usuarios.id_personal', '=', 'personal.id_personal')
-            // Incluimos al validador para poder mostrarlo en el frontend después
-            ->with(['ocCliente', 'dias.actividades', 'validador.personal'])
+            // 👇 AQUÍ ESTÁ LA CORRECCIÓN: Agregamos 'dias.validador.personal' 👇
+            ->with(['ocCliente', 'dias.actividades', 'validador.personal', 'dias.validador.personal'])
             ->where('hojas_tiempo_semanas.id_hoja_semana', $id_hoja_semana)
             ->first();
 
@@ -491,7 +491,6 @@ class HojaTiempoController extends Controller
             }
 
 
-            // 👇 NUEVO: CAPTURAMOS EL ID DEL VALIDADOR 👇
             $dia->validador_id = Auth::id();
             $dia->save();
 
@@ -552,18 +551,17 @@ class HojaTiempoController extends Controller
             }
 
 
-            // 👇 NUEVO: CAPTURAMOS EL ID DEL VALIDADOR EN LA HOJA SEMANAL 👇
             $hoja->validador_id = Auth::id();
             $hoja->save();
 
 
-            // NUEVO: Al evaluar la semana, reflejamos el mismo estado a los días que estén "Enviados"
+            // Al evaluar la semana, reflejamos el mismo estado a los días que estén "Enviados"
             HojaTiempoDiaria::where('id_hoja_semana', $id)
                 ->where('estado', 'Enviada')
                 ->update([
                     'estado' => $request->estado,
                     'observacion' => $request->observacion ?? null,
-                    'validador_id' => Auth::id() // 👇 TAMBIÉN MARCAMOS LOS DÍAS HIJOS CON EL VALIDADOR 👇
+                    'validador_id' => Auth::id() // TAMBIÉN MARCAMOS LOS DÍAS HIJOS CON EL VALIDADOR
                 ]);
 
 
@@ -603,5 +601,3 @@ class HojaTiempoController extends Controller
         }
     }
 }
-
-
