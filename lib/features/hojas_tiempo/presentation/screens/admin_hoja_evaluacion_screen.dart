@@ -44,6 +44,19 @@ class _AdminHojaEvaluacionScreenState extends State<AdminHojaEvaluacionScreen> {
     return fecha;
   }
 
+  // --- NUEVO: Función para limpiar los segundos de la hora ---
+  String _cleanTime(String time) {
+    try {
+      final parts = time.split(':');
+      if (parts.length >= 2) {
+        return "${parts[0]}:${parts[1]}";
+      }
+      return time;
+    } catch (_) {
+      return time;
+    }
+  }
+
   TimeOfDay _parseTime(String timeStr) {
     try {
       final parts = timeStr.split(':');
@@ -58,7 +71,8 @@ class _AdminHojaEvaluacionScreenState extends State<AdminHojaEvaluacionScreen> {
     int minFin = fin.hour * 60 + fin.minute;
     int diff = minFin - minInicio;
     if (diff < 0) diff += 1440;
-    return diff / 60.0;
+    // --- CORRECCIÓN: Redondeo estricto a 2 decimales para evitar arrastre de precisión ---
+    return double.parse((diff / 60.0).toStringAsFixed(2));
   }
 
   // --- Modal de Evaluación ---
@@ -291,7 +305,7 @@ class _AdminHojaEvaluacionScreenState extends State<AdminHojaEvaluacionScreen> {
               final nombreServicio =
                   hoja.nombreServicio ?? "Servicio no especificado";
 
-              // Cálculos
+              // Cálculos con Precisión
               double sumHabiles = 0,
                   sumNoHabiles = 0,
                   sumFestivas = 0,
@@ -329,9 +343,14 @@ class _AdminHojaEvaluacionScreenState extends State<AdminHojaEvaluacionScreen> {
                       int overlapMins = overlapF - overlapI;
                       if (overlapMins < 0) overlapMins = 0;
 
-                      double habiles = overlapMins / 60.0;
-                      double noHabiles = totalTramo - habiles;
-                      if (noHabiles < 0.01) noHabiles = 0;
+                      // --- CORRECCIÓN MATEMÁTICA: REDONDEO A 2 DECIMALES ---
+                      double habiles = double.parse(
+                        (overlapMins / 60.0).toStringAsFixed(2),
+                      );
+                      double noHabiles = double.parse(
+                        (totalTramo - habiles).toStringAsFixed(2),
+                      );
+                      if (noHabiles < 0.0) noHabiles = 0.0;
 
                       sumHabiles += habiles;
                       sumNoHabiles += noHabiles;
@@ -1000,7 +1019,7 @@ class _AdminHojaEvaluacionScreenState extends State<AdminHojaEvaluacionScreen> {
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           subtitle: Text(
-            "${dia.tipoDia} • ${dia.lugar} \n${cantidadActividades > 0 ? '$cantidadActividades actividades' : 'Sin actividades'} | Viaje: ${dia.viajeHoras}h",
+            "${dia.tipoDia} • ${dia.lugar} \n${cantidadActividades > 0 ? '$cantidadActividades actividades' : 'Sin actividades'} | Viaje: ${dia.viajeHoras.toStringAsFixed(2)}h",
             style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
           ),
           children: [
@@ -1031,9 +1050,13 @@ class _AdminHojaEvaluacionScreenState extends State<AdminHojaEvaluacionScreen> {
                             act.descripcion,
                             style: const TextStyle(fontWeight: FontWeight.w500),
                           ),
-                          subtitle: Text('${act.horaInicio} a ${act.horaFin}'),
+                          // --- CORRECCIÓN: HORAS LIMPIAS (SIN SEGUNDOS) ---
+                          subtitle: Text(
+                            '${_cleanTime(act.horaInicio)} a ${_cleanTime(act.horaFin)}',
+                          ),
+                          // --- CORRECCIÓN: TOTAL ACTIVIDAD A 2 DECIMALES ---
                           trailing: Text(
-                            '${act.horasHabiles + act.horasNoHabiles + act.horasFestivas} hrs',
+                            '${(act.horasHabiles + act.horasNoHabiles + act.horasFestivas).toStringAsFixed(2)} hrs',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Colors.green,
@@ -1234,8 +1257,9 @@ class _BuildResumenItem extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
+        // --- CORRECCIÓN: SE MUESTRA SIEMPRE CON 2 DECIMALES ---
         Text(
-          valor.toStringAsFixed(1),
+          valor.toStringAsFixed(2),
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,

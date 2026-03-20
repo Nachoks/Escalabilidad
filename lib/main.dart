@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
+import 'package:flutter/foundation.dart'
+    show kIsWeb; // <--- AGREGADO PARA DETECTAR LA WEB
 import 'package:flutter_localizations/flutter_localizations.dart'; // <--- IMPORTACIÓN DE IDIOMAS
 import 'package:somnolence_app/core/services/notification_service.dart';
 import 'package:somnolence_app/core/api/api_service.dart';
@@ -15,10 +17,16 @@ import 'package:somnolence_app/features/hojas_tiempo/presentation/providers/hoja
 import 'package:somnolence_app/features/rendiciones/presentation/providers/gasto_provider.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/rendiciones_provider.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
+import 'package:somnolence_app/features/inventario/presentation/providers/inventario_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  HttpOverrides.global = MyHttpOverrides();
+
+  // 👇 AQUÍ ESTÁ LA MAGIA QUE SALVA A LA WEB 👇
+  if (!kIsWeb) {
+    HttpOverrides.global = MyHttpOverrides();
+  }
+
   await NotificationService.init();
   await ApiService.inicializarConexion();
 
@@ -34,6 +42,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => RendicionesProvider()),
         ChangeNotifierProvider(create: (_) => GastoProvider()),
         ChangeNotifierProvider(create: (_) => HojaTiempoProvider()),
+        ChangeNotifierProvider(create: (_) => InventarioProvider()),
       ],
       child: const MyApp(),
     ),

@@ -8,6 +8,8 @@ import 'package:somnolence_app/features/auth/presentation/screens/login_screen.d
 import 'package:somnolence_app/core/widgets/logo_appbar.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/dashboard/presentation/screens/perfil_screen.dart';
+import 'package:somnolence_app/features/inventario/presentation/screens/movile_escaner_screen.dart';
+import 'package:somnolence_app/features/inventario/presentation/screens/web_tabla_screen.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/rendiciones_provider.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/screens/admin_history_screen.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/screens/gestion_rendiciones_screen.dart';
@@ -44,7 +46,80 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     }
   }
 
-  // --- MENÚS ADAPTATIVOS (Modales) ---
+  // =========================================================
+  // --- NUEVO MODAL: MENÚ INVENTARIO (SOLO MÓVIL) ---
+  // =========================================================
+  void _mostrarMenuInventarioMovil(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Text(
+              "Lector de Inventario",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // 👇 ACCIONES AGREGADAS 👇
+            _buildModalListItem(
+              icon: Icons.login_rounded,
+              color: Colors.green,
+              text: "Escanear Entrada",
+              onTap: () {
+                Navigator.pop(context); // Cierra el modal inferior
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const MovilEscanerScreen(esEntrada: true),
+                  ),
+                );
+              },
+            ),
+            const Divider(),
+            _buildModalListItem(
+              icon: Icons.logout_rounded,
+              color: Colors.orange[800]!,
+              text: "Escanear Salida",
+              onTap: () {
+                Navigator.pop(context); // Cierra el modal inferior
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const MovilEscanerScreen(esEntrada: false),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- MENÚS ADAPTATIVOS EXISTENTES ---
   void _mostrarMenuRendicionesAdmin(BuildContext context, int pendientes) {
     final isDesktop = MediaQuery.of(context).size.width >= 850;
     Widget menuContent = Column(
@@ -299,11 +374,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // Comprobaciones de roles basadas en el Helper actualizado
+    // Comprobaciones de roles
     final bool esAdmin = RoleHelper.isAdmin(user.roles);
     final bool esValidadorGastos = RoleHelper.isValidador(user.roles);
     final bool esValidadorHT = RoleHelper.isValidadorHT(user.roles);
     final bool esConductor = RoleHelper.isConductor(user.roles);
+
+    // Detectamos si es Web/Desktop antes de armar las tarjetas
+    final isDesktopView = MediaQuery.of(context).size.width >= 850;
 
     // CONFIGURACIÓN DE MENÚS
     final List<Map<String, dynamic>> menuItems = [];
@@ -318,6 +396,32 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     });
 
     // ==========================================
+    // SECCIÓN INVENTARIO Y CATÁLOGO
+    // ==========================================
+    if (esAdmin) {
+      if (isDesktopView) {
+        // Vista de Computador: Botón directo al monitor web
+        menuItems.add({
+          'title': 'Monitor Inventario',
+          'subtitle': 'Stock e Historial',
+          'icon': Icons.inventory_2_outlined,
+          'color': Colors.teal,
+          'page': const WebTablasScreen(),
+        });
+      } else {
+        // Vista Móvil: Abre el pop-up inferior para elegir Entrada/Salida
+        menuItems.add({
+          'title': 'Inventario',
+          'subtitle': 'Escanear Entrada/Salida',
+          'icon': Icons.qr_code_scanner,
+          'color': Colors.teal,
+          'isAction': true,
+          'action': (BuildContext ctx) => _mostrarMenuInventarioMovil(ctx),
+        });
+      }
+    }
+
+    // ==========================================
     // SECCIÓN HOJAS DE TIEMPO
     // ==========================================
     if (esAdmin || esValidadorHT) {
@@ -330,7 +434,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         'action': (BuildContext ctx) => _mostrarMenuHojasTiempoAdmin(ctx),
       });
     } else {
-      // Si NO es Admin ni Validador HT, solo ve sus propias hojas
       menuItems.add({
         'title': 'Hojas de Tiempo',
         'subtitle': 'Registra tus horas',
@@ -358,7 +461,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     // ==========================================
     if (esAdmin || esValidadorGastos) {
       if (esAdmin) {
-        // Solo Admin ve gestión de Usuarios y Clientes
         menuItems.add({
           'title': 'Usuarios',
           'subtitle': 'Gestión de personal',
@@ -375,7 +477,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         });
       }
 
-      // Admin y Validador de Gastos ven el menú administrativo de Rendiciones
       menuItems.add({
         'title': 'Rendiciones',
         'subtitle': 'Control de viáticos y gastos',
@@ -387,7 +488,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             _mostrarMenuRendicionesAdmin(ctx, pendientes),
       });
     } else {
-      // Conductores, Usuarios y Validadores HT solo ven sus propias rendiciones
       menuItems.add({
         'title': 'Mis Rendiciones',
         'subtitle': 'Envío de boletas y gastos',
@@ -692,7 +792,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 }
 
 // ==========================================================
-// TARJETA HORIZONTAL(SOLO PARA WEB)
+// TARJETA HORIZONTAL (SOLO PARA WEB)
 // ==========================================================
 class _WebCardMenu extends StatelessWidget {
   final String title;

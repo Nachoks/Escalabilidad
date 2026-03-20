@@ -30,10 +30,14 @@ class HojaTiempoPdfBuilder {
     final dateFormat = DateFormat('dd-MM-yyyy');
     final fechaDia = dateFormat.format(dia.fecha);
 
-    // --- NUEVO: OBTENER EL NOMBRE DEL VALIDADOR ---
-    // Si el día tiene su propio validador, lo usamos. Si no, heredamos el de la semana.
-    String nombreValidadorFinal =
-        dia.validadorNombre ?? semana.validadorNombre ?? '';
+    // Solo mostramos un validador si el día YA FUE EVALUADO (Aprobado o Rechazado).
+    String nombreValidadorFinal = '';
+    final estadoDia = dia.estado.toLowerCase();
+
+    if (estadoDia == 'aprobada' || estadoDia == 'rechazada') {
+      nombreValidadorFinal =
+          dia.validadorNombre ?? semana.validadorNombre ?? '';
+    }
 
     pdf.addPage(
       pw.MultiPage(
@@ -42,7 +46,14 @@ class HojaTiempoPdfBuilder {
         build: (context) => [
           _buildHeader(logoImage, baseColor),
           pw.SizedBox(height: 25),
-          _buildInfoSection(semana, dia, nombreUsuario, fechaDia, baseColor),
+          _buildInfoSection(
+            semana,
+            dia,
+            nombreUsuario,
+            fechaDia,
+            nombreValidadorFinal,
+            baseColor,
+          ),
           pw.SizedBox(height: 30),
           _buildActivitiesTable(actividades, baseColor),
           pw.SizedBox(height: 15),
@@ -54,7 +65,7 @@ class HojaTiempoPdfBuilder {
             baseColor,
           ),
           pw.SizedBox(height: 40),
-          _buildFooter(nombreValidadorFinal), // <-- Inyectamos el nombre al pie
+          _buildFooter(),
         ],
       ),
     );
@@ -90,8 +101,26 @@ class HojaTiempoPdfBuilder {
     HojaTiempoDiaria dia,
     String usuario,
     String fecha,
+    String validador,
     PdfColor color,
   ) {
+    // --- LÓGICA DE VALIDADOR SIMPLE Y DEL MISMO COLOR ---
+    String validacionLabel = "Validado por";
+    String validacionValue = "Pendiente de Aprobación";
+
+    if (dia.estado.toLowerCase() == 'aprobada') {
+      validacionValue = validador.isNotEmpty
+          ? validador
+          : 'Aprobado (Sin nombre)';
+    } else if (dia.estado.toLowerCase() == 'rechazada') {
+      validacionLabel = "Rechazado por";
+      validacionValue = validador.isNotEmpty
+          ? validador
+          : 'Rechazado (Sin nombre)';
+    } else if (dia.estado.toLowerCase() == 'enviada') {
+      validacionValue = "Enviada (Pendiente)";
+    }
+
     return pw.Container(
       padding: const pw.EdgeInsets.all(15),
       decoration: pw.BoxDecoration(
@@ -129,14 +158,73 @@ class HojaTiempoPdfBuilder {
             dia.area ?? 'No especificada',
           ),
           pw.Divider(color: PdfColors.grey200),
+          _buildDataRow(
+            "Fecha",
+            fecha,
+            "Tipo Día",
+            dia.tipoDia.replaceAll('_', ' '),
+          ),
+          pw.Divider(color: PdfColors.grey200),
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              _buildSingleField("Fecha", fecha),
-              _buildSingleField("Tipo Día", dia.tipoDia.replaceAll('_', ' ')),
-              _buildSingleField("Viaje", "${dia.viajeHoras} hrs"),
+              pw.Expanded(
+                child: _buildSingleField("Viaje", "${dia.viajeHoras} hrs"),
+              ),
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      validacionLabel,
+                      style: pw.TextStyle(
+                        fontSize: 10,
+                        color: PdfColors.grey600,
+                      ),
+                    ),
+                    pw.Text(
+                      validacionValue,
+                      style: pw.TextStyle(
+                        fontSize: 12,
+                        fontWeight: pw.FontWeight.bold,
+                        // Sin color explícito usa el negro/gris oscuro por defecto
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
+          // Observación de rechazo
+          if (dia.estado.toLowerCase() == 'rechazada' &&
+              dia.observacion != null &&
+              dia.observacion!.isNotEmpty) ...[
+            pw.Divider(color: PdfColors.red200),
+            pw.Container(
+              width: double.infinity,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    "Observación de Rechazo:",
+                    style: pw.TextStyle(
+                      fontSize: 10,
+                      color: PdfColors.red700,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.Text(
+                    dia.observacion!,
+                    style: pw.TextStyle(
+                      fontSize: 11,
+                      color: PdfColors.red900,
+                      fontStyle: pw.FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -192,9 +280,28 @@ class HojaTiempoPdfBuilder {
       );
     }
 
+    String _formatTime(String time) {
+      try {
+        final parts = time.split(':');
+        if (parts.length >= 2) {
+          return "${parts[0]}:${parts[1]}";
+        }
+        return time;
+      } catch (_) {
+        return time;
+      }
+    }
+
     final headers = ['Inicio', 'Término', 'Descripción de la Actividad'];
+
     final data = actividades
-        .map((act) => [act.horaInicio, act.horaFin, act.descripcion])
+        .map(
+          (act) => [
+            _formatTime(act.horaInicio),
+            _formatTime(act.horaFin),
+            act.descripcion,
+          ],
+        )
         .toList();
 
     return pw.TableHelper.fromTextArray(
@@ -216,6 +323,15 @@ class HojaTiempoPdfBuilder {
         border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey200)),
       ),
       cellPadding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+      columnWidths: {
+        0: const pw.FixedColumnWidth(
+          75,
+        ), // <- Aumentado a 75 para dar espacio suficiente
+        1: const pw.FixedColumnWidth(
+          75,
+        ), // <- Aumentado a 75 para que "Término" no baje la "o"
+        2: const pw.FlexColumnWidth(),
+      },
       cellAlignments: {
         0: pw.Alignment.center,
         1: pw.Alignment.center,
@@ -299,8 +415,7 @@ class HojaTiempoPdfBuilder {
     );
   }
 
-  // --- REEMPLAZO EXACTO QUE PEDISTE ---
-  static pw.Widget _buildFooter(String validador) {
+  static pw.Widget _buildFooter() {
     return pw.Column(
       children: [
         pw.Divider(color: PdfColors.grey300),
@@ -308,10 +423,8 @@ class HojaTiempoPdfBuilder {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
             pw.Text(
-              validador.isNotEmpty
-                  ? "Validado por: $validador"
-                  : "Validado por: ___________________________",
-              style: const pw.TextStyle(fontSize: 10, color: PdfColors.black),
+              "Intrantet IAA",
+              style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey),
             ),
             pw.Text(
               "Generado el: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}",

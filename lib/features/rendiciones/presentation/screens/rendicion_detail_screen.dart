@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:url_launcher/url_launcher.dart'; // <--- Volvemos a url_launcher
+import 'package:url_launcher/link.dart'; // <--- El arma secreta web para descargas
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/core/constants/app_constants.dart';
 import 'package:somnolence_app/features/rendiciones/data/models/rendicion_model.dart';
@@ -79,7 +79,7 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     }
   }
 
-  // --- WIDGET PARA MOSTRAR BOTÓN DE PDF EN WEB ---
+  // --- WIDGET PARA MOSTRAR BOTÓN DE PDF EN WEB (CON DESCARGA DIRECTA) ---
   Widget _buildPdfWebFallback(String url) {
     return Center(
       child: Column(
@@ -97,42 +97,52 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            "Haz clic abajo para abrir el documento de forma segura en una nueva pestaña.",
+            "Haz clic abajo para descargar el documento de forma segura.",
             style: TextStyle(color: Colors.grey),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onPressed: () async {
-              final uri = Uri.parse(url);
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(
-                  uri,
-                  mode: LaunchMode.externalApplication,
-                ); // Abre en nueva pestaña
-              } else {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("No se pudo abrir el enlace."),
+
+          // 👇 USAMOS EL WIDGET LINK PARA EVITAR BLOQUEOS EN LA WEB 👇
+          Builder(
+            builder: (context) {
+              final String urlSegura = Uri.encodeFull(url);
+              final Uri? uri = Uri.tryParse(urlSegura);
+
+              if (uri == null) {
+                return const Text(
+                  "Enlace inválido",
+                  style: TextStyle(color: Colors.red),
+                );
+              }
+
+              return Link(
+                uri: uri,
+                target: LinkTarget
+                    .blank, // Asegura que la descarga inicie sin romper la app
+                builder: (BuildContext context, FollowLink? followLink) {
+                  return ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onPressed: followLink,
+                    icon: const Icon(Icons.download),
+                    label: const Text(
+                      "Descargar PDF",
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   );
-                }
-              }
+                },
+              );
             },
-            icon: const Icon(Icons.open_in_new),
-            label: const Text(
-              "Ver PDF",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
           ),
         ],
       ),
