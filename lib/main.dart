@@ -18,6 +18,8 @@ import 'package:somnolence_app/features/rendiciones/presentation/providers/gasto
 import 'package:somnolence_app/features/rendiciones/presentation/providers/rendiciones_provider.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:somnolence_app/features/inventario/presentation/providers/inventario_provider.dart';
+// 👇 AGREGAMOS LA IMPORTACIÓN DEL NUEVO PROVEEDOR PROVIDER 👇
+import 'package:somnolence_app/features/inventario/presentation/providers/proveedor_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,7 +44,12 @@ void main() async {
         ChangeNotifierProvider(create: (_) => RendicionesProvider()),
         ChangeNotifierProvider(create: (_) => GastoProvider()),
         ChangeNotifierProvider(create: (_) => HojaTiempoProvider()),
-        ChangeNotifierProvider(create: (_) => InventarioProvider()),
+        ChangeNotifierProvider(
+          create: (_) => InventarioProvider(),
+        ), // Tu provider original de inventario
+        ChangeNotifierProvider(
+          create: (_) => ProveedorProvider(),
+        ), // <-- NUEVO: Provider de Proveedores
       ],
       child: const MyApp(),
     ),

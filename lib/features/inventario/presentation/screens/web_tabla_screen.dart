@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/core/widgets/logo_appbar.dart';
 import 'package:somnolence_app/features/inventario/presentation/providers/inventario_provider.dart';
@@ -15,10 +16,19 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
   @override
   void initState() {
     super.initState();
-    // Apenas se abre la pantalla, mandamos a cargar las 3 tablas
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<InventarioProvider>(context, listen: false).cargarTablasWeb();
     });
+  }
+
+  String _formatearFechaHora(String? fechaIso) {
+    if (fechaIso == null || fechaIso.isEmpty) return 'S/I';
+    try {
+      final fecha = DateTime.parse(fechaIso).toLocal();
+      return DateFormat('dd/MM/yyyy HH:mm').format(fecha);
+    } catch (e) {
+      return fechaIso;
+    }
   }
 
   @override
@@ -26,11 +36,10 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
     final provider = Provider.of<InventarioProvider>(context);
 
     return DefaultTabController(
-      length: 3, // 3 Pestañas
+      length: 3,
       child: Scaffold(
-        backgroundColor: AppColors.background, // Fondo estándar de la app
+        backgroundColor: AppColors.background,
         appBar: AppBar(
-          // Integramos tu LogoAppbar y el título
           title: const Row(
             children: [
               LogoAppbar(),
@@ -41,7 +50,7 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
               ),
             ],
           ),
-          backgroundColor: AppColors.primary, // Naranja corporativo
+          backgroundColor: AppColors.primary,
           foregroundColor: AppColors.textWhite,
           elevation: 4,
           actions: [
@@ -58,7 +67,7 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
             labelColor: AppColors.textWhite,
             unselectedLabelColor: Colors.white60,
             indicatorColor: AppColors.textWhite,
-            indicatorWeight: 4, // Indicador un poco más grueso para que resalte
+            indicatorWeight: 4,
             tabs: [
               Tab(icon: Icon(Icons.inventory), text: 'STOCK GLOBAL'),
               Tab(icon: Icon(Icons.login), text: 'HISTORIAL ENTRADAS'),
@@ -68,9 +77,7 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
         ),
         body: provider.isLoading
             ? const Center(
-                child: CircularProgressIndicator(
-                  color: AppColors.primary, // Spinner corporativo
-                ),
+                child: CircularProgressIndicator(color: AppColors.primary),
               )
             : TabBarView(
                 children: [
@@ -92,7 +99,6 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
     }
     return _buildContainerTabla(
       child: DataTable(
-        // Cabecera teñida con el color corporativo suave
         headingRowColor: WidgetStateProperty.all(
           AppColors.primary.withOpacity(0.15),
         ),
@@ -106,7 +112,7 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
           ),
           DataColumn(
             label: Text(
-              'Nombre/Descripción',
+              'Nombre del Equipo',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
@@ -115,13 +121,13 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
           ),
           DataColumn(
             label: Text(
-              'Tot. Entradas',
+              'Total Entradas',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           DataColumn(
             label: Text(
-              'Tot. Salidas',
+              'Total Salidas',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
@@ -133,14 +139,13 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
           ),
           DataColumn(
             label: Text(
-              'STOCK ACTUAL',
+              'Stock Actual',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
         ],
         rows: provider.listaStock.map((item) {
           final prod = item.producto;
-          // Lógica de color: Rojo si falta stock, Naranja corporativo si hay stock normal
           final colorStock = item.stockActual <= item.stockMinimo
               ? Colors.red
               : AppColors.primary;
@@ -157,7 +162,38 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
               DataCell(Text(prod?.marca ?? 'N/A')),
               DataCell(Text(item.totalEntradas.toString())),
               DataCell(Text(item.totalSalidas.toString())),
-              DataCell(Text(item.stockMinimo.toString())),
+              DataCell(
+                SizedBox(
+                  width: 80,
+                  child: TextFormField(
+                    initialValue: item.stockMinimo.toString(),
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      border: OutlineInputBorder(),
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                    onFieldSubmitted: (value) async {
+                      int? nuevoValor = int.tryParse(value);
+                      if (nuevoValor != null &&
+                          nuevoValor != item.stockMinimo) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Guardando nuevo stock mínimo: $nuevoValor...',
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ),
+              ),
               DataCell(
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -200,69 +236,60 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
         ),
         columns: const [
           DataColumn(
-            label: Text('ID', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: Text('OC', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
           DataColumn(
             label: Text(
-              'Código Prod.',
+              'Fecha (hora)',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           DataColumn(
             label: Text(
-              'Nombre',
+              'Serial',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           DataColumn(
             label: Text(
-              'Número Serie (SN)',
+              'Código',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           DataColumn(
             label: Text(
-              'OC Proveedor',
+              'Nombre del Equipo',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           DataColumn(
             label: Text(
-              'Estado',
+              'Responsable',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
         ],
         rows: provider.listaEntradas.map((ent) {
+          final String oc = ent.ocProveedor ?? 'S/I';
+          final String fecha = 'S/I';
+          final String serial = ent.serial;
+          final String codigo = ent.producto?.codigoProducto ?? 'N/A';
+          final String equipo = ent.producto?.nombreProducto ?? 'N/A';
+          final String responsable = 'Resp. #${ent.idResponsable}';
+
           return DataRow(
             cells: [
-              DataCell(Text('#${ent.idEntrada}')),
-              DataCell(Text(ent.producto?.codigoProducto ?? 'N/A')),
-              DataCell(Text(ent.producto?.nombreProducto ?? 'N/A')),
+              DataCell(Text(oc)),
+              DataCell(Text(fecha)),
               DataCell(
                 Text(
-                  ent.serial,
+                  serial,
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
-              DataCell(Text(ent.ocProveedor ?? '-')),
-              DataCell(
-                Chip(
-                  label: Text(
-                    ent.estadoSerial,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: ent.estadoSerial == 'Disponible'
-                          ? Colors.green[800]
-                          : Colors.grey[800],
-                    ),
-                  ),
-                  backgroundColor: ent.estadoSerial == 'Disponible'
-                      ? Colors.greenAccent[100]
-                      : Colors.grey[300],
-                  side: BorderSide.none,
-                ),
-              ),
+              DataCell(Text(codigo)),
+              DataCell(Text(equipo)),
+              DataCell(Text(responsable)),
             ],
           );
         }).toList(),
@@ -284,46 +311,68 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
         ),
         columns: const [
           DataColumn(
-            label: Text('ID', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: Text('OC', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
           DataColumn(
             label: Text(
-              'Código Prod.',
+              'Cliente',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           DataColumn(
             label: Text(
-              'Número Serie (SN)',
+              'Fecha (hora)',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           DataColumn(
             label: Text(
-              'OC Cliente',
+              'Serial',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           DataColumn(
             label: Text(
-              'ID Cliente',
+              'Código',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          DataColumn(
+            label: Text(
+              'Nombre del Equipo',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          DataColumn(
+            label: Text(
+              'Responsable',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
         ],
         rows: provider.listaSalidas.map((sal) {
+          final String oc = sal.ocCliente ?? 'S/I';
+          final String cliente = 'Cliente #${sal.idCliente}';
+          final String fecha = 'S/I';
+          final String serial = sal.serial;
+          final String codigo = 'N/A';
+          final String equipo = 'N/A';
+          final String responsable = 'Resp. #${sal.idResponsable}';
+
           return DataRow(
             cells: [
-              DataCell(Text('#${sal.idSalida}')),
-              DataCell(Text(sal.idProducto.toString())),
+              DataCell(Text(oc)),
+              DataCell(Text(cliente)),
+              DataCell(Text(fecha)),
               DataCell(
                 Text(
-                  sal.serial,
+                  serial,
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
-              DataCell(Text(sal.ocCliente ?? '-')),
-              DataCell(Text('Cliente #${sal.idCliente}')),
+              DataCell(Text(codigo)),
+              DataCell(Text(equipo)),
+              DataCell(Text(responsable)),
             ],
           );
         }).toList(),
@@ -335,33 +384,42 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
   // WIDGETS REUTILIZABLES DE DISEÑO
   // ==========================================
 
-  // Envoltorio blanco con sombra para las tablas
+  // 👇 AQUÍ ESTÁ LA MAGIA QUE HACE QUE LA TABLA OCUPE EL 100% 👇
   Widget _buildContainerTabla({required Widget child}) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-          ],
-        ),
-        // Scroll horizontal por si la pantalla es chica
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: child,
-        ),
-      ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              // ConstrainedBox fuerza a la tabla a tomar TODO el ancho disponible (menos el padding)
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: constraints.maxWidth > 40
+                      ? constraints.maxWidth - 40
+                      : 0,
+                ),
+                child: child,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
-  // Vista cuando no hay datos
   Widget _buildEmptyState(String mensaje) {
     return Center(
       child: Column(

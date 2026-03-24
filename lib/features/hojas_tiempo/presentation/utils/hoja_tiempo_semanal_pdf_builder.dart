@@ -38,6 +38,11 @@ class HojaTiempoSemanalPdfBuilder {
     // --- CAPTURAR NOMBRE DEL VALIDADOR ---
     String nombreValidador = semana.validadorNombre ?? '';
 
+    // --- NOMBRE DEL CREADOR DE LA HOJA (no del que imprime ahora) ---
+    String nombreCreador = semana.nombrePersonal?.trim().isNotEmpty == true
+        ? semana.nombrePersonal!
+        : nombreUsuario;
+
     // ==========================================
     // HOJA 1: RESUMEN Y FIRMAS (Página Estática)
     // ==========================================
@@ -57,7 +62,7 @@ class HojaTiempoSemanalPdfBuilder {
             pw.SizedBox(height: 20),
 
             // Información General (AHORA INCLUYE EL VALIDADOR AQUÍ)
-            _buildInfoSection(semana, nombreUsuario, periodo, nombreValidador),
+            _buildInfoSection(semana, nombreCreador, periodo, nombreValidador),
             pw.SizedBox(height: 25),
 
             // PUNTO 1: Resumen de Horas Numérico
@@ -236,7 +241,7 @@ class HojaTiempoSemanalPdfBuilder {
       'No Hábiles',
       'Festivos',
       'Viaje',
-      'TOTAL\n(s/ Viaje)',
+      'TOTAL\n(Sin Viaje)',
     ];
 
     double tHab = 0, tNoHab = 0, tFest = 0, tViaje = 0, tGlobal = 0;
@@ -282,6 +287,8 @@ class HojaTiempoSemanalPdfBuilder {
       tGlobal.toStringAsFixed(1),
     ]);
 
+    final int indexFilaTotales = data.length - 1;
+
     return pw.TableHelper.fromTextArray(
       headers: headers,
       data: data,
@@ -311,16 +318,17 @@ class HojaTiempoSemanalPdfBuilder {
         border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey200)),
       ),
       cellDecoration: (index, data, rowNum) {
-        if (rowNum == dias.length) {
-          return const pw.BoxDecoration(
-            color: PdfColors.orange50,
-          ); // Fila Totales
+        // Ajuste: rowNum parece 1-based, así que convertimos al índice de data
+        if (rowNum == indexFilaTotales + 1) {
+          return const pw.BoxDecoration(color: PdfColors.orange50);
         }
+
         if (index == 6) {
           return const pw.BoxDecoration(
             color: PdfColors.grey100,
           ); // Columna Total sombreada
         }
+
         return const pw.BoxDecoration();
       },
     );

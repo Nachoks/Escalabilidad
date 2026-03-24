@@ -1,12 +1,14 @@
 class ProveedorModel {
   final int idProveedor;
   final String nombreProveedor;
+  final String? nombreContacto;
   final String? numeroContacto;
   final String? correoContacto;
 
   ProveedorModel({
     required this.idProveedor,
     required this.nombreProveedor,
+    this.nombreContacto,
     this.numeroContacto,
     this.correoContacto,
   });
@@ -15,6 +17,7 @@ class ProveedorModel {
     return ProveedorModel(
       idProveedor: json['id_proveedor'],
       nombreProveedor: json['nombre_proveedor'],
+      nombreContacto: json['nombre_contacto'],
       numeroContacto: json['numero_contacto'],
       correoContacto: json['correo_contacto'],
     );
@@ -25,6 +28,7 @@ class ProveedorModel {
     return {
       'id_proveedor': idProveedor,
       'nombre_proveedor': nombreProveedor,
+      'nombre_contacto': nombreContacto,
       'numero_contacto': numeroContacto,
       'correo_contacto': correoContacto,
     };

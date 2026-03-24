@@ -10,6 +10,7 @@ import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/dashboard/presentation/screens/perfil_screen.dart';
 import 'package:somnolence_app/features/inventario/presentation/screens/movile_escaner_screen.dart';
 import 'package:somnolence_app/features/inventario/presentation/screens/web_tabla_screen.dart';
+import 'package:somnolence_app/features/inventario/presentation/screens/gestion_proveedores_screen.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/rendiciones_provider.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/screens/admin_history_screen.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/screens/gestion_rendiciones_screen.dart';
@@ -18,6 +19,7 @@ import 'control_salida_screen.dart';
 import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/hojas_list_screen.dart';
 import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/admin_hoja_pendientes_screen.dart';
 import 'package:somnolence_app/features/hojas_tiempo/presentation/screens/admin_hoja_historial_screen.dart';
+import 'package:somnolence_app/features/hojas_tiempo/presentation/providers/hoja_tiempo_provider.dart';
 
 class HomeDashboardScreen extends StatefulWidget {
   const HomeDashboardScreen({super.key});
@@ -26,28 +28,51 @@ class HomeDashboardScreen extends StatefulWidget {
   State<HomeDashboardScreen> createState() => _HomeDashboardScreenState();
 }
 
-class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
+// 👇 1. AÑADIDO: 'with WidgetsBindingObserver' para detectar si la app se minimiza/maximiza
+class _HomeDashboardScreenState extends State<HomeDashboardScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // Suscribimos el observador
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = context.read<AuthProvider>().currentUser;
-      // Solo actualiza pendientes si es Admin o Validador normal (gastos)
-      if (user != null &&
-          (user.esAdmin || RoleHelper.isValidador(user.roles))) {
-        context.read<RendicionesProvider>().actualizarContadorPendientes();
-      }
+      _actualizarContadores();
     });
   }
 
-  void _actualizarContador() {
-    if (mounted) {
-      context.read<RendicionesProvider>().actualizarContadorPendientes();
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(
+      this,
+    ); // Limpiamos la memoria al salir
+    super.dispose();
+  }
+
+  // 👇 2. AÑADIDO: Si el usuario vuelve a la app después de minimizarla, recarga los datos
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _actualizarContadores();
+    }
+  }
+
+  void _actualizarContadores() {
+    if (!mounted) return;
+
+    final user = context.read<AuthProvider>().currentUser;
+    if (user != null) {
+      if (user.esAdmin || RoleHelper.isValidador(user.roles)) {
+        context.read<RendicionesProvider>().actualizarContadorPendientes();
+      }
+
+      if (user.esAdmin || RoleHelper.isValidadorHT(user.roles)) {
+        context.read<HojaTiempoProvider>().actualizarContadorPendientes();
+      }
     }
   }
 
   // =========================================================
-  // --- NUEVO MODAL: MENÚ INVENTARIO (SOLO MÓVIL) ---
+  // --- MENÚ INVENTARIO (SOLO MÓVIL) ---
   // =========================================================
   void _mostrarMenuInventarioMovil(BuildContext context) {
     showModalBottomSheet(
@@ -81,20 +106,18 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               ),
             ),
             const SizedBox(height: 20),
-
-            // 👇 ACCIONES AGREGADAS 👇
             _buildModalListItem(
               icon: Icons.login_rounded,
               color: Colors.green,
               text: "Escanear Entrada",
               onTap: () {
-                Navigator.pop(context); // Cierra el modal inferior
+                Navigator.pop(context);
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => const MovilEscanerScreen(esEntrada: true),
                   ),
-                );
+                ).then((_) => _actualizarContadores()); // 👇 AÑADIDO
               },
             ),
             const Divider(),
@@ -103,13 +126,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               color: Colors.orange[800]!,
               text: "Escanear Salida",
               onTap: () {
-                Navigator.pop(context); // Cierra el modal inferior
+                Navigator.pop(context);
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => const MovilEscanerScreen(esEntrada: false),
                   ),
-                );
+                ).then((_) => _actualizarContadores()); // 👇 AÑADIDO
               },
             ),
             const SizedBox(height: 20),
@@ -119,7 +142,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     );
   }
 
-  // --- MENÚS ADAPTATIVOS EXISTENTES ---
+  // --- MENÚ RENDICIONES ---
   void _mostrarMenuRendicionesAdmin(BuildContext context, int pendientes) {
     final isDesktop = MediaQuery.of(context).size.width >= 850;
     Widget menuContent = Column(
@@ -156,7 +179,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               MaterialPageRoute(
                 builder: (_) => const ValidatorDashboardScreen(),
               ),
-            ).then((_) => _actualizarContador());
+            ).then((_) => _actualizarContadores());
           },
         ),
         const Divider(),
@@ -169,7 +192,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const AdminHistoryScreen()),
-            );
+            ).then((_) => _actualizarContadores()); // 👇 AÑADIDO
           },
         ),
         const Divider(),
@@ -184,7 +207,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               MaterialPageRoute(
                 builder: (_) => const GestionRendicionesScreen(),
               ),
-            );
+            ).then((_) => _actualizarContadores()); // 👇 AÑADIDO
           },
         ),
         if (!isDesktop) const SizedBox(height: 20),
@@ -222,7 +245,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     }
   }
 
-  void _mostrarMenuHojasTiempoAdmin(BuildContext context) {
+  // --- MENÚ HOJAS DE TIEMPO ---
+  void _mostrarMenuHojasTiempoAdmin(BuildContext context, int pendientesHT) {
     final isDesktop = MediaQuery.of(context).size.width >= 850;
     Widget menuContent = Column(
       mainAxisSize: MainAxisSize.min,
@@ -250,6 +274,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           icon: Icons.fact_check_outlined,
           color: Colors.green,
           text: "Evaluar Hojas Pendientes",
+          badgeCount: pendientesHT,
           onTap: () {
             Navigator.pop(context);
             Navigator.push(
@@ -257,7 +282,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               MaterialPageRoute(
                 builder: (_) => const AdminHojasPendientesScreen(),
               ),
-            );
+            ).then((_) => _actualizarContadores());
           },
         ),
         const Divider(),
@@ -272,7 +297,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               MaterialPageRoute(
                 builder: (_) => const AdminHojaHistorialScreen(),
               ),
-            );
+            ).then((_) => _actualizarContadores()); // 👇 AÑADIDO
           },
         ),
         const Divider(),
@@ -285,7 +310,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const HojasListScreen()),
-            );
+            ).then((_) => _actualizarContadores()); // 👇 AÑADIDO
           },
         ),
         if (!isDesktop) const SizedBox(height: 20),
@@ -343,7 +368,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         text,
         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
       ),
-      trailing: (badgeCount != null && badgeCount > 0)
+      trailing: (badgeCount != null && badgeCount! > 0)
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
@@ -367,26 +392,27 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().currentUser;
-    final provider = context.watch<RendicionesProvider>();
-    final int pendientes = provider.cantidadPendientes;
+
+    final int pendientesGastos = context
+        .watch<RendicionesProvider>()
+        .cantidadPendientes;
+    final int pendientesHT = context
+        .watch<HojaTiempoProvider>()
+        .cantidadPendientes;
 
     if (user == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // Comprobaciones de roles
     final bool esAdmin = RoleHelper.isAdmin(user.roles);
     final bool esValidadorGastos = RoleHelper.isValidador(user.roles);
     final bool esValidadorHT = RoleHelper.isValidadorHT(user.roles);
     final bool esConductor = RoleHelper.isConductor(user.roles);
-
-    // Detectamos si es Web/Desktop antes de armar las tarjetas
     final isDesktopView = MediaQuery.of(context).size.width >= 850;
 
-    // CONFIGURACIÓN DE MENÚS
     final List<Map<String, dynamic>> menuItems = [];
 
-    // Perfil para todos
+    // Perfil
     menuItems.add({
       'title': 'Mi Perfil',
       'subtitle': 'Ajustes y credenciales',
@@ -395,12 +421,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       'page': const PerfilScreen(),
     });
 
-    // ==========================================
-    // SECCIÓN INVENTARIO Y CATÁLOGO
-    // ==========================================
+    // INVENTARIO Y CATÁLOGO
     if (esAdmin) {
       if (isDesktopView) {
-        // Vista de Computador: Botón directo al monitor web
         menuItems.add({
           'title': 'Monitor Inventario',
           'subtitle': 'Stock e Historial',
@@ -409,7 +432,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           'page': const WebTablasScreen(),
         });
       } else {
-        // Vista Móvil: Abre el pop-up inferior para elegir Entrada/Salida
         menuItems.add({
           'title': 'Inventario',
           'subtitle': 'Escanear Entrada/Salida',
@@ -419,19 +441,27 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           'action': (BuildContext ctx) => _mostrarMenuInventarioMovil(ctx),
         });
       }
+
+      menuItems.add({
+        'title': 'Proveedores',
+        'subtitle': 'Catálogo de proveedores',
+        'icon': Icons.local_shipping_outlined,
+        'color': Colors.blueGrey.shade700,
+        'page': const GestionProveedoresScreen(),
+      });
     }
 
-    // ==========================================
-    // SECCIÓN HOJAS DE TIEMPO
-    // ==========================================
+    // HOJAS DE TIEMPO
     if (esAdmin || esValidadorHT) {
       menuItems.add({
         'title': 'Hojas de Tiempo',
         'subtitle': 'Control y validación de horas',
         'icon': Icons.access_time,
         'color': Colors.deepPurple,
+        'badgeCount': pendientesHT,
         'isAction': true,
-        'action': (BuildContext ctx) => _mostrarMenuHojasTiempoAdmin(ctx),
+        'action': (BuildContext ctx) =>
+            _mostrarMenuHojasTiempoAdmin(ctx, pendientesHT),
       });
     } else {
       menuItems.add({
@@ -443,9 +473,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       });
     }
 
-    // ==========================================
-    // SECCIÓN CONDUCTOR
-    // ==========================================
+    // CONDUCTOR
     if (esConductor) {
       menuItems.add({
         'title': 'Control Salida',
@@ -456,9 +484,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       });
     }
 
-    // ==========================================
-    // SECCIÓN ADMINISTRACIÓN Y RENDICIONES
-    // ==========================================
+    // RENDICIONES
     if (esAdmin || esValidadorGastos) {
       if (esAdmin) {
         menuItems.add({
@@ -482,10 +508,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         'subtitle': 'Control de viáticos y gastos',
         'icon': Icons.folder_shared_outlined,
         'color': Colors.blueGrey,
-        'badgeCount': pendientes,
+        'badgeCount': pendientesGastos,
         'isAction': true,
         'action': (BuildContext ctx) =>
-            _mostrarMenuRendicionesAdmin(ctx, pendientes),
+            _mostrarMenuRendicionesAdmin(ctx, pendientesGastos),
       });
     } else {
       menuItems.add({
@@ -503,8 +529,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
         return Scaffold(
           backgroundColor: const Color(0xFFF4F6F8),
-
-          // --- 1. APPBAR MODERNO (SOLO PARA WEB/DESKTOP) ---
           appBar: isDesktop
               ? AppBar(
                   backgroundColor: AppColors.primary,
@@ -590,7 +614,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
           body: Column(
             children: [
-              // --- 2. HEADER GIGANTE (SOLO PARA MÓVIL) ---
               if (!isDesktop)
                 Container(
                   padding: const EdgeInsets.fromLTRB(24, 60, 24, 40),
@@ -718,7 +741,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   ),
                 ),
 
-              // --- 3. GRILLA DE MÓDULOS ---
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
@@ -748,7 +770,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                                 onTap: () => _manejarNavegacion(
                                   item,
                                   context,
-                                  esAdmin || esValidadorGastos,
+                                  esAdmin || esValidadorGastos || esValidadorHT,
                                 ),
                               )
                             : _MobileSquareCard(
@@ -759,7 +781,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                                 onTap: () => _manejarNavegacion(
                                   item,
                                   context,
-                                  esAdmin || esValidadorGastos,
+                                  esAdmin || esValidadorGastos || esValidadorHT,
                                 ),
                               );
                       },
@@ -786,7 +808,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         context,
         MaterialPageRoute(builder: (_) => item['page']),
       );
-      if (context.mounted && esAdminOValidador) _actualizarContador();
+      // 👇 Aseguramos que también recargue al volver desde los recuadros del Grid general
+      if (context.mounted) _actualizarContadores();
     }
   }
 }

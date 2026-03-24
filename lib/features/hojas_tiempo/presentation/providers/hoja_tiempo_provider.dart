@@ -25,6 +25,28 @@ class HojaTiempoProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
+  // 👇 NUEVO: Getter para contar todas las tareas pendientes (Semanas + Días) 👇
+  int get cantidadPendientes =>
+      _adminPendientes.length + _adminPendientesDiarias.length;
+
+  // 👇 NUEVO: Método para actualizar los contadores en segundo plano (para la burbuja roja) 👇
+  Future<void> actualizarContadorPendientes() async {
+    try {
+      // Hacemos ambas peticiones al mismo tiempo para que sea más rápido
+      final resultados = await Future.wait([
+        _service.obtenerPendientesAdmin(),
+        _service.obtenerPendientesDiariasAdmin(),
+      ]);
+
+      _adminPendientes = resultados[0] as List<HojaTiempoSemana>;
+      _adminPendientesDiarias = resultados[1] as List<HojaTiempoDiaria>;
+
+      notifyListeners(); // Le avisa al menú que dibuje el número
+    } catch (e) {
+      debugPrint("Error actualizando contador de hojas de tiempo: $e");
+    }
+  }
+
   // --- MÉTODOS TÉCNICO ---
 
   Future<void> cargarHojas(int idUsuario) async {
