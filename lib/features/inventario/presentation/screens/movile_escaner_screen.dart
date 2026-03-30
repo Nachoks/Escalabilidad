@@ -5,6 +5,13 @@ import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/inventario/presentation/providers/inventario_provider.dart';
 import 'package:somnolence_app/features/inventario/presentation/widgets/add_producto_dialog.dart';
 
+import 'package:somnolence_app/features/admin/presentation/providers/cliente_provider.dart';
+import 'package:somnolence_app/features/admin/presentation/providers/servicio_provider.dart';
+import 'package:somnolence_app/features/admin/data/models/cliente_model.dart';
+import 'package:somnolence_app/features/admin/data/models/servicio_model.dart';
+// 👇 AÑADIDO: Importamos el modelo de OC Cliente
+import 'package:somnolence_app/features/admin/data/models/oc_cliente_model.dart';
+
 class MovilEscanerScreen extends StatefulWidget {
   final bool esEntrada; // true = Ingreso a bodega, false = Despacho a cliente
 
@@ -18,14 +25,30 @@ class MovilEscanerScreen extends StatefulWidget {
 class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
   final TextEditingController _codigoController = TextEditingController();
   final TextEditingController _serialController = TextEditingController();
+  final TextEditingController _ocController = TextEditingController();
 
-  // Opciones de escaneo para saber qué botón apretó el usuario
+  ClienteModel? _clienteSeleccionado;
+  ServicioModel? _servicioSeleccionado;
+  // 👇 MODIFICADO: Ahora es un objeto en lugar de un String
+  OcClienteModel? _ocSeleccionada;
+
   String _modoEscaneoActual = '';
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.esEntrada) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<ClienteProvider>().cargarClientes();
+      });
+    }
+  }
 
   @override
   void dispose() {
     _codigoController.dispose();
     _serialController.dispose();
+    _ocController.dispose();
     super.dispose();
   }
 
@@ -38,20 +61,13 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
     } else if (_modoEscaneoActual == 'serial_solo') {
       _serialController.text = rawValue;
     } else if (_modoEscaneoActual == 'inteligente') {
-      // BATERÍA DE REGLAS BASADA EN TUS ESTRUCTURAS REALES
       final List<Map<String, String>> reglas = [
-        // 1. Estructura: (93)3BSE041882R1(91)SC07167442(92)C
-        // Busca lo que hay después del (93) hasta el próximo paréntesis, y lo mismo con el (91)
         {'cod': r'\(93\)([^\(]+)', 'ser': r'\(91\)([^\(]+)'},
-
-        // 2. Estructura: (240)3BSE092693R1(92)B(21)SE252102TP
-        // Busca lo que hay después del (240) hasta el próximo paréntesis, y lo mismo con el (21)
         {'cod': r'\(240\)([^\(]+)', 'ser': r'\(21\)([^\(]+)'},
       ];
 
       bool reconocido = false;
 
-      // El sistema prueba cada regla rápidamente
       for (var regla in reglas) {
         RegExp expCodigo = RegExp(regla['cod']!);
         RegExp expSerial = RegExp(regla['ser']!);
@@ -63,7 +79,7 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
           _codigoController.text = codMatch.trim();
           _serialController.text = serMatch.trim();
           reconocido = true;
-          break; // Rompemos el ciclo porque ya encontramos la estructura correcta
+          break;
         }
       }
 
@@ -75,7 +91,6 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
           ),
         );
       } else {
-        // Fallback: Si no calza con ninguna de las 2 reglas, pegamos todo en "Código"
         _codigoController.text = rawValue;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -90,9 +105,6 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
     }
   }
 
-  // ==========================================
-  // ABRIR LA CÁMARA EN UN MODAL BOTTOM SHEET
-  // ==========================================
   void _abrirEscaner(String modo) {
     setState(() => _modoEscaneoActual = modo);
 
@@ -102,9 +114,7 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
-          height:
-              MediaQuery.of(context).size.height *
-              0.75, // Ocupa el 75% de la pantalla
+          height: MediaQuery.of(context).size.height * 0.75,
           decoration: const BoxDecoration(
             color: Colors.black,
             borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
@@ -116,7 +126,6 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
                   top: Radius.circular(25),
                 ),
                 child: MobileScanner(
-                  // Forzamos al escáner a leer absolutamente todos los formatos (QR, 1D, DataMatrix)
                   controller: MobileScannerController(
                     formats: const [BarcodeFormat.all],
                   ),
@@ -125,17 +134,16 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
                     if (barcodes.isNotEmpty &&
                         barcodes.first.rawValue != null) {
                       final String code = barcodes.first.rawValue!;
-                      Navigator.pop(context); // Cierra la cámara
-                      _procesarCodigoEscaneado(code); // Traduce el código
+                      Navigator.pop(context);
+                      _procesarCodigoEscaneado(code);
                     }
                   },
                 ),
               ),
-              // Mira decorativa (Rectangular para que sirva mejor con Códigos de Barra)
               Center(
                 child: Container(
-                  width: MediaQuery.of(context).size.width * 0.85, // Ancho
-                  height: 180, // Más bajo para parecer lector de pistola
+                  width: MediaQuery.of(context).size.width * 0.85,
+                  height: 180,
                   decoration: BoxDecoration(
                     border: Border.all(color: AppColors.primary, width: 3),
                     borderRadius: BorderRadius.circular(20),
@@ -190,18 +198,17 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
     final cod = _codigoController.text.trim();
     final ser = _serialController.text.trim();
 
-    if (cod.isEmpty || ser.isEmpty) {
+    if (ser.isEmpty || (widget.esEntrada && cod.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Por favor, extraiga el Código y el Serial de la caja.',
-          ),
+          content: Text('Por favor complete los campos de escaneo requeridos.'),
         ),
       );
       return;
     }
 
     if (widget.esEntrada) {
+      final ocManual = _ocController.text.trim();
       bool existe = await provider.verificarCodigoProducto(cod);
 
       if (!existe) {
@@ -210,53 +217,69 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
           barrierDismissible: false,
           builder: (_) => AddProductoDialog(codigoEscaneado: cod),
         );
-
         if (seCreo != true) return;
       }
 
       bool exito = await provider.registrarEntrada(
         codigoProducto: cod,
         serial: ser,
+        ocProveedor: ocManual.isNotEmpty ? ocManual : null,
       );
 
-      if (exito && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Entrada registrada con éxito'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context);
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(provider.errorMessage ?? 'Error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      _manejarRespuesta(
+        exito,
+        provider.errorMessage,
+        '✅ Entrada registrada con éxito',
+      );
     } else {
+      if (_clienteSeleccionado == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Debe seleccionar un Cliente')),
+        );
+        return;
+      }
+      if (_servicioSeleccionado == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Debe seleccionar un Servicio')),
+        );
+        return;
+      }
+      // 👇 AÑADIDO: Validamos que haya escogido una OC si es que existen
+      if (_servicioSeleccionado!.ocs.isNotEmpty && _ocSeleccionada == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Debe seleccionar una Orden de Compra')),
+        );
+        return;
+      }
+
       bool exito = await provider.registrarSalida(
         serial: ser,
-        idCliente: 1,
-      ); // ID temporal
+        idCliente: _clienteSeleccionado!.idCliente ?? 0,
+        ocCliente: _ocSeleccionada
+            ?.codOcCliente, // Pasamos el string de la OC si existe
+      );
 
-      if (exito && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🛫 Salida registrada con éxito'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context);
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(provider.errorMessage ?? 'Error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      _manejarRespuesta(
+        exito,
+        provider.errorMessage,
+        '🛫 Salida registrada con éxito',
+      );
+    }
+  }
+
+  void _manejarRespuesta(bool exito, String? error, String mensajeExito) {
+    if (exito && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mensajeExito), backgroundColor: Colors.green),
+      );
+      Navigator.pop(context);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error ?? 'Error en la operación'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -264,13 +287,19 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
   Widget build(BuildContext context) {
     final provider = Provider.of<InventarioProvider>(context);
 
+    final clienteProv = !widget.esEntrada
+        ? Provider.of<ClienteProvider>(context)
+        : null;
+    final servicioProv = !widget.esEntrada
+        ? Provider.of<ServicioProvider>(context)
+        : null;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(
           widget.esEntrada ? 'Ingreso a Bodega' : 'Despacho de Equipo',
         ),
-        // Ahora todo usa tu color primario corporativo
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -280,7 +309,6 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // BOTÓN GIGANTE ESCANEO INTELIGENTE
             ElevatedButton.icon(
               icon: const Icon(Icons.qr_code_scanner, size: 45),
               label: const Text(
@@ -319,8 +347,24 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
             ),
             const SizedBox(height: 25),
 
-            // CAMPO CÓDIGO PRODUCTO (Oculto en Salidas)
             if (widget.esEntrada) ...[
+              TextField(
+                controller: _ocController,
+                decoration: InputDecoration(
+                  labelText: 'Orden de Compra (Proveedor)',
+                  prefixIcon: const Icon(
+                    Icons.receipt_long,
+                    color: AppColors.primary,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 20),
+
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -356,10 +400,145 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-            ],
+            ] else ...[
+              // MODO SALIDA: DROPDOWN CLIENTES
+              if (clienteProv!.isLoading)
+                const Center(child: CircularProgressIndicator())
+              else
+                DropdownButtonFormField<ClienteModel>(
+                  decoration: InputDecoration(
+                    labelText: 'Seleccionar Cliente Destino',
+                    prefixIcon: const Icon(
+                      Icons.business,
+                      color: AppColors.primary,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                  value: _clienteSeleccionado,
+                  items: clienteProv.clientes.map((cliente) {
+                    return DropdownMenuItem(
+                      value: cliente,
+                      child: Text(cliente.nombreCliente),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _clienteSeleccionado = val;
+                      _servicioSeleccionado = null;
+                      _ocSeleccionada =
+                          null; // 🛠️ CORRECCIÓN: Reseteamos la OC al cambiar Cliente
+                    });
 
-            // CAMPO NÚMERO DE SERIE (Siempre visible)
+                    if (val != null && val.idCliente != null) {
+                      context
+                          .read<ServicioProvider>()
+                          .cargarServiciosPorCliente(val.idCliente!);
+                    }
+                  },
+                ),
+              const SizedBox(height: 20),
+
+              // MODO SALIDA: DROPDOWN SERVICIOS (Filtrados por Cliente)
+              if (_clienteSeleccionado != null) ...[
+                if (servicioProv!.isLoading)
+                  const Center(child: CircularProgressIndicator())
+                else
+                  DropdownButtonFormField<ServicioModel>(
+                    decoration: InputDecoration(
+                      labelText: 'Seleccionar Servicio Asociado',
+                      prefixIcon: const Icon(
+                        Icons.handyman,
+                        color: AppColors.primary,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                    value: _servicioSeleccionado,
+                    items: servicioProv.servicios.map((servicio) {
+                      return DropdownMenuItem(
+                        value: servicio,
+                        child: Text(servicio.nombreServicio),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      setState(() {
+                        _servicioSeleccionado = val;
+                        _ocSeleccionada =
+                            null; // 🛠️ CORRECCIÓN: Reseteamos la OC al cambiar de Servicio
+                      });
+                    },
+                  ),
+                const SizedBox(height: 20),
+
+                // 👇 MODO SALIDA: NUEVO DROPDOWN OC (Filtrados por Servicio) 👇
+                if (_servicioSeleccionado != null) ...[
+                  if (_servicioSeleccionado!.ocs.isEmpty)
+                    // Si el servicio no tiene OCs, le mostramos un aviso al usuario
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.warning_amber_rounded,
+                            color: Colors.orange.shade800,
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'Este servicio no tiene Órdenes de Compra asociadas.',
+                              style: TextStyle(color: Colors.black87),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    // Si sí tiene OCs, lo obligamos a elegir con un Dropdown
+                    DropdownButtonFormField<OcClienteModel>(
+                      decoration: InputDecoration(
+                        labelText: 'Seleccionar Orden de Compra',
+                        prefixIcon: const Icon(
+                          Icons.receipt_long,
+                          color: AppColors.primary,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                      value: _ocSeleccionada,
+                      items: _servicioSeleccionado!.ocs.map((oc) {
+                        return DropdownMenuItem(
+                          value: oc,
+                          child: Text(oc.codOcCliente),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        setState(() {
+                          _ocSeleccionada = val; // Guardamos la OC seleccionada
+                        });
+                      },
+                    ),
+                  const SizedBox(height: 15),
+                ],
+              ],
+            ],
+            const SizedBox(height: 20),
+
+            // CAMPO NÚMERO DE SERIE (Siempre visible para ambos)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

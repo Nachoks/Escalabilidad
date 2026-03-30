@@ -218,6 +218,30 @@ class InventarioProvider extends ChangeNotifier {
     }
   }
 
+  // --- 8. ACTUALIZAR STOCK MÍNIMO ---
+  Future<bool> actualizarStockMinimo(int idProducto, int nuevoMinimo) async {
+    // No usamos _setLoading(true) aquí para que la tabla no parpadee al guardar
+    try {
+      final response = await _api.put('/inventario/stock/$idProducto/minimo', {
+        'stock_minimo': nuevoMinimo,
+      });
+
+      final Map<String, dynamic> data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        // Recargamos las tablas silenciosamente para actualizar los colores y números
+        await cargarTablasWeb();
+        return true;
+      }
+
+      _setError(data['message'] ?? 'Error al actualizar el stock mínimo');
+      return false;
+    } catch (e) {
+      _setError('Error de conexión al actualizar stock: $e');
+      return false;
+    }
+  }
+
   // --- Utilidades internas ---
   void _setLoading(bool value) {
     _isLoading = value;

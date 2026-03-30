@@ -1,3 +1,5 @@
+import 'package:somnolence_app/features/auth/data/models/user_model.dart';
+
 import 'producto_model.dart';
 
 class InventarioEntradaModel {
@@ -8,9 +10,10 @@ class InventarioEntradaModel {
   final String serial;
   final String estadoSerial;
 
-  // Agregamos el objeto Producto opcional.
-  // Laravel nos lo enviará cuando llamemos a consultarSerial() gracias al "with('producto')"
   final ProductoModel? producto;
+  // 👇 NUEVOS CAMPOS AÑADIDOS 👇
+  final User? responsable;
+  final String? createdAt;
 
   InventarioEntradaModel({
     required this.idEntrada,
@@ -20,6 +23,8 @@ class InventarioEntradaModel {
     required this.serial,
     required this.estadoSerial,
     this.producto,
+    this.responsable,
+    this.createdAt,
   });
 
   factory InventarioEntradaModel.fromJson(Map<String, dynamic> json) {
@@ -33,6 +38,11 @@ class InventarioEntradaModel {
       producto: json['producto'] != null
           ? ProductoModel.fromJson(json['producto'])
           : null,
+      // 👇 ATRAPAMOS LOS DATOS DEL BACKEND 👇
+      responsable: json['responsable'] != null
+          ? User.fromJson(json['responsable'])
+          : null,
+      createdAt: json['created_at']?.toString(),
     );
   }
 }

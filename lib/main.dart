@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
-import 'package:flutter/foundation.dart'
-    show kIsWeb; // <--- AGREGADO PARA DETECTAR LA WEB
-import 'package:flutter_localizations/flutter_localizations.dart'; // <--- IMPORTACIÓN DE IDIOMAS
+import 'package:flutter/foundation.dart' show kIsWeb; //DETECTAR LA WEB
+import 'package:flutter_localizations/flutter_localizations.dart'; // IMPORTACIÓN DE IDIOMAS
 import 'package:somnolence_app/core/services/notification_service.dart';
 import 'package:somnolence_app/core/api/api_service.dart';
 import 'package:somnolence_app/features/admin/presentation/providers/admin_users_provider.dart';
@@ -18,7 +17,6 @@ import 'package:somnolence_app/features/rendiciones/presentation/providers/gasto
 import 'package:somnolence_app/features/rendiciones/presentation/providers/rendiciones_provider.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:somnolence_app/features/inventario/presentation/providers/inventario_provider.dart';
-// 👇 AGREGAMOS LA IMPORTACIÓN DEL NUEVO PROVEEDOR PROVIDER 👇
 import 'package:somnolence_app/features/inventario/presentation/providers/proveedor_provider.dart';
 
 void main() async {
@@ -44,12 +42,8 @@ void main() async {
         ChangeNotifierProvider(create: (_) => RendicionesProvider()),
         ChangeNotifierProvider(create: (_) => GastoProvider()),
         ChangeNotifierProvider(create: (_) => HojaTiempoProvider()),
-        ChangeNotifierProvider(
-          create: (_) => InventarioProvider(),
-        ), // Tu provider original de inventario
-        ChangeNotifierProvider(
-          create: (_) => ProveedorProvider(),
-        ), // <-- NUEVO: Provider de Proveedores
+        ChangeNotifierProvider(create: (_) => InventarioProvider()),
+        ChangeNotifierProvider(create: (_) => ProveedorProvider()),
       ],
       child: const MyApp(),
     ),
@@ -66,8 +60,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Intranet IAA',
-      navigatorKey: navigatorKey, // <--- Esto permite la navegación global
-      // 👇 CONFIGURACIÓN MUNDIAL DE IDIOMAS PARA FLUTTER 👇
+      navigatorKey: navigatorKey, //navegación global
+      // CONFIGURACIÓN MUNDIAL DE IDIOMAS PARA FLUTTER
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -77,8 +71,6 @@ class MyApp extends StatelessWidget {
         Locale('es', 'ES'), // Español
         Locale('en', 'US'), // Inglés (Fallback)
       ],
-
-      // 👆 FIN CONFIGURACIÓN DE IDIOMAS 👆
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFF35F34)),
         useMaterial3: true,

@@ -4,6 +4,10 @@ import 'package:intl/intl.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/core/widgets/logo_appbar.dart';
 import 'package:somnolence_app/features/inventario/presentation/providers/inventario_provider.dart';
+import 'package:calendar_date_picker2/calendar_date_picker2.dart';
+
+// 👇 IMPORTACIÓN DEL PAQUETE EXCEL 👇
+import 'package:excel/excel.dart' hide Border;
 
 class WebTablasScreen extends StatefulWidget {
   const WebTablasScreen({Key? key}) : super(key: key);
@@ -13,6 +17,37 @@ class WebTablasScreen extends StatefulWidget {
 }
 
 class _WebTablasScreenState extends State<WebTablasScreen> {
+  // --- VARIABLES FILTROS STOCK GLOBAL ---
+  String _busquedaMarca = '';
+  String _filtroEstado = 'Todos';
+  final List<String> _opcionesEstado = [
+    'Todos',
+    'Hay suficientes',
+    'Stock Mínimo',
+    'Solicitar Equipos',
+  ];
+
+  // --- VARIABLES FILTROS HISTORIAL ENTRADAS ---
+  String _busquedaOcEntrada = '';
+  String _filtroFechaEntrada = 'Todas';
+  DateTime? _fechaInicioEntrada;
+  DateTime? _fechaFinEntrada;
+
+  // --- VARIABLES FILTROS HISTORIAL SALIDAS ---
+  String _busquedaClienteSalida = '';
+  String _filtroFechaSalida = 'Todas';
+  DateTime? _fechaInicioSalida;
+  DateTime? _fechaFinSalida;
+
+  final List<String> _opcionesFecha = [
+    'Todas',
+    'Hoy',
+    'Esta Semana',
+    'Este Mes',
+    'Este Año',
+    'Tramo Personalizado',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -28,6 +63,396 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
       return DateFormat('dd/MM/yyyy HH:mm').format(fecha);
     } catch (e) {
       return fechaIso;
+    }
+  }
+
+  // ==========================================
+  // CALENDARIOS DE FILTROS
+  // ==========================================
+  Future<void> _seleccionarRangoFechasEntrada() async {
+    final List<DateTime?>? resultados = await showCalendarDatePicker2Dialog(
+      context: context,
+      config: CalendarDatePicker2WithActionButtonsConfig(
+        calendarType: CalendarDatePicker2Type.range,
+        firstDate: DateTime(2020),
+        lastDate: DateTime.now().add(const Duration(days: 365)),
+        selectedDayHighlightColor: AppColors.primary,
+        selectedRangeHighlightColor: AppColors.primary.withOpacity(0.15),
+        cancelButton: const Text(
+          'CANCELAR',
+          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+        ),
+        okButton: const Text(
+          'APLICAR',
+          style: TextStyle(
+            color: AppColors.primary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        controlsTextStyle: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
+        ),
+        weekdayLabelTextStyle: const TextStyle(
+          fontWeight: FontWeight.w600,
+          color: Colors.grey,
+        ),
+        dayTextStyle: const TextStyle(fontWeight: FontWeight.w500),
+      ),
+      dialogSize: const Size(400, 420),
+      value: _fechaInicioEntrada != null
+          ? [_fechaInicioEntrada, _fechaFinEntrada]
+          : [],
+      borderRadius: BorderRadius.circular(20),
+    );
+
+    if (resultados != null && resultados.isNotEmpty) {
+      setState(() {
+        _fechaInicioEntrada = resultados.first;
+        _fechaFinEntrada = resultados.length > 1 && resultados[1] != null
+            ? resultados[1]
+            : resultados.first;
+      });
+    } else if (_fechaInicioEntrada == null) {
+      setState(() {
+        _filtroFechaEntrada = 'Todas';
+      });
+    }
+  }
+
+  Future<void> _seleccionarRangoFechasSalida() async {
+    final List<DateTime?>? resultados = await showCalendarDatePicker2Dialog(
+      context: context,
+      config: CalendarDatePicker2WithActionButtonsConfig(
+        calendarType: CalendarDatePicker2Type.range,
+        firstDate: DateTime(2020),
+        lastDate: DateTime.now().add(const Duration(days: 365)),
+        selectedDayHighlightColor: AppColors.primary,
+        selectedRangeHighlightColor: AppColors.primary.withOpacity(0.15),
+        cancelButton: const Text(
+          'CANCELAR',
+          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+        ),
+        okButton: const Text(
+          'APLICAR',
+          style: TextStyle(
+            color: AppColors.primary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        controlsTextStyle: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
+        ),
+        weekdayLabelTextStyle: const TextStyle(
+          fontWeight: FontWeight.w600,
+          color: Colors.grey,
+        ),
+        dayTextStyle: const TextStyle(fontWeight: FontWeight.w500),
+      ),
+      dialogSize: const Size(400, 420),
+      value: _fechaInicioSalida != null
+          ? [_fechaInicioSalida, _fechaFinSalida]
+          : [],
+      borderRadius: BorderRadius.circular(20),
+    );
+
+    if (resultados != null && resultados.isNotEmpty) {
+      setState(() {
+        _fechaInicioSalida = resultados.first;
+        _fechaFinSalida = resultados.length > 1 && resultados[1] != null
+            ? resultados[1]
+            : resultados.first;
+      });
+    } else if (_fechaInicioSalida == null) {
+      setState(() {
+        _filtroFechaSalida = 'Todas';
+      });
+    }
+  }
+
+  // ==========================================
+  // EXTRACCIÓN DE LISTAS FILTRADAS (UI + EXCEL)
+  // ==========================================
+  List<dynamic> _obtenerStockFiltrado(InventarioProvider provider) {
+    return provider.listaStock.where((item) {
+      final prod = item.producto;
+      final marca = (prod?.marca ?? '').toLowerCase();
+
+      if (_busquedaMarca.isNotEmpty &&
+          !marca.contains(_busquedaMarca.toLowerCase()))
+        return false;
+
+      String estadoItem = item.stockActual > item.stockMinimo
+          ? 'Hay suficientes'
+          : (item.stockActual == item.stockMinimo
+                ? 'Stock Mínimo'
+                : 'Solicitar Equipos');
+
+      if (_filtroEstado != 'Todos' && estadoItem != _filtroEstado) return false;
+      return true;
+    }).toList();
+  }
+
+  List<dynamic> _obtenerEntradasFiltradas(InventarioProvider provider) {
+    return provider.listaEntradas.where((ent) {
+      final oc = (ent.ocProveedor ?? '').toLowerCase();
+      if (_busquedaOcEntrada.isNotEmpty &&
+          !oc.contains(_busquedaOcEntrada.toLowerCase()))
+        return false;
+
+      if (_filtroFechaEntrada != 'Todas' && ent.createdAt != null) {
+        try {
+          final fechaEntrada = DateTime.parse(ent.createdAt!).toLocal();
+          final ahora = DateTime.now();
+
+          if (_filtroFechaEntrada == 'Hoy') {
+            if (fechaEntrada.year != ahora.year ||
+                fechaEntrada.month != ahora.month ||
+                fechaEntrada.day != ahora.day)
+              return false;
+          } else if (_filtroFechaEntrada == 'Esta Semana') {
+            if (fechaEntrada.isBefore(ahora.subtract(const Duration(days: 7))))
+              return false;
+          } else if (_filtroFechaEntrada == 'Este Mes') {
+            if (fechaEntrada.year != ahora.year ||
+                fechaEntrada.month != ahora.month)
+              return false;
+          } else if (_filtroFechaEntrada == 'Este Año') {
+            if (fechaEntrada.year != ahora.year) return false;
+          } else if (_filtroFechaEntrada == 'Tramo Personalizado' &&
+              _fechaInicioEntrada != null &&
+              _fechaFinEntrada != null) {
+            final inicio = DateTime(
+              _fechaInicioEntrada!.year,
+              _fechaInicioEntrada!.month,
+              _fechaInicioEntrada!.day,
+            );
+            final fin = DateTime(
+              _fechaFinEntrada!.year,
+              _fechaFinEntrada!.month,
+              _fechaFinEntrada!.day,
+              23,
+              59,
+              59,
+            );
+            if (fechaEntrada.isBefore(inicio) || fechaEntrada.isAfter(fin))
+              return false;
+          }
+        } catch (e) {
+          return false;
+        }
+      }
+      return true;
+    }).toList();
+  }
+
+  List<dynamic> _obtenerSalidasFiltradas(InventarioProvider provider) {
+    return provider.listaSalidas.where((sal) {
+      final clienteNombre =
+          (sal.cliente?.nombreCliente ?? 'Cliente #${sal.idCliente}')
+              .toLowerCase();
+      if (_busquedaClienteSalida.isNotEmpty &&
+          !clienteNombre.contains(_busquedaClienteSalida.toLowerCase()))
+        return false;
+
+      if (_filtroFechaSalida != 'Todas' && sal.createdAt != null) {
+        try {
+          final fechaSalida = DateTime.parse(sal.createdAt!).toLocal();
+          final ahora = DateTime.now();
+
+          if (_filtroFechaSalida == 'Hoy') {
+            if (fechaSalida.year != ahora.year ||
+                fechaSalida.month != ahora.month ||
+                fechaSalida.day != ahora.day)
+              return false;
+          } else if (_filtroFechaSalida == 'Esta Semana') {
+            if (fechaSalida.isBefore(ahora.subtract(const Duration(days: 7))))
+              return false;
+          } else if (_filtroFechaSalida == 'Este Mes') {
+            if (fechaSalida.year != ahora.year ||
+                fechaSalida.month != ahora.month)
+              return false;
+          } else if (_filtroFechaSalida == 'Este Año') {
+            if (fechaSalida.year != ahora.year) return false;
+          } else if (_filtroFechaSalida == 'Tramo Personalizado' &&
+              _fechaInicioSalida != null &&
+              _fechaFinSalida != null) {
+            final inicio = DateTime(
+              _fechaInicioSalida!.year,
+              _fechaInicioSalida!.month,
+              _fechaInicioSalida!.day,
+            );
+            final fin = DateTime(
+              _fechaFinSalida!.year,
+              _fechaFinSalida!.month,
+              _fechaFinSalida!.day,
+              23,
+              59,
+              59,
+            );
+            if (fechaSalida.isBefore(inicio) || fechaSalida.isAfter(fin))
+              return false;
+          }
+        } catch (e) {
+          return false;
+        }
+      }
+      return true;
+    }).toList();
+  }
+
+  // ==========================================
+  // GENERACIÓN DEL ARCHIVO EXCEL
+  // ==========================================
+  void _confirmarYGenerarExcel(int tabIndex, InventarioProvider provider) {
+    String nombreTabla = tabIndex == 0
+        ? 'Stock Global'
+        : (tabIndex == 1 ? 'Entradas' : 'Salidas');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.table_view, color: Colors.green),
+            const SizedBox(width: 10),
+            const Text('Exportar a Excel'),
+          ],
+        ),
+        content: Text(
+          '¿Deseas descargar un archivo Excel con la información actual de la pestaña "$nombreTabla"? (Se respetarán los filtros aplicados).',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('CANCELAR', style: TextStyle(color: Colors.red)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green.shade700,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _generarExcel(tabIndex, provider, nombreTabla);
+            },
+            child: const Text('DESCARGAR'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _generarExcel(
+    int tabIndex,
+    InventarioProvider provider,
+    String nombreTabla,
+  ) async {
+    try {
+      var excel = Excel.createExcel();
+      Sheet sheet = excel[excel.getDefaultSheet() ?? 'Sheet1'];
+
+      if (tabIndex == 0) {
+        // --- COLUMNAS STOCK GLOBAL ---
+        sheet.appendRow([
+          TextCellValue('Código'),
+          TextCellValue('Nombre del Equipo'),
+          TextCellValue('Marca'),
+          TextCellValue('Total Entradas'),
+          TextCellValue('Total Salidas'),
+          TextCellValue('Stock Mínimo'),
+          TextCellValue('Stock Actual'),
+          TextCellValue('Estado de Stock'),
+        ]);
+
+        for (var item in _obtenerStockFiltrado(provider)) {
+          String estado = item.stockActual > item.stockMinimo
+              ? 'Hay suficientes'
+              : (item.stockActual == item.stockMinimo
+                    ? 'Stock Mínimo'
+                    : 'Solicitar Equipos');
+
+          sheet.appendRow([
+            TextCellValue(item.producto?.codigoProducto ?? 'N/A'),
+            TextCellValue(item.producto?.nombreProducto ?? 'N/A'),
+            TextCellValue(item.producto?.marca ?? 'N/A'),
+            IntCellValue(item.totalEntradas),
+            IntCellValue(item.totalSalidas),
+            IntCellValue(item.stockMinimo),
+            IntCellValue(item.stockActual),
+            TextCellValue(estado),
+          ]);
+        }
+      } else if (tabIndex == 1) {
+        // --- COLUMNAS ENTRADAS ---
+        sheet.appendRow([
+          TextCellValue('OC Proveedor'),
+          TextCellValue('Fecha (hora)'),
+          TextCellValue('Serial'),
+          TextCellValue('Código Producto'),
+          TextCellValue('Nombre del Equipo'),
+          TextCellValue('Responsable'),
+        ]);
+
+        for (var ent in _obtenerEntradasFiltradas(provider)) {
+          sheet.appendRow([
+            TextCellValue(ent.ocProveedor ?? 'S/I'),
+            TextCellValue(_formatearFechaHora(ent.createdAt)),
+            TextCellValue(ent.serial),
+            TextCellValue(ent.producto?.codigoProducto ?? 'N/A'),
+            TextCellValue(ent.producto?.nombreProducto ?? 'N/A'),
+            TextCellValue(
+              ent.responsable?.nombreCompleto ?? 'Resp. #${ent.idResponsable}',
+            ),
+          ]);
+        }
+      } else if (tabIndex == 2) {
+        // --- COLUMNAS SALIDAS ---
+        sheet.appendRow([
+          TextCellValue('OC Cliente'),
+          TextCellValue('Cliente Destino'),
+          TextCellValue('Fecha (hora)'),
+          TextCellValue('Serial'),
+          TextCellValue('Código Producto'),
+          TextCellValue('Nombre del Equipo'),
+          TextCellValue('Responsable'),
+        ]);
+
+        for (var sal in _obtenerSalidasFiltradas(provider)) {
+          sheet.appendRow([
+            TextCellValue(sal.ocCliente ?? 'S/I'),
+            TextCellValue(
+              sal.cliente?.nombreCliente ?? 'Cliente #${sal.idCliente}',
+            ),
+            TextCellValue(_formatearFechaHora(sal.createdAt)),
+            TextCellValue(sal.serial),
+            TextCellValue(sal.producto?.codigoProducto ?? 'N/A'),
+            TextCellValue(sal.producto?.nombreProducto ?? 'N/A'),
+            TextCellValue(
+              sal.responsable?.nombreCompleto ?? 'Resp. #${sal.idResponsable}',
+            ),
+          ]);
+        }
+      }
+
+      // Descarga directa a través del navegador web
+      excel.save(fileName: "Reporte_$nombreTabla.xlsx");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Archivo Excel generado con éxito'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Error al generar Excel: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -75,6 +500,31 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
             ],
           ),
         ),
+
+        // 👇 BOTÓN FLOTANTE PARA EXPORTAR EXCEL 👇
+        floatingActionButton: Builder(
+          builder: (contextScaffold) {
+            return FloatingActionButton.extended(
+              onPressed: () {
+                // Detecta automáticamente la pestaña actual
+                final currentTab = DefaultTabController.of(
+                  contextScaffold,
+                ).index;
+                _confirmarYGenerarExcel(currentTab, provider);
+              },
+              backgroundColor: Colors.green.shade700,
+              icon: const Icon(Icons.table_view, color: Colors.white),
+              label: const Text(
+                'Exportar Excel',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            );
+          },
+        ),
+
         body: provider.isLoading
             ? const Center(
                 child: CircularProgressIndicator(color: AppColors.primary),
@@ -94,131 +544,281 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
   // TABLA 1: STOCK GLOBAL
   // ==========================================
   Widget _buildTablaStock(InventarioProvider provider) {
-    if (provider.listaStock.isEmpty) {
+    final listaFiltrada = _obtenerStockFiltrado(provider);
+
+    if (provider.listaStock.isEmpty &&
+        _busquedaMarca.isEmpty &&
+        _filtroEstado == 'Todos') {
       return _buildEmptyState('No hay productos en stock.');
     }
-    return _buildContainerTabla(
-      child: DataTable(
-        headingRowColor: WidgetStateProperty.all(
-          AppColors.primary.withOpacity(0.15),
-        ),
-        dataRowMaxHeight: 65,
-        columns: const [
-          DataColumn(
-            label: Text(
-              'Código',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          DataColumn(
-            label: Text(
-              'Nombre del Equipo',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          DataColumn(
-            label: Text('Marca', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-          DataColumn(
-            label: Text(
-              'Total Entradas',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          DataColumn(
-            label: Text(
-              'Total Salidas',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          DataColumn(
-            label: Text(
-              'Stock Mínimo',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          DataColumn(
-            label: Text(
-              'Stock Actual',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-        rows: provider.listaStock.map((item) {
-          final prod = item.producto;
-          final colorStock = item.stockActual <= item.stockMinimo
-              ? Colors.red
-              : AppColors.primary;
 
-          return DataRow(
-            cells: [
-              DataCell(
-                Text(
-                  prod?.codigoProducto ?? 'N/A',
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-              ),
-              DataCell(Text(prod?.nombreProducto ?? 'N/A')),
-              DataCell(Text(prod?.marca ?? 'N/A')),
-              DataCell(Text(item.totalEntradas.toString())),
-              DataCell(Text(item.totalSalidas.toString())),
-              DataCell(
-                SizedBox(
-                  width: 80,
-                  child: TextFormField(
-                    initialValue: item.stockMinimo.toString(),
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
-                      border: OutlineInputBorder(),
-                      filled: true,
-                      fillColor: Colors.white,
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  decoration: InputDecoration(
+                    labelText: 'Buscar por Marca',
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: AppColors.primary,
                     ),
-                    onFieldSubmitted: (value) async {
-                      int? nuevoValor = int.tryParse(value);
-                      if (nuevoValor != null &&
-                          nuevoValor != item.stockMinimo) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Guardando nuevo stock mínimo: $nuevoValor...',
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                ),
-              ),
-              DataCell(
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorStock.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colorStock.withOpacity(0.5)),
-                  ),
-                  child: Text(
-                    item.stockActual.toString(),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: colorStock,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
                     ),
                   ),
+                  onChanged: (value) => setState(() => _busquedaMarca = value),
+                ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                flex: 1,
+                child: DropdownButtonFormField<String>(
+                  value: _filtroEstado,
+                  decoration: InputDecoration(
+                    labelText: 'Filtrar por Estado',
+                    prefixIcon: const Icon(
+                      Icons.filter_list,
+                      color: AppColors.primary,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  items: _opcionesEstado
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) setState(() => _filtroEstado = val);
+                  },
                 ),
               ),
             ],
-          );
-        }).toList(),
-      ),
+          ),
+        ),
+        Expanded(
+          child: listaFiltrada.isEmpty
+              ? _buildEmptyState(
+                  'No hay productos que coincidan con los filtros.',
+                )
+              : _buildContainerTabla(
+                  child: DataTable(
+                    headingRowColor: WidgetStateProperty.all(
+                      AppColors.primary.withOpacity(0.15),
+                    ),
+                    dataRowMaxHeight: 65,
+                    columns: const [
+                      DataColumn(
+                        label: Text(
+                          'Código',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Nombre del Equipo',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Marca',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Total Entradas',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Total Salidas',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Stock Mínimo',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Stock Actual',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Estado de Stock',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                    rows: listaFiltrada.map((item) {
+                      final prod = item.producto;
+                      String textoEstado;
+                      Color colorFondoEstado;
+
+                      if (item.stockActual > item.stockMinimo) {
+                        textoEstado = 'Hay suficientes';
+                        colorFondoEstado = Colors.green;
+                      } else if (item.stockActual == item.stockMinimo) {
+                        textoEstado = 'Stock Mínimo';
+                        colorFondoEstado = Colors.orange.shade700;
+                      } else {
+                        textoEstado = 'Solicitar Equipos';
+                        colorFondoEstado = Colors.red;
+                      }
+
+                      final colorNumeroStock =
+                          item.stockActual < item.stockMinimo
+                          ? Colors.red
+                          : AppColors.primary;
+
+                      return DataRow(
+                        cells: [
+                          DataCell(
+                            Text(
+                              prod?.codigoProducto ?? 'N/A',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          DataCell(Text(prod?.nombreProducto ?? 'N/A')),
+                          DataCell(Text(prod?.marca ?? 'N/A')),
+                          DataCell(Text(item.totalEntradas.toString())),
+                          DataCell(Text(item.totalSalidas.toString())),
+                          DataCell(
+                            SizedBox(
+                              width: 80,
+                              child: TextFormField(
+                                initialValue: item.stockMinimo.toString(),
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
+                                  border: OutlineInputBorder(),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                ),
+                                onFieldSubmitted: (value) async {
+                                  int? nuevoValor = int.tryParse(value);
+                                  if (nuevoValor != null &&
+                                      nuevoValor != item.stockMinimo) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Guardando nuevo stock mínimo: $nuevoValor...',
+                                        ),
+                                        duration: const Duration(seconds: 1),
+                                      ),
+                                    );
+                                    bool exito = await provider
+                                        .actualizarStockMinimo(
+                                          item.idProducto,
+                                          nuevoValor,
+                                        );
+                                    if (exito && mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            '✅ Stock mínimo actualizado',
+                                          ),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                    } else if (mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            provider.errorMessage ??
+                                                'Error al guardar',
+                                          ),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                          DataCell(
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorNumeroStock.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: colorNumeroStock.withOpacity(0.5),
+                                ),
+                              ),
+                              child: Text(
+                                item.stockActual.toString(),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: colorNumeroStock,
+                                ),
+                              ),
+                            ),
+                          ),
+                          DataCell(
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorFondoEstado,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                textoEstado,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+        ),
+      ],
     );
   }
 
@@ -226,74 +826,191 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
   // TABLA 2: HISTORIAL DE ENTRADAS
   // ==========================================
   Widget _buildTablaEntradas(InventarioProvider provider) {
-    if (provider.listaEntradas.isEmpty) {
+    final listaFiltrada = _obtenerEntradasFiltradas(provider);
+
+    if (provider.listaEntradas.isEmpty &&
+        _busquedaOcEntrada.isEmpty &&
+        _filtroFechaEntrada == 'Todas') {
       return _buildEmptyState('No hay registro de entradas.');
     }
-    return _buildContainerTabla(
-      child: DataTable(
-        headingRowColor: WidgetStateProperty.all(
-          AppColors.primary.withOpacity(0.1),
-        ),
-        columns: const [
-          DataColumn(
-            label: Text('OC', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-          DataColumn(
-            label: Text(
-              'Fecha (hora)',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          DataColumn(
-            label: Text(
-              'Serial',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          DataColumn(
-            label: Text(
-              'Código',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          DataColumn(
-            label: Text(
-              'Nombre del Equipo',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          DataColumn(
-            label: Text(
-              'Responsable',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-        rows: provider.listaEntradas.map((ent) {
-          final String oc = ent.ocProveedor ?? 'S/I';
-          final String fecha = 'S/I';
-          final String serial = ent.serial;
-          final String codigo = ent.producto?.codigoProducto ?? 'N/A';
-          final String equipo = ent.producto?.nombreProducto ?? 'N/A';
-          final String responsable = 'Resp. #${ent.idResponsable}';
 
-          return DataRow(
-            cells: [
-              DataCell(Text(oc)),
-              DataCell(Text(fecha)),
-              DataCell(
-                Text(
-                  serial,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  decoration: InputDecoration(
+                    labelText: 'Buscar por Orden de Compra (OC)',
+                    prefixIcon: const Icon(
+                      Icons.receipt_long,
+                      color: AppColors.primary,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  onChanged: (value) =>
+                      setState(() => _busquedaOcEntrada = value),
                 ),
               ),
-              DataCell(Text(codigo)),
-              DataCell(Text(equipo)),
-              DataCell(Text(responsable)),
+              const SizedBox(width: 20),
+              Expanded(
+                flex: 2,
+                child: DropdownButtonFormField<String>(
+                  value: _filtroFechaEntrada,
+                  decoration: InputDecoration(
+                    labelText: 'Filtrar por Fecha',
+                    prefixIcon: const Icon(
+                      Icons.calendar_today,
+                      color: AppColors.primary,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  items: _opcionesFecha
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (val) async {
+                    if (val != null) {
+                      if (val == 'Tramo Personalizado') {
+                        setState(() => _filtroFechaEntrada = val);
+                        await _seleccionarRangoFechasEntrada();
+                      } else {
+                        setState(() {
+                          _filtroFechaEntrada = val;
+                          _fechaInicioEntrada = null;
+                          _fechaFinEntrada = null;
+                        });
+                      }
+                    }
+                  },
+                ),
+              ),
+              if (_filtroFechaEntrada == 'Tramo Personalizado' &&
+                  _fechaInicioEntrada != null &&
+                  _fechaFinEntrada != null) ...[
+                const SizedBox(width: 15),
+                ActionChip(
+                  elevation: 2,
+                  backgroundColor: AppColors.primary.withOpacity(0.1),
+                  side: const BorderSide(color: AppColors.primary),
+                  avatar: const Icon(
+                    Icons.edit_calendar,
+                    color: AppColors.primary,
+                    size: 18,
+                  ),
+                  label: Text(
+                    '${DateFormat('dd/MM/yyyy').format(_fechaInicioEntrada!)} - ${DateFormat('dd/MM/yyyy').format(_fechaFinEntrada!)}',
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onPressed: _seleccionarRangoFechasEntrada,
+                ),
+              ],
             ],
-          );
-        }).toList(),
-      ),
+          ),
+        ),
+        Expanded(
+          child: listaFiltrada.isEmpty
+              ? _buildEmptyState(
+                  'No se encontraron entradas con estos filtros.',
+                )
+              : _buildContainerTabla(
+                  child: DataTable(
+                    headingRowColor: WidgetStateProperty.all(
+                      AppColors.primary.withOpacity(0.1),
+                    ),
+                    columns: const [
+                      DataColumn(
+                        label: Text(
+                          'OC',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Fecha (hora)',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Serial',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Código',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Nombre del Equipo',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Responsable',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                    rows: listaFiltrada.map((ent) {
+                      final String oc = ent.ocProveedor ?? 'S/I';
+                      final String fecha = _formatearFechaHora(ent.createdAt);
+                      final String serial = ent.serial;
+                      final String codigo =
+                          ent.producto?.codigoProducto ?? 'N/A';
+                      final String equipo =
+                          ent.producto?.nombreProducto ?? 'N/A';
+                      final String responsable =
+                          ent.responsable?.nombreCompleto ??
+                          'Resp. #${ent.idResponsable}';
+
+                      return DataRow(
+                        cells: [
+                          DataCell(Text(oc)),
+                          DataCell(Text(fecha)),
+                          DataCell(
+                            Text(
+                              serial,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          DataCell(Text(codigo)),
+                          DataCell(Text(equipo)),
+                          DataCell(Text(responsable)),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+        ),
+      ],
     );
   }
 
@@ -301,90 +1018,205 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
   // TABLA 3: HISTORIAL DE SALIDAS
   // ==========================================
   Widget _buildTablaSalidas(InventarioProvider provider) {
-    if (provider.listaSalidas.isEmpty) {
+    final listaFiltrada = _obtenerSalidasFiltradas(provider);
+
+    if (provider.listaSalidas.isEmpty &&
+        _busquedaClienteSalida.isEmpty &&
+        _filtroFechaSalida == 'Todas') {
       return _buildEmptyState('No hay registro de salidas.');
     }
-    return _buildContainerTabla(
-      child: DataTable(
-        headingRowColor: WidgetStateProperty.all(
-          AppColors.primary.withOpacity(0.1),
-        ),
-        columns: const [
-          DataColumn(
-            label: Text('OC', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-          DataColumn(
-            label: Text(
-              'Cliente',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          DataColumn(
-            label: Text(
-              'Fecha (hora)',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          DataColumn(
-            label: Text(
-              'Serial',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          DataColumn(
-            label: Text(
-              'Código',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          DataColumn(
-            label: Text(
-              'Nombre del Equipo',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          DataColumn(
-            label: Text(
-              'Responsable',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-        rows: provider.listaSalidas.map((sal) {
-          final String oc = sal.ocCliente ?? 'S/I';
-          final String cliente = 'Cliente #${sal.idCliente}';
-          final String fecha = 'S/I';
-          final String serial = sal.serial;
-          final String codigo = 'N/A';
-          final String equipo = 'N/A';
-          final String responsable = 'Resp. #${sal.idResponsable}';
 
-          return DataRow(
-            cells: [
-              DataCell(Text(oc)),
-              DataCell(Text(cliente)),
-              DataCell(Text(fecha)),
-              DataCell(
-                Text(
-                  serial,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  decoration: InputDecoration(
+                    labelText: 'Buscar por Nombre de Cliente',
+                    prefixIcon: const Icon(
+                      Icons.business,
+                      color: AppColors.primary,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  onChanged: (value) =>
+                      setState(() => _busquedaClienteSalida = value),
                 ),
               ),
-              DataCell(Text(codigo)),
-              DataCell(Text(equipo)),
-              DataCell(Text(responsable)),
+              const SizedBox(width: 20),
+              Expanded(
+                flex: 2,
+                child: DropdownButtonFormField<String>(
+                  value: _filtroFechaSalida,
+                  decoration: InputDecoration(
+                    labelText: 'Filtrar por Fecha',
+                    prefixIcon: const Icon(
+                      Icons.calendar_today,
+                      color: AppColors.primary,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  items: _opcionesFecha
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (val) async {
+                    if (val != null) {
+                      if (val == 'Tramo Personalizado') {
+                        setState(() => _filtroFechaSalida = val);
+                        await _seleccionarRangoFechasSalida();
+                      } else {
+                        setState(() {
+                          _filtroFechaSalida = val;
+                          _fechaInicioSalida = null;
+                          _fechaFinSalida = null;
+                        });
+                      }
+                    }
+                  },
+                ),
+              ),
+              if (_filtroFechaSalida == 'Tramo Personalizado' &&
+                  _fechaInicioSalida != null &&
+                  _fechaFinSalida != null) ...[
+                const SizedBox(width: 15),
+                ActionChip(
+                  elevation: 2,
+                  backgroundColor: AppColors.primary.withOpacity(0.1),
+                  side: const BorderSide(color: AppColors.primary),
+                  avatar: const Icon(
+                    Icons.edit_calendar,
+                    color: AppColors.primary,
+                    size: 18,
+                  ),
+                  label: Text(
+                    '${DateFormat('dd/MM/yyyy').format(_fechaInicioSalida!)} - ${DateFormat('dd/MM/yyyy').format(_fechaFinSalida!)}',
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onPressed: _seleccionarRangoFechasSalida,
+                ),
+              ],
             ],
-          );
-        }).toList(),
-      ),
+          ),
+        ),
+        Expanded(
+          child: listaFiltrada.isEmpty
+              ? _buildEmptyState('No se encontraron salidas con estos filtros.')
+              : _buildContainerTabla(
+                  child: DataTable(
+                    headingRowColor: WidgetStateProperty.all(
+                      AppColors.primary.withOpacity(0.1),
+                    ),
+                    columns: const [
+                      DataColumn(
+                        label: Text(
+                          'OC',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Cliente',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Fecha (hora)',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Serial',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Código',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Nombre del Equipo',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Responsable',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                    rows: listaFiltrada.map((sal) {
+                      final String oc = sal.ocCliente ?? 'S/I';
+                      final String cliente =
+                          sal.cliente?.nombreCliente ??
+                          'Cliente #${sal.idCliente}';
+                      final String fecha = _formatearFechaHora(sal.createdAt);
+                      final String serial = sal.serial;
+                      final String codigo =
+                          sal.producto?.codigoProducto ?? 'N/A';
+                      final String equipo =
+                          sal.producto?.nombreProducto ?? 'N/A';
+                      final String responsable =
+                          sal.responsable?.nombreCompleto ??
+                          'Resp. #${sal.idResponsable}';
+
+                      return DataRow(
+                        cells: [
+                          DataCell(Text(oc)),
+                          DataCell(Text(cliente)),
+                          DataCell(Text(fecha)),
+                          DataCell(
+                            Text(
+                              serial,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          DataCell(Text(codigo)),
+                          DataCell(Text(equipo)),
+                          DataCell(Text(responsable)),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+        ),
+      ],
     );
   }
 
   // ==========================================
   // WIDGETS REUTILIZABLES DE DISEÑO
   // ==========================================
-
-  // 👇 AQUÍ ESTÁ LA MAGIA QUE HACE QUE LA TABLA OCUPE EL 100% 👇
   Widget _buildContainerTabla({required Widget child}) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -404,7 +1236,6 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
             ),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              // ConstrainedBox fuerza a la tabla a tomar TODO el ancho disponible (menos el padding)
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   minWidth: constraints.maxWidth > 40
