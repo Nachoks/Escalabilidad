@@ -188,10 +188,9 @@ return [
         [
             'name' => env('APP_NAME', 'laravel-backup'),
             'disks' => ['backups'], // CAMBIO IMPORTANTE: Monitoreamos el disco correcto
-            'health_checks' => [
-                \Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumAgeInDays::class => 35, // Ajustado a 35 días por ser mensual
-                \Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumStorageInMegabytes::class => 5000,
-            ],
+            'health_checks' => [ \Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumAgeInDays::class => 60, // Ajustado a 60 días 
+             \Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumStorageInMegabytes::class => 5000, ],
+
         ],
     ],
 
@@ -207,11 +206,11 @@ return [
              * CAMBIO IMPORTANTE: ESTRATEGIA DE 12 MESES
              * Todo en 0 excepto keep_monthly_backups_for_months
              */
-            'keep_all_backups_for_days' => 0,
-            'keep_daily_backups_for_days' => 0,
+            'keep_all_backups_for_days' => 7,
+            'keep_daily_backups_for_days' => 60,
             'keep_weekly_backups_for_weeks' => 0,
 
-            'keep_monthly_backups_for_months' => 12, // Guardar 12 meses
+            'keep_monthly_backups_for_months' => 0, // Guardar 12 meses
 
             'keep_yearly_backups_for_years' => 0,
 

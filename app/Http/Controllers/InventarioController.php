@@ -1,6 +1,8 @@
 <?php
 
+
 namespace App\Http\Controllers;
+
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -9,6 +11,7 @@ use App\Models\Producto;
 use App\Models\InventarioProducto;
 use App\Models\InventarioEntrada;
 use App\Models\InventarioSalida;
+
 
 class InventarioController extends Controller
 {
@@ -24,11 +27,14 @@ class InventarioController extends Controller
             'oc_proveedor'    => 'nullable|string|max:50',
         ]);
 
+
         try {
             DB::beginTransaction(); // Iniciamos la transacción segura
 
+
             // 2. Buscamos el ID real del producto usando el código escaneado
             $producto = Producto::where('codigo_producto', $request->codigo_producto)->first();
+
 
             // 3. Crear el registro individual de entrada
             $entrada = InventarioEntrada::create([
@@ -39,6 +45,7 @@ class InventarioController extends Controller
                 'estado_serial'  => 'Disponible',
             ]);
 
+
             // 4. Actualizar el Stock Global (Tabla inventario_productos)
             // Usamos firstOrCreate por si es la primera vez que ingresa este producto
             $stockGlobal = InventarioProducto::firstOrCreate(
@@ -46,10 +53,13 @@ class InventarioController extends Controller
                 ['stock_actual' => 0, 'stock_minimo' => 0]
             );
 
+
             // Le sumamos 1 al stock actual
             $stockGlobal->increment('stock_actual', 1);
 
+
             DB::commit(); // Guardamos los cambios definitivamente
+
 
             return response()->json([
                 'success' => true,
@@ -57,14 +67,16 @@ class InventarioController extends Controller
                 'data'    => $entrada
             ], 201);
 
+
         } catch (\Exception $e) {
             DB::rollBack(); // Si algo falla, deshacemos todo para evitar descuadres
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'message' => 'Error al registrar entrada: ' . $e->getMessage()
             ], 500);
         }
     }
+
 
     /**
      * 2. REGISTRAR SALIDA (El equipo se entrega/vende al cliente)
@@ -78,25 +90,30 @@ class InventarioController extends Controller
             'oc_cliente' => 'nullable|string|max:50',
         ]);
 
+
         try {
             DB::beginTransaction();
+
 
             // 2. Buscar si el serial escaneado existe y si realmente está "Disponible" en bodega
             $entradaOriginal = InventarioEntrada::where('serial', $request->serial)->first();
 
+
             if (!$entradaOriginal) {
                 return response()->json([
-                    'success' => false, 
+                    'success' => false,
                     'message' => 'El número de serie no existe en el sistema.'
                 ], 404);
             }
 
+
             if ($entradaOriginal->estado_serial !== 'Disponible') {
                 return response()->json([
-                    'success' => false, 
+                    'success' => false,
                     'message' => 'Este equipo ya fue entregado o se encuentra defectuoso.'
                 ], 400);
             }
+
 
             // 3. Crear el registro de Salida
             $salida = InventarioSalida::create([
@@ -108,8 +125,10 @@ class InventarioController extends Controller
                 'serial'         => $request->serial, // Lo guardamos como respaldo
             ]);
 
+
             // 4. Cambiar el estado de la Entrada original a 'Entregado'
             $entradaOriginal->update(['estado_serial' => 'Entregado']);
+
 
             // 5. Restar 1 al Stock Global
             $stockGlobal = InventarioProducto::where('id_producto', $entradaOriginal->id_producto)->first();
@@ -117,7 +136,9 @@ class InventarioController extends Controller
                 $stockGlobal->decrement('stock_actual', 1);
             }
 
+
             DB::commit();
+
 
             return response()->json([
                 'success' => true,
@@ -125,14 +146,16 @@ class InventarioController extends Controller
                 'data'    => $salida
             ], 201);
 
+
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'message' => 'Error al registrar salida: ' . $e->getMessage()
             ], 500);
         }
     }
+
 
     /**
      * 3. CONSULTAR INFORMACIÓN DE UN SERIAL
@@ -143,12 +166,14 @@ class InventarioController extends Controller
         // Traemos la entrada con la información de su producto asociado
         $equipo = InventarioEntrada::with('producto')->where('serial', $serial)->first();
 
+
         if (!$equipo) {
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'message' => 'Serial no encontrado.'
             ], 404);
         }
+
 
         return response()->json([
             'success' => true,
@@ -156,42 +181,69 @@ class InventarioController extends Controller
         ], 200);
     }
 
+
     /**
      * OBTENER STOCK GLOBAL (Para la Web)
      */
     public function obtenerStock()
     {
         $stock = InventarioProducto::with('producto')->get();
-        
+       
         // Calculamos los totales históricos al vuelo
         foreach ($stock as $item) {
             $item->total_entradas = InventarioEntrada::where('id_producto', $item->id_producto)->count();
             $item->total_salidas = InventarioSalida::where('id_producto', $item->id_producto)->count();
         }
 
+
         return response()->json(['success' => true, 'data' => $stock], 200);
     }
+
 
     /**
      * OBTENER HISTORIAL DE ENTRADAS (Para la Web)
      */
     public function obtenerEntradas()
     {
-        // Traemos las entradas ordenadas de la más nueva a la más vieja, junto con el nombre del producto
+        // Traemos las entradas ordenadas de la más nueva a la más vieja, junto con el nombre del producto y responsable
         $entradas = InventarioEntrada::with(['producto', 'responsable'])->orderBy('created_at', 'desc')->get();
         return response()->json(['success' => true, 'data' => $entradas], 200);
     }
+
 
     /**
      * OBTENER HISTORIAL DE SALIDAS (Para la Web)
      */
     public function obtenerSalidas()
     {
-        // Traemos las salidas con su producto asociado
-        $salidas = InventarioSalida::with(['producto', 'responsable'])->orderBy('created_at', 'desc')->get();
+        // 👇 SOLUCIÓN: Agregamos 'cliente' dentro de los corchetes del with() 👇
+        $salidas = InventarioSalida::with(['producto', 'responsable', 'cliente'])->orderBy('created_at', 'desc')->get();
         return response()->json(['success' => true, 'data' => $salidas], 200);
     }
 
-    
+    public function actualizarStockMinimo(Request $request, $idProducto)
+    {
+        $request->validate([
+            'stock_minimo' => 'required|integer|min:0'
+        ]);
+
+        try {
+            $stock = InventarioProducto::where('id_producto', $idProducto)->first();
+            
+            if (!$stock) {
+                return response()->json(['success' => false, 'message' => 'Producto no encontrado en stock'], 404);
+            }
+
+            $stock->update(['stock_minimo' => $request->stock_minimo]);
+
+            return response()->json(['success' => true, 'message' => 'Stock mínimo actualizado']);
+            
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+        }
+    }
+
+
 }
+
 

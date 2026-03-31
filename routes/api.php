@@ -183,6 +183,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/stock', [InventarioController::class, 'obtenerStock']);
         Route::get('/entradas', [InventarioController::class, 'obtenerEntradas']);
         Route::get('/salidas', [InventarioController::class, 'obtenerSalidas']);
+        Route::put('/stock/{id}/minimo', [InventarioController::class, 'actualizarStockMinimo']);
+
     });
 
     // --- CATÁLOGO DE PRODUCTOS ---

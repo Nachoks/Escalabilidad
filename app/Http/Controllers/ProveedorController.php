@@ -28,6 +28,7 @@ class ProveedorController extends Controller
     {
         $request->validate([
             'nombre_proveedor' => 'required|string|max:100',
+            'nombre_contacto'  => 'nullable|string|max:100',
             'numero_contacto'  => 'nullable|string|max:50',
             'correo_contacto'  => 'nullable|email|max:100',
         ]);
@@ -75,6 +76,7 @@ class ProveedorController extends Controller
 
         $request->validate([
             'nombre_proveedor' => 'required|string|max:100',
+            'nombre_contacto'  => 'nullable|string|max:100',
             'numero_contacto'  => 'nullable|string|max:50',
             'correo_contacto'  => 'nullable|email|max:100',
         ]);

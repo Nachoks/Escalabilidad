@@ -42,6 +42,11 @@ class DatabaseSeeder extends Seeder
             RendicionTableSeeder::class,
             GastoTableSeeder::class,
             GastoArchivoTableSeeder::class,
+
+            //Hojas de tiempo
+            HojasTiempoSemanasTableSeeder::class,
+            HojasTiempoActividadesTableSeeder::class,
+            HojasTiempoDiariasTableSeeder::class,
             
             // Otros
             RegistrosTableSeeder::class,

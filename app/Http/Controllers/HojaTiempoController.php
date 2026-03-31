@@ -384,7 +384,9 @@ class HojaTiempoController extends Controller
     // =========================================================================
 
 
-    // Listado de Semanas Pendientes
+// =========================================================
+    // 1. Listado de SEMANAS Pendientes
+    // =========================================================
     public function pendientesAdmin()
     {
         $hojas = \App\Models\HojaTiempoSemana::select(
@@ -402,12 +404,13 @@ class HojaTiempoController extends Controller
             ->orderBy('hojas_tiempo_semanas.updated_at', 'asc')
             ->get();
 
-
         return response()->json(['success' => true, 'data' => $hojas]);
     }
 
 
-    // Listado de Días Pendientes
+    // =========================================================
+    // 2. Listado de DÍAS Pendientes
+    // =========================================================
     public function pendientesDiariasAdmin()
     {
         try {
@@ -427,17 +430,19 @@ class HojaTiempoController extends Controller
                 ->leftJoin('usuarios', 'hojas_tiempo_semanas.id_usuario', '=', 'usuarios.id_usuario')
                 ->leftJoin('personal', 'usuarios.id_personal', '=', 'personal.id_personal')
                 ->with(['actividades'])
-                ->where('hojas_tiempo_diarias.estado', 'Enviada')
+                ->where('hojas_tiempo_diarias.estado', 'Enviada') // El día fue enviado...
+                ->where('hojas_tiempo_semanas.estado', '!=', 'Enviada') // ...PERO ignoramos si la semana completa ya fue enviada
                 ->orderBy('hojas_tiempo_diarias.fecha', 'asc')
                 ->get();
 
-
             return response()->json(['success' => true, 'data' => $dias]);
-           
+            
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
+
+
 
 
     public function historialAdmin()
