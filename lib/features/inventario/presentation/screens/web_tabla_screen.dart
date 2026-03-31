@@ -67,6 +67,133 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
   }
 
   // ==========================================
+  // LÓGICA DE EDICIÓN DE NOMBRE
+  // ==========================================
+  void _mostrarDialogoEditarNombre(
+    BuildContext context,
+    int idProducto,
+    String nombreActual,
+    InventarioProvider provider,
+  ) {
+    final TextEditingController nombreCtrl = TextEditingController(
+      text: nombreActual,
+    );
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        bool isSaving = false;
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Row(
+                children: [
+                  Icon(Icons.edit, color: AppColors.primary),
+                  SizedBox(width: 8),
+                  Text(
+                    "Editar Equipo",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "Modifica el nombre del producto. Esto se actualizará en todo el inventario.",
+                      style: TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: nombreCtrl,
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? "El nombre no puede estar vacío"
+                          : null,
+                      decoration: InputDecoration(
+                        labelText: 'Nombre del Equipo',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        prefixIcon: const Icon(Icons.inventory_2_outlined),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                  child: const Text(
+                    "Cancelar",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          if (formKey.currentState!.validate()) {
+                            setStateDialog(() => isSaving = true);
+                            bool exito = await provider.editarNombreProducto(
+                              idProducto,
+                              nombreCtrl.text.trim(),
+                            );
+                            setStateDialog(() => isSaving = false);
+
+                            if (exito) {
+                              if (context.mounted) Navigator.pop(ctx);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    '✅ Nombre actualizado correctamente',
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    provider.errorMessage ??
+                                        'Error al actualizar',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text("Guardar"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ==========================================
   // CALENDARIOS DE FILTROS
   // ==========================================
   Future<void> _seleccionarRangoFechasEntrada() async {
@@ -89,21 +216,11 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        controlsTextStyle: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 16,
-        ),
-        weekdayLabelTextStyle: const TextStyle(
-          fontWeight: FontWeight.w600,
-          color: Colors.grey,
-        ),
-        dayTextStyle: const TextStyle(fontWeight: FontWeight.w500),
       ),
       dialogSize: const Size(400, 420),
       value: _fechaInicioEntrada != null
           ? [_fechaInicioEntrada, _fechaFinEntrada]
           : [],
-      borderRadius: BorderRadius.circular(20),
     );
 
     if (resultados != null && resultados.isNotEmpty) {
@@ -114,9 +231,7 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
             : resultados.first;
       });
     } else if (_fechaInicioEntrada == null) {
-      setState(() {
-        _filtroFechaEntrada = 'Todas';
-      });
+      setState(() => _filtroFechaEntrada = 'Todas');
     }
   }
 
@@ -140,21 +255,11 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        controlsTextStyle: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 16,
-        ),
-        weekdayLabelTextStyle: const TextStyle(
-          fontWeight: FontWeight.w600,
-          color: Colors.grey,
-        ),
-        dayTextStyle: const TextStyle(fontWeight: FontWeight.w500),
       ),
       dialogSize: const Size(400, 420),
       value: _fechaInicioSalida != null
           ? [_fechaInicioSalida, _fechaFinSalida]
           : [],
-      borderRadius: BorderRadius.circular(20),
     );
 
     if (resultados != null && resultados.isNotEmpty) {
@@ -165,9 +270,7 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
             : resultados.first;
       });
     } else if (_fechaInicioSalida == null) {
-      setState(() {
-        _filtroFechaSalida = 'Todas';
-      });
+      setState(() => _filtroFechaSalida = 'Todas');
     }
   }
 
@@ -180,8 +283,9 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
       final marca = (prod?.marca ?? '').toLowerCase();
 
       if (_busquedaMarca.isNotEmpty &&
-          !marca.contains(_busquedaMarca.toLowerCase()))
+          !marca.contains(_busquedaMarca.toLowerCase())) {
         return false;
+      }
 
       String estadoItem = item.stockActual > item.stockMinimo
           ? 'Hay suficientes'
@@ -198,8 +302,9 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
     return provider.listaEntradas.where((ent) {
       final oc = (ent.ocProveedor ?? '').toLowerCase();
       if (_busquedaOcEntrada.isNotEmpty &&
-          !oc.contains(_busquedaOcEntrada.toLowerCase()))
+          !oc.contains(_busquedaOcEntrada.toLowerCase())) {
         return false;
+      }
 
       if (_filtroFechaEntrada != 'Todas' && ent.createdAt != null) {
         try {
@@ -212,8 +317,11 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
                 fechaEntrada.day != ahora.day)
               return false;
           } else if (_filtroFechaEntrada == 'Esta Semana') {
-            if (fechaEntrada.isBefore(ahora.subtract(const Duration(days: 7))))
+            if (fechaEntrada.isBefore(
+              ahora.subtract(const Duration(days: 7)),
+            )) {
               return false;
+            }
           } else if (_filtroFechaEntrada == 'Este Mes') {
             if (fechaEntrada.year != ahora.year ||
                 fechaEntrada.month != ahora.month)
@@ -236,8 +344,9 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
               59,
               59,
             );
-            if (fechaEntrada.isBefore(inicio) || fechaEntrada.isAfter(fin))
+            if (fechaEntrada.isBefore(inicio) || fechaEntrada.isAfter(fin)) {
               return false;
+            }
           }
         } catch (e) {
           return false;
@@ -253,8 +362,9 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
           (sal.cliente?.nombreCliente ?? 'Cliente #${sal.idCliente}')
               .toLowerCase();
       if (_busquedaClienteSalida.isNotEmpty &&
-          !clienteNombre.contains(_busquedaClienteSalida.toLowerCase()))
+          !clienteNombre.contains(_busquedaClienteSalida.toLowerCase())) {
         return false;
+      }
 
       if (_filtroFechaSalida != 'Todas' && sal.createdAt != null) {
         try {
@@ -267,8 +377,9 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
                 fechaSalida.day != ahora.day)
               return false;
           } else if (_filtroFechaSalida == 'Esta Semana') {
-            if (fechaSalida.isBefore(ahora.subtract(const Duration(days: 7))))
+            if (fechaSalida.isBefore(ahora.subtract(const Duration(days: 7)))) {
               return false;
+            }
           } else if (_filtroFechaSalida == 'Este Mes') {
             if (fechaSalida.year != ahora.year ||
                 fechaSalida.month != ahora.month)
@@ -291,8 +402,9 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
               59,
               59,
             );
-            if (fechaSalida.isBefore(inicio) || fechaSalida.isAfter(fin))
+            if (fechaSalida.isBefore(inicio) || fechaSalida.isAfter(fin)) {
               return false;
+            }
           }
         } catch (e) {
           return false;
@@ -355,7 +467,6 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
       Sheet sheet = excel[excel.getDefaultSheet() ?? 'Sheet1'];
 
       if (tabIndex == 0) {
-        // --- COLUMNAS STOCK GLOBAL ---
         sheet.appendRow([
           TextCellValue('Código'),
           TextCellValue('Nombre del Equipo'),
@@ -386,7 +497,6 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
           ]);
         }
       } else if (tabIndex == 1) {
-        // --- COLUMNAS ENTRADAS ---
         sheet.appendRow([
           TextCellValue('OC Proveedor'),
           TextCellValue('Fecha (hora)'),
@@ -409,7 +519,6 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
           ]);
         }
       } else if (tabIndex == 2) {
-        // --- COLUMNAS SALIDAS ---
         sheet.appendRow([
           TextCellValue('OC Cliente'),
           TextCellValue('Cliente Destino'),
@@ -437,7 +546,6 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
         }
       }
 
-      // Descarga directa a través del navegador web
       excel.save(fileName: "Reporte_$nombreTabla.xlsx");
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -500,13 +608,10 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
             ],
           ),
         ),
-
-        // 👇 BOTÓN FLOTANTE PARA EXPORTAR EXCEL 👇
         floatingActionButton: Builder(
           builder: (contextScaffold) {
             return FloatingActionButton.extended(
               onPressed: () {
-                // Detecta automáticamente la pestaña actual
                 final currentTab = DefaultTabController.of(
                   contextScaffold,
                 ).index;
@@ -524,7 +629,6 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
             );
           },
         ),
-
         body: provider.isLoading
             ? const Center(
                 child: CircularProgressIndicator(color: AppColors.primary),
@@ -704,7 +808,35 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
                               ),
                             ),
                           ),
-                          DataCell(Text(prod?.nombreProducto ?? 'N/A')),
+                          // 👇 COLUMNA EDITABLE DEL NOMBRE DEL EQUIPO 👇
+                          DataCell(
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(prod?.nombreProducto ?? 'N/A'),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit,
+                                    size: 16,
+                                    color: Colors.blue,
+                                  ),
+                                  splashRadius: 20,
+                                  onPressed: () {
+                                    if (prod != null) {
+                                      _mostrarDialogoEditarNombre(
+                                        context,
+                                        prod.idProducto,
+                                        prod.nombreProducto,
+                                        provider,
+                                      );
+                                    }
+                                  },
+                                  tooltip: 'Editar nombre del equipo',
+                                ),
+                              ],
+                            ),
+                          ),
                           DataCell(Text(prod?.marca ?? 'N/A')),
                           DataCell(Text(item.totalEntradas.toString())),
                           DataCell(Text(item.totalSalidas.toString())),

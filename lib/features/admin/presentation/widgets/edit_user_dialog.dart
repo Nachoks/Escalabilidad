@@ -32,8 +32,9 @@ class _EditUserDialogState extends State<EditUserDialog> {
     'Administrador',
     'Conductor',
     'Validador',
-    'Validador HT', // <--- NUEVO ROL
-    'Usuario', // <--- RENDIDOR CAMBIADO A USUARIO
+    'Validador HT',
+    'Inventario', // <--- NUEVO ROL AGREGADO AQUÍ
+    'Usuario',
   ];
   late Set<String> _rolesSeleccionados;
 
@@ -78,7 +79,7 @@ class _EditUserDialogState extends State<EditUserDialog> {
       else if (rolStr == 'validador ht') {
         _rolesSeleccionados.add('Validador HT');
       } else {
-        // Capitalizar: 'conductor' -> 'Conductor'
+        // Capitalizar: 'conductor' -> 'Conductor', 'inventario' -> 'Inventario'
         // Nos aseguramos de que el string no esté vacío antes de operar
         if (rolUsuario.isNotEmpty) {
           final rolCapitalizado =

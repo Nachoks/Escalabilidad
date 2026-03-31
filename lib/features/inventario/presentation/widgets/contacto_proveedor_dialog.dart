@@ -62,7 +62,7 @@ class _ContactoProveedorDialogState extends State<ContactoProveedorDialog> {
 
   String? _validarEmailOpcional(String? value) {
     if (value == null || value.trim().isEmpty) return null;
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
     if (!emailRegex.hasMatch(value)) return 'Correo inválido';
     return null;
   }

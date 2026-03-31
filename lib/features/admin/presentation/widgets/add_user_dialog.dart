@@ -36,8 +36,9 @@ class _AddUserDialogState extends State<AddUserDialog> {
     'Administrador',
     'Conductor',
     'Validador',
-    'Validador HT', // <--- NUEVO ROL
-    'Usuario', // <--- RENDIDOR CAMBIADO A USUARIO
+    'Validador HT',
+    'Inventario', // <--- NUEVO ROL AGREGADO AQUÍ
+    'Usuario',
   ];
   final Set<String> _rolesSeleccionados = {};
 

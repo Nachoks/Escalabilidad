@@ -28,7 +28,6 @@ class HomeDashboardScreen extends StatefulWidget {
   State<HomeDashboardScreen> createState() => _HomeDashboardScreenState();
 }
 
-// 👇 1. AÑADIDO: 'with WidgetsBindingObserver' para detectar si la app se minimiza/maximiza
 class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     with WidgetsBindingObserver {
   @override
@@ -48,7 +47,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     super.dispose();
   }
 
-  // 👇 2. AÑADIDO: Si el usuario vuelve a la app después de minimizarla, recarga los datos
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -117,7 +115,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                   MaterialPageRoute(
                     builder: (_) => const MovilEscanerScreen(esEntrada: true),
                   ),
-                ).then((_) => _actualizarContadores()); // 👇 AÑADIDO
+                ).then((_) => _actualizarContadores());
               },
             ),
             const Divider(),
@@ -132,7 +130,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                   MaterialPageRoute(
                     builder: (_) => const MovilEscanerScreen(esEntrada: false),
                   ),
-                ).then((_) => _actualizarContadores()); // 👇 AÑADIDO
+                ).then((_) => _actualizarContadores());
               },
             ),
             const SizedBox(height: 20),
@@ -192,7 +190,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const AdminHistoryScreen()),
-            ).then((_) => _actualizarContadores()); // 👇 AÑADIDO
+            ).then((_) => _actualizarContadores());
           },
         ),
         const Divider(),
@@ -207,7 +205,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
               MaterialPageRoute(
                 builder: (_) => const GestionRendicionesScreen(),
               ),
-            ).then((_) => _actualizarContadores()); // 👇 AÑADIDO
+            ).then((_) => _actualizarContadores());
           },
         ),
         if (!isDesktop) const SizedBox(height: 20),
@@ -297,7 +295,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
               MaterialPageRoute(
                 builder: (_) => const AdminHojaHistorialScreen(),
               ),
-            ).then((_) => _actualizarContadores()); // 👇 AÑADIDO
+            ).then((_) => _actualizarContadores());
           },
         ),
         const Divider(),
@@ -310,7 +308,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const HojasListScreen()),
-            ).then((_) => _actualizarContadores()); // 👇 AÑADIDO
+            ).then((_) => _actualizarContadores());
           },
         ),
         if (!isDesktop) const SizedBox(height: 20),
@@ -408,6 +406,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
     final bool esValidadorGastos = RoleHelper.isValidador(user.roles);
     final bool esValidadorHT = RoleHelper.isValidadorHT(user.roles);
     final bool esConductor = RoleHelper.isConductor(user.roles);
+    final bool esInventario = RoleHelper.isInventario(
+      user.roles,
+    ); // 👇 NUEVO: Variable Inventario
+
     final isDesktopView = MediaQuery.of(context).size.width >= 850;
 
     final List<Map<String, dynamic>> menuItems = [];
@@ -421,8 +423,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
       'page': const PerfilScreen(),
     });
 
-    // INVENTARIO Y CATÁLOGO
-    if (esAdmin) {
+    // 👇 MODIFICADO: INVENTARIO Y CATÁLOGO (Accesible para Admin o Inventario)
+    if (esAdmin || esInventario) {
       if (isDesktopView) {
         menuItems.add({
           'title': 'Monitor Inventario',
@@ -770,7 +772,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                                 onTap: () => _manejarNavegacion(
                                   item,
                                   context,
-                                  esAdmin || esValidadorGastos || esValidadorHT,
+                                  esAdmin ||
+                                      esValidadorGastos ||
+                                      esValidadorHT ||
+                                      esInventario,
                                 ),
                               )
                             : _MobileSquareCard(
@@ -781,7 +786,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
                                 onTap: () => _manejarNavegacion(
                                   item,
                                   context,
-                                  esAdmin || esValidadorGastos || esValidadorHT,
+                                  esAdmin ||
+                                      esValidadorGastos ||
+                                      esValidadorHT ||
+                                      esInventario,
                                 ),
                               );
                       },
@@ -799,7 +807,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
   Future<void> _manejarNavegacion(
     Map<String, dynamic> item,
     BuildContext context,
-    bool esAdminOValidador,
+    bool permisosAvanzados,
   ) async {
     if (item['isAction'] == true) {
       item['action'](context);
@@ -808,7 +816,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
         context,
         MaterialPageRoute(builder: (_) => item['page']),
       );
-      // 👇 Aseguramos que también recargue al volver desde los recuadros del Grid general
       if (context.mounted) _actualizarContadores();
     }
   }

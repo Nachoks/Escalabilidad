@@ -4,7 +4,6 @@ import 'package:somnolence_app/core/api/api_service.dart';
 import 'package:somnolence_app/features/inventario/data/models/producto_model.dart';
 import 'package:somnolence_app/features/inventario/data/models/proveedor_model.dart';
 import 'package:somnolence_app/features/inventario/data/models/inventario_entrada_model.dart';
-// 👇 Nuevas importaciones para la vista web
 import 'package:somnolence_app/features/inventario/data/models/inventario_producto_model.dart';
 import 'package:somnolence_app/features/inventario/data/models/inventario_salida_model.dart';
 
@@ -238,6 +237,31 @@ class InventarioProvider extends ChangeNotifier {
       return false;
     } catch (e) {
       _setError('Error de conexión al actualizar stock: $e');
+      return false;
+    }
+  }
+
+  // --- 9. EDITAR NOMBRE DE PRODUCTO ---
+  Future<bool> editarNombreProducto(int idProducto, String nuevoNombre) async {
+    // Ponemos cargando para mostrar feedback visual
+    _setLoading(true);
+    try {
+      final response = await _api.put('/productos/$idProducto', {
+        'nombre_producto': nuevoNombre,
+      });
+
+      final Map<String, dynamic> data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        // Recargamos las tablas para que la vista refleje el cambio de nombre en todas las filas
+        await cargarTablasWeb();
+        return true;
+      }
+
+      _setError(data['message'] ?? 'Error al editar el nombre del producto');
+      return false;
+    } catch (e) {
+      _setError('Error de conexión al editar producto: $e');
       return false;
     }
   }
