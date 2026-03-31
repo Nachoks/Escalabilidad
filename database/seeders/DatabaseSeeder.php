@@ -31,16 +31,17 @@ public function run()
             OcClienteTableSeeder::class,
             ProductosTableSeeder::class,
 
-            // 4. OPERACIONES / SERVICIOS
-            HasGuiaTableSeeder::class,
-            HasGuiaArchivosTableSeeder::class,
-            RegistrosTableSeeder::class,
-
-            // 5. RENDICIONES (Jerarquía estricta)
+            // 4. RENDICIONES (Jerarquía estricta)
             RendicionTableSeeder::class,
             GastoTableSeeder::class,
             GastoArchivoTableSeeder::class,
 
+            // 5. OPERACIONES / SERVICIOS
+            HasGuiaTableSeeder::class,
+            HasGuiaArchivosTableSeeder::class,
+            RegistrosTableSeeder::class,
+
+        
             // 6. HOJAS DE TIEMPO (Jerarquía estricta)
             HojasTiempoSemanasTableSeeder::class,
             HojasTiempoDiariasTableSeeder::class,
@@ -51,30 +52,7 @@ public function run()
             InventarioEntradasTableSeeder::class,
             InventarioSalidasTableSeeder::class,
         ]);
-        $this->call(EmpresaTableSeeder::class);
-        $this->call(TipoUsuarioTableSeeder::class);
-        $this->call(VehiculoTableSeeder::class);
-        $this->call(ClienteTableSeeder::class);
-        $this->call(ProveedoresTableSeeder::class);
-        $this->call(PersonalTableSeeder::class);
-        $this->call(UsuariosTableSeeder::class);
-        $this->call(UsuarioRolTableSeeder::class);
-        $this->call(AreasEmpresaTableSeeder::class);
-        $this->call(ServicioTableSeeder::class);
-        $this->call(OcClienteTableSeeder::class);
-        $this->call(ProductosTableSeeder::class);
-        $this->call(HasGuiaTableSeeder::class);
-        $this->call(HasGuiaArchivosTableSeeder::class);
-        $this->call(RendicionTableSeeder::class);
-        $this->call(GastoTableSeeder::class);
-        $this->call(GastoArchivoTableSeeder::class);
-        $this->call(RegistrosTableSeeder::class);
-        $this->call(HojasTiempoSemanasTableSeeder::class);
-        $this->call(HojasTiempoDiariasTableSeeder::class);
-        $this->call(HojasTiempoActividadesTableSeeder::class);
-        $this->call(InventarioProductosTableSeeder::class);
-        $this->call(InventarioEntradasTableSeeder::class);
-        $this->call(InventarioSalidasTableSeeder::class);
+
     }
 
 }

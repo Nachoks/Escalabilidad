@@ -15,16 +15,17 @@ class Proveedor extends Model
 
     protected $fillable = [
         'nombre_proveedor',
-        'nombre_contacto',
-        'numero_contacto',
-        'correo_contacto',
     ];
 
-    // Relación: Un proveedor tiene muchos productos
+    // Un proveedor tiene muchos productos
     public function productos()
     {
         return $this->hasMany(Producto::class, 'id_proveedor', 'id_proveedor');
     }
+ 
+    // Un proveedor tiene muchos contactos 
+    public function contactos()
+    {
+        return $this->hasMany(ContactoProveedor::class, 'id_proveedor', 'id_proveedor');
+    }
 }
-
-

@@ -6,20 +6,23 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('contactos_proveedores', function (Blueprint $table) {
-            $table->id();
+            $table->id('id_contacto');
+            $table->unsignedBigInteger('id_proveedor'); // Llave foránea
+            $table->string('nombre_contacto', 100);
+            $table->string('numero_contacto', 50)->nullable();
+            $table->string('correo_contacto', 100)->nullable();
             $table->timestamps();
+
+            // Relación en cascada: Si borras el proveedor, se borran sus contactos
+            $table->foreign('id_proveedor')
+                  ->references('id_proveedor')->on('proveedores')
+                  ->onDelete('cascade');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('contactos_proveedores');

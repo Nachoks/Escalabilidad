@@ -1,9 +1,12 @@
 <?php
 
+
 namespace App\Http\Controllers;
+
 
 use Illuminate\Http\Request;
 use App\Models\Proveedor;
+
 
 class ProveedorController extends Controller
 {
@@ -12,14 +15,15 @@ class ProveedorController extends Controller
      */
     public function index()
     {
-        // Traemos todos ordenados alfabéticamente
-        $proveedores = Proveedor::orderBy('nombre_proveedor', 'asc')->get();
-        
+        // CORREGIDO: 'contactos' en plural
+        $proveedores = Proveedor::with('contactos')->orderBy('nombre_proveedor', 'asc')->get();
+       
         return response()->json([
             'success' => true,
             'data'    => $proveedores
         ], 200);
     }
+
 
     /**
      * 2. CREAR UN NUEVO PROVEEDOR
@@ -28,13 +32,24 @@ class ProveedorController extends Controller
     {
         $request->validate([
             'nombre_proveedor' => 'required|string|max:100',
-            'nombre_contacto'  => 'nullable|string|max:100',
-            'numero_contacto'  => 'nullable|string|max:50',
-            'correo_contacto'  => 'nullable|email|max:100',
+            'contactos'        => 'nullable|array', // CORREGIDO: plural
         ]);
 
+
         try {
-            $proveedor = Proveedor::create($request->all());
+            $proveedor = Proveedor::create([
+                'nombre_proveedor' => $request->nombre_proveedor
+            ]);
+
+
+            // CORREGIDO: Todo en plural ('contactos')
+            if ($request->has('contactos') && is_array($request->contactos)) {
+                $proveedor->contactos()->createMany($request->contactos);
+            }
+
+
+            $proveedor->load('contactos');
+
 
             return response()->json([
                 'success' => true,
@@ -43,25 +58,30 @@ class ProveedorController extends Controller
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'message' => 'Error al crear proveedor: ' . $e->getMessage()
             ], 500);
         }
     }
+
 
     /**
      * 3. VER UN PROVEEDOR EN ESPECÍFICO
      */
     public function show($id)
     {
-        $proveedor = Proveedor::find($id);
+        // CORREGIDO: 'contactos' en plural
+        $proveedor = Proveedor::with('contactos')->find($id);
+
 
         if (!$proveedor) {
             return response()->json(['success' => false, 'message' => 'Proveedor no encontrado.'], 404);
         }
 
+
         return response()->json(['success' => true, 'data' => $proveedor], 200);
     }
+
 
     /**
      * 4. ACTUALIZAR UN PROVEEDOR
@@ -70,19 +90,34 @@ class ProveedorController extends Controller
     {
         $proveedor = Proveedor::find($id);
 
+
         if (!$proveedor) {
             return response()->json(['success' => false, 'message' => 'Proveedor no encontrado.'], 404);
         }
 
+
         $request->validate([
             'nombre_proveedor' => 'required|string|max:100',
-            'nombre_contacto'  => 'nullable|string|max:100',
-            'numero_contacto'  => 'nullable|string|max:50',
-            'correo_contacto'  => 'nullable|email|max:100',
+            'contactos'        => 'nullable|array', // CORREGIDO: plural
         ]);
 
+
         try {
-            $proveedor->update($request->all());
+            $proveedor->update([
+                'nombre_proveedor' => $request->nombre_proveedor
+            ]);
+
+
+            // CORREGIDO: Todo en plural ('contactos')
+            if ($request->has('contactos') && is_array($request->contactos)) {
+                $proveedor->contactos()->delete();
+                $proveedor->contactos()->createMany($request->contactos);
+            }
+
+
+            // CORREGIDO: 'contactos' en plural
+            $proveedor->load('contactos');
+
 
             return response()->json([
                 'success' => true,
@@ -91,11 +126,12 @@ class ProveedorController extends Controller
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'message' => 'Error al actualizar: ' . $e->getMessage()
             ], 500);
         }
     }
+
 
     /**
      * 5. ELIMINAR UN PROVEEDOR
@@ -104,20 +140,23 @@ class ProveedorController extends Controller
     {
         $proveedor = Proveedor::find($id);
 
+
         if (!$proveedor) {
             return response()->json(['success' => false, 'message' => 'Proveedor no encontrado.'], 404);
         }
 
-        // VALIDACIÓN CLAVE: No podemos borrar un proveedor si tiene productos amarrados
+
         if ($proveedor->productos()->count() > 0) {
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'message' => 'No puedes eliminar este proveedor porque tiene productos asociados en el catálogo.'
             ], 400);
         }
 
+
         try {
             $proveedor->delete();
+
 
             return response()->json([
                 'success' => true,
@@ -125,7 +164,7 @@ class ProveedorController extends Controller
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'message' => 'Error al eliminar: ' . $e->getMessage()
             ], 500);
         }
