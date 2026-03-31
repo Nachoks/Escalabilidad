@@ -198,10 +198,10 @@ class RendicionTableSeeder extends Seeder
             16 => 
             array (
                 'id_rendicion' => 18,
-                'fecha' => NULL,
-                'proposito' => 'Varios',
+                'fecha' => '2026-03-28',
+                'proposito' => 'Materiales Gab. Com. Oficina IAA + Botequin',
                 'monto_entregado' => 0,
-                'estado' => 'Borrador',
+                'estado' => 'Pendiente de Validación',
                 'centro_costo' => '00-1-001',
                 'id_servicio' => 148,
                 'id_usuario' => 11,
@@ -260,6 +260,83 @@ class RendicionTableSeeder extends Seeder
                 'centro_costo' => '00-1-001',
                 'id_servicio' => 148,
                 'id_usuario' => 1,
+            ),
+            22 => 
+            array (
+                'id_rendicion' => 24,
+                'fecha' => '2026-03-23',
+                'proposito' => 'Alojamiento Softys TA Cog',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '02-1-068',
+                'id_servicio' => 151,
+                'id_usuario' => 10,
+            ),
+            23 => 
+            array (
+                'id_rendicion' => 25,
+                'fecha' => NULL,
+                'proposito' => 'Mantención cogeneración',
+                'monto_entregado' => 0,
+                'estado' => 'Borrador',
+                'centro_costo' => '02-1-068',
+                'id_servicio' => 151,
+                'id_usuario' => 5,
+            ),
+            24 => 
+            array (
+                'id_rendicion' => 26,
+                'fecha' => '2026-03-25',
+                'proposito' => 'gastos norte',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '01-1-016',
+                'id_servicio' => 17,
+                'id_usuario' => 12,
+            ),
+            25 => 
+            array (
+                'id_rendicion' => 27,
+                'fecha' => '2026-03-27',
+                'proposito' => 'Viaje Levantamiento Red OT',
+                'monto_entregado' => 0,
+                'estado' => 'Aprobada',
+                'centro_costo' => '02-1-069',
+                'id_servicio' => 152,
+                'id_usuario' => 11,
+            ),
+            26 => 
+            array (
+                'id_rendicion' => 28,
+                'fecha' => '2026-03-27',
+            'proposito' => 'Cumpleaños SC (Rend. #24 ya pagada)',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '00-1-001',
+                'id_servicio' => 148,
+                'id_usuario' => 11,
+            ),
+            27 => 
+            array (
+                'id_rendicion' => 29,
+                'fecha' => '2026-03-27',
+            'proposito' => 'Mantención Cogeneración (Rend. #25 ya pagada)',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '02-1-068',
+                'id_servicio' => 151,
+                'id_usuario' => 11,
+            ),
+            28 => 
+            array (
+                'id_rendicion' => 30,
+                'fecha' => '2026-03-27',
+            'proposito' => 'Auditoria Interna 2026 (Rend. #26 ya pagada)',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '00-1-001',
+                'id_servicio' => 148,
+                'id_usuario' => 11,
             ),
         ));
         

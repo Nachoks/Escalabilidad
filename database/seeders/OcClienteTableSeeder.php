@@ -1021,6 +1021,12 @@ class OcClienteTableSeeder extends Seeder
                 'cod_oc_cliente' => '24062412',
                 'id_servicio' => 147,
             ),
+            167 => 
+            array (
+                'id_oc_cliente' => 170,
+                'cod_oc_cliente' => '4902582607',
+                'id_servicio' => 151,
+            ),
         ));
         
         

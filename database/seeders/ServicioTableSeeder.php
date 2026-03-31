@@ -1969,6 +1969,19 @@ class ServicioTableSeeder extends Seeder
                 'facturacion' => 'No facturado',
                 'correlativo' => 68,
             ),
+            150 => 
+            array (
+                'id_servicio' => 152,
+                'nombre_servicio' => 'Levantamiento Reemplazo Red OT',
+                'id_cliente' => 3,
+                'id_area' => 1,
+                'centro_costo' => '02-1-069',
+                'fecha_inicio' => NULL,
+                'fecha_termino' => NULL,
+                'estado_servicio' => 'Activo',
+                'facturacion' => 'No facturado',
+                'correlativo' => 69,
+            ),
         ));
         
         

@@ -1,54 +1,62 @@
 <?php
 
-
 namespace Database\Seeders;
 
-
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
-
 
 class HojasTiempoSemanasTableSeeder extends Seeder
 {
+
+    /**
+     * Auto generated seed file
+     *
+     * @return void
+     */
     public function run()
     {
-        DB::table('hojas_tiempo_semanas')->delete();
-       
-        DB::table('hojas_tiempo_semanas')->insert([
-            [
-                'id_hoja_semana' => 6,
-                'id_usuario' => 5, // ID de usuario genérico (puedes cambiarlo si recuerdas el real)
-                'id_servicio' => 1,
-                'id_oc_cliente' => 1,
-                'numero_hct' => 1,
-                'nombre_comprobante' => 'TALAGANTE-HTC-01',
-                'centro_costo' => 'Talagante',
-                'numero_semana' => 12,
-                'fecha_inicio' => '2026-03-16',
-                'fecha_fin' => '2026-03-22',
-                'estado' => 'Enviada',
-                'observacion' => null,
-                'validador_id' => 11, // El ID 11 fue quien aprobó los días
-                'created_at' => '2026-03-17 20:30:00',
-                'updated_at' => '2026-03-20 17:46:15',
-            ],
-            [
-                'id_hoja_semana' => 7,
-                'id_usuario' => 10, // Segundo usuario genérico
-                'id_servicio' => 1,
-                'id_oc_cliente' => 1,
+        
+
+        \DB::table('hojas_tiempo_semanas')->delete();
+        
+        \DB::table('hojas_tiempo_semanas')->insert(array (
+            0 => 
+            array (
+                'id_hoja_semana' => 8,
+                'id_usuario' => 10,
+                'id_servicio' => 151,
+                'id_oc_cliente' => 170,
                 'numero_hct' => 2,
-                'nombre_comprobante' => 'TALAGANTE-HTC-02',
-                'centro_costo' => 'Talagante',
+                'nombre_comprobante' => '02-1-068-HTC-02',
+                'centro_costo' => '02-1-068',
                 'numero_semana' => 12,
+                'observacion' => NULL,
                 'fecha_inicio' => '2026-03-16',
                 'fecha_fin' => '2026-03-22',
-                'estado' => 'Enviada',
-                'observacion' => null,
+                'estado' => 'Aprobada',
                 'validador_id' => 11,
-                'created_at' => '2026-03-17 21:08:00',
-                'updated_at' => '2026-03-20 17:46:01',
-            ]
-        ]);
+                'created_at' => '2026-03-23 15:48:29',
+                'updated_at' => '2026-03-23 18:03:08',
+            ),
+            1 => 
+            array (
+                'id_hoja_semana' => 11,
+                'id_usuario' => 5,
+                'id_servicio' => 151,
+                'id_oc_cliente' => 170,
+                'numero_hct' => 1,
+                'nombre_comprobante' => '02-1-068-HTC-01',
+                'centro_costo' => '02-1-068',
+                'numero_semana' => 12,
+                'observacion' => NULL,
+                'fecha_inicio' => '2026-03-16',
+                'fecha_fin' => '2026-03-22',
+                'estado' => 'Aprobada',
+                'validador_id' => 11,
+                'created_at' => '2026-03-24 20:35:51',
+                'updated_at' => '2026-03-25 13:54:42',
+            ),
+        ));
+        
+        
     }
 }
