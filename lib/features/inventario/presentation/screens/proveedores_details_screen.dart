@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_slidable/flutter_slidable.dart'; // 👇 NUEVA LIBRERÍA
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import '../../data/models/proveedor_model.dart';
+import '../../data/models/contacto_proveedor_model.dart';
 import '../providers/proveedor_provider.dart';
 import '../widgets/proveedor_dialog.dart';
+import '../widgets/contacto_proveedor_dialog.dart'; // 👇 IMPORTAR POP-UP DE CONTACTOS
 
 class ProveedorDetailsScreen extends StatefulWidget {
   final ProveedorModel proveedor;
@@ -17,9 +20,74 @@ class ProveedorDetailsScreen extends StatefulWidget {
 class _ProveedorDetailsScreenState extends State<ProveedorDetailsScreen> {
   bool _isLoading = false;
 
+  // Lógica para eliminar un contacto específico y actualizar la base de datos
+  Future<void> _eliminarContacto(
+    BuildContext context,
+    ProveedorModel prov,
+    int indexContacto,
+  ) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Eliminar Contacto?'),
+        content: Text(
+          '¿Seguro que deseas eliminar a ${prov.contactos[indexContacto].nombreContacto}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar == true) {
+      setState(() => _isLoading = true);
+
+      // Clonamos la lista y quitamos el contacto
+      List<ContactoProveedorModel> nuevaLista = List.from(prov.contactos);
+      nuevaLista.removeAt(indexContacto);
+
+      // Creamos el proveedor actualizado
+      final proveedorActualizado = ProveedorModel(
+        idProveedor: prov.idProveedor,
+        nombreProveedor: prov.nombreProveedor,
+        contactos: nuevaLista,
+      );
+
+      final provider = context.read<ProveedorProvider>();
+      final exito = await provider.guardarProveedor(proveedorActualizado);
+
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+
+      if (exito) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Contacto eliminado'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              provider.errorMessage ?? 'Error al eliminar contacto',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Escuchamos el provider para actualizar la vista en tiempo real si editamos
     final provider = context.watch<ProveedorProvider>();
     final ProveedorModel currentProv = provider.proveedores.firstWhere(
       (p) => p.idProveedor == widget.proveedor.idProveedor,
@@ -34,8 +102,6 @@ class _ProveedorDetailsScreenState extends State<ProveedorDetailsScreen> {
           backgroundColor: isDesktop
               ? const Color(0xFFF4F6F8)
               : const Color(0xFFF8F9FA),
-
-          // --- APPBAR ADAPTATIVO ---
           appBar: isDesktop
               ? AppBar(
                   backgroundColor: AppColors.primary,
@@ -50,7 +116,7 @@ class _ProveedorDetailsScreenState extends State<ProveedorDetailsScreen> {
                       ),
                       const SizedBox(width: 16),
                       const Text(
-                        'Detalle de Proveedor',
+                        'Detalle de Empresa',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -63,7 +129,7 @@ class _ProveedorDetailsScreenState extends State<ProveedorDetailsScreen> {
                 )
               : AppBar(
                   title: const Text(
-                    'Detalle de Proveedor',
+                    'Detalle de Empresa',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                   ),
                   backgroundColor: AppColors.primary,
@@ -79,97 +145,116 @@ class _ProveedorDetailsScreenState extends State<ProveedorDetailsScreen> {
                   ),
                 ),
 
-          // --- CUERPO ---
-          body: isDesktop
-              ? _buildDesktopLayout(currentProv)
-              : _buildMobileLayout(currentProv),
+          // 👇 BOTÓN FLOTANTE PARA AGREGAR CONTACTO 👇
+          floatingActionButton: FloatingActionButton.extended(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            icon: const Icon(Icons.person_add_alt_1),
+            label: const Text(
+              "Agregar Contacto",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            onPressed: () {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) =>
+                    ContactoProveedorDialog(proveedorOriginal: currentProv),
+              );
+            },
+          ),
+
+          body: Stack(
+            children: [
+              isDesktop
+                  ? _buildDesktopLayout(currentProv)
+                  : _buildMobileLayout(currentProv),
+              if (_isLoading)
+                Container(
+                  color: Colors.black.withOpacity(0.3),
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+            ],
+          ),
         );
       },
     );
   }
 
   // ==========================================================
-  // 💻 DISEÑO 1: ESCRITORIO (WEB / PC)
+  // 💻 DISEÑO 1: ESCRITORIO
   // ==========================================================
   Widget _buildDesktopLayout(ProveedorModel prov) {
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900),
+        constraints: const BoxConstraints(maxWidth: 1000),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(40),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 15,
-                  offset: const Offset(0, 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Columna Izquierda: Perfil y Botones
+              Expanded(
+                flex: 3,
+                child: Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 15,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildHeader(prov, isDesktop: true),
+                      const SizedBox(height: 32),
+                      _buildActionButtons(prov, isDesktop: true),
+                    ],
+                  ),
                 ),
-              ],
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Columna Izquierda: Perfil
-                  Expanded(
-                    flex: 4,
-                    child: Container(
-                      padding: const EdgeInsets.all(32),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: const BorderRadius.horizontal(
-                          left: Radius.circular(20),
-                        ),
-                        border: Border(
-                          right: BorderSide(color: Colors.grey.shade200),
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [_buildHeader(prov, isDesktop: true)],
-                      ),
-                    ),
-                  ),
-                  // Columna Derecha: Información y Botones
-                  Expanded(
-                    flex: 6,
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Información Comercial",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          _buildInfoCard(prov, isDesktop: true),
-                          const SizedBox(height: 40),
-                          const Text(
-                            "Acciones",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          _buildActionButtons(prov, isDesktop: true),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
               ),
-            ),
+              const SizedBox(width: 32),
+              // Columna Derecha: Contactos
+              Expanded(
+                flex: 7,
+                child: Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 15,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Lista de Contactos",
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const Divider(height: 32),
+                      _buildContactosList(prov, isDesktop: true),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -184,17 +269,34 @@ class _ProveedorDetailsScreenState extends State<ProveedorDetailsScreen> {
       children: [
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.fromLTRB(
+              16,
+              24,
+              16,
+              100,
+            ), // Espacio extra abajo para el FAB
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildHeader(prov, isDesktop: false),
-                const SizedBox(height: 24),
-                _buildInfoCard(prov, isDesktop: false),
-                const SizedBox(height: 20),
+                Center(child: _buildHeader(prov, isDesktop: false)),
+                const SizedBox(height: 32),
+                const Padding(
+                  padding: EdgeInsets.only(left: 8.0, bottom: 16),
+                  child: Text(
+                    "Contactos Registrados",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+                _buildContactosList(prov, isDesktop: false),
               ],
             ),
           ),
         ),
+        // Botones de acción al fondo en móvil
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -267,81 +369,174 @@ class _ProveedorDetailsScreenState extends State<ProveedorDetailsScreen> {
     );
   }
 
-  // 👇 SECCIÓN CORREGIDA: SE REEMPLAZÓ EL ID POR EL NOMBRE DEL CONTACTO Y RAZÓN SOCIAL 👇
-  Widget _buildInfoCard(ProveedorModel prov, {required bool isDesktop}) {
-    return Card(
-      elevation: isDesktop ? 0 : 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: isDesktop
-            ? BorderSide(color: Colors.grey.shade200)
-            : BorderSide.none,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            _buildInfoRow(
-              Icons.business,
-              'Razón Social / Empresa',
-              prov.nombreProveedor,
-            ),
-            const Divider(),
-            _buildInfoRow(
-              Icons.person_outline,
-              'Contacto',
-              prov.nombreContacto?.isNotEmpty == true
-                  ? prov.nombreContacto!
-                  : 'Sin registrar',
-            ),
-            const Divider(),
-            _buildInfoRow(
-              Icons.phone,
-              'Teléfono',
-              prov.numeroContacto?.isNotEmpty == true
-                  ? prov.numeroContacto!
-                  : 'Sin registrar',
-            ),
-            const Divider(),
-            _buildInfoRow(
-              Icons.email_outlined,
-              'Correo',
-              prov.correoContacto?.isNotEmpty == true
-                  ? prov.correoContacto!
-                  : 'Sin registrar',
-            ),
-          ],
+  // 👇 NUEVA SECCIÓN DE CONTACTOS 👇
+  Widget _buildContactosList(ProveedorModel prov, {required bool isDesktop}) {
+    if (prov.contactos.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 40),
+          child: Column(
+            children: [
+              Icon(
+                Icons.contact_mail_outlined,
+                size: 60,
+                color: Colors.grey[300],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "No hay contactos registrados.",
+                style: TextStyle(color: Colors.grey[600], fontSize: 16),
+              ),
+            ],
+          ),
         ),
-      ),
+      );
+    }
+
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(), // Desactiva scroll interno
+      itemCount: prov.contactos.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final contacto = prov.contactos[index];
+
+        // 💻 SI ES ESCRITORIO: Tarjeta normal con botones visibles
+        if (isDesktop) {
+          return Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: Colors.grey.shade300),
+            ),
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(16),
+              leading: CircleAvatar(
+                backgroundColor: AppColors.secondary.withOpacity(0.2),
+                child: const Icon(Icons.person, color: AppColors.secondary),
+              ),
+              title: Text(
+                contacto.nombreContacto,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (contacto.numeroContacto != null)
+                      Text("📞 ${contacto.numeroContacto!}"),
+                    if (contacto.correoContacto != null)
+                      Text("✉️ ${contacto.correoContacto!}"),
+                  ],
+                ),
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.blue),
+                    onPressed: () =>
+                        _mostrarModalEdicionContacto(prov, contacto, index),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () => _eliminarContacto(context, prov, index),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // 📱 SI ES MÓVIL: Tarjeta interactiva con Slidable (deslizar)
+        return Slidable(
+          key: ValueKey(contacto.idContacto ?? index.toString()),
+          endActionPane: ActionPane(
+            motion: const ScrollMotion(),
+            children: [
+              SlidableAction(
+                onPressed: (_) =>
+                    _mostrarModalEdicionContacto(prov, contacto, index),
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                icon: Icons.edit,
+                label: 'Editar',
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  bottomLeft: Radius.circular(12),
+                ),
+              ),
+              SlidableAction(
+                onPressed: (_) => _eliminarContacto(context, prov, index),
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                icon: Icons.delete,
+                label: 'Borrar',
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                ),
+              ),
+            ],
+          ),
+          child: Card(
+            elevation: 1,
+            margin: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
+              leading: CircleAvatar(
+                backgroundColor: AppColors.secondary.withOpacity(0.2),
+                child: const Icon(Icons.person, color: AppColors.secondary),
+              ),
+              title: Text(
+                contacto.nombreContacto,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 4),
+                  if (contacto.numeroContacto != null)
+                    Text(
+                      "📞 ${contacto.numeroContacto!}",
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  if (contacto.correoContacto != null)
+                    Text(
+                      "✉️ ${contacto.correoContacto!}",
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.grey[600], size: 24),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                ),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+  void _mostrarModalEdicionContacto(
+    ProveedorModel prov,
+    ContactoProveedorModel contacto,
+    int index,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => ContactoProveedorDialog(
+        proveedorOriginal: prov,
+        contactoAEditar: contacto,
+        indexContacto: index,
       ),
     );
   }
@@ -352,7 +547,7 @@ class _ProveedorDetailsScreenState extends State<ProveedorDetailsScreen> {
       children: [
         SizedBox(
           width: double.infinity,
-          height: isDesktop ? 55 : 48,
+          height: isDesktop ? 50 : 48,
           child: ElevatedButton.icon(
             onPressed: () {
               showDialog(
@@ -363,7 +558,7 @@ class _ProveedorDetailsScreenState extends State<ProveedorDetailsScreen> {
             },
             icon: const Icon(Icons.edit),
             label: const Text(
-              'Editar Proveedor',
+              'Editar Empresa',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             style: ElevatedButton.styleFrom(
@@ -372,14 +567,13 @@ class _ProveedorDetailsScreenState extends State<ProveedorDetailsScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
-              elevation: isDesktop ? 0 : 2,
             ),
           ),
         ),
-        SizedBox(height: isDesktop ? 16 : 12),
+        const SizedBox(height: 12),
         SizedBox(
           width: double.infinity,
-          height: isDesktop ? 55 : 48,
+          height: isDesktop ? 50 : 48,
           child: OutlinedButton.icon(
             onPressed: _isLoading
                 ? null
@@ -389,7 +583,7 @@ class _ProveedorDetailsScreenState extends State<ProveedorDetailsScreen> {
                       builder: (ctx) => AlertDialog(
                         title: const Text('¿Eliminar Proveedor?'),
                         content: Text(
-                          '¿Deseas eliminar permanentemente a ${prov.nombreProveedor}?',
+                          '¿Deseas eliminar permanentemente a ${prov.nombreProveedor}? Se perderán todos sus contactos.',
                         ),
                         actions: [
                           TextButton(
@@ -418,38 +612,27 @@ class _ProveedorDetailsScreenState extends State<ProveedorDetailsScreen> {
                       setState(() => _isLoading = false);
 
                       if (exito) {
-                        Navigator.pop(context); // Volvemos a la lista
+                        Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Proveedor eliminado exitosamente'),
+                            content: Text('Proveedor eliminado'),
                             backgroundColor: Colors.green,
                           ),
                         );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(
-                              provider.errorMessage ?? 'Error al eliminar',
-                            ),
+                            content: Text(provider.errorMessage ?? 'Error'),
                             backgroundColor: Colors.red,
                           ),
                         );
                       }
                     }
                   },
-            icon: _isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.delete_outline),
-            label: Text(
-              _isLoading ? 'Procesando...' : 'Eliminar Proveedor',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+            icon: const Icon(Icons.delete_outline),
+            label: const Text(
+              'Eliminar Empresa',
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
             style: OutlinedButton.styleFrom(
               backgroundColor: Colors.red[50],

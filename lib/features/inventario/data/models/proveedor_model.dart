@@ -1,36 +1,33 @@
+import 'contacto_proveedor_model.dart'; // 👇 Importamos el nuevo modelo
+
 class ProveedorModel {
   final int idProveedor;
   final String nombreProveedor;
-  final String? nombreContacto;
-  final String? numeroContacto;
-  final String? correoContacto;
+  final List<ContactoProveedorModel> contactos;
 
   ProveedorModel({
     required this.idProveedor,
     required this.nombreProveedor,
-    this.nombreContacto,
-    this.numeroContacto,
-    this.correoContacto,
+    this.contactos = const [],
   });
 
   factory ProveedorModel.fromJson(Map<String, dynamic> json) {
     return ProveedorModel(
       idProveedor: json['id_proveedor'],
       nombreProveedor: json['nombre_proveedor'],
-      nombreContacto: json['nombre_contacto'],
-      numeroContacto: json['numero_contacto'],
-      correoContacto: json['correo_contacto'],
+      contactos: json['contactos'] != null
+          ? (json['contactos'] as List)
+                .map((i) => ContactoProveedorModel.fromJson(i))
+                .toList()
+          : [],
     );
   }
 
-  // Utilidad para enviar los datos a Laravel al crear o editar
   Map<String, dynamic> toJson() {
     return {
       'id_proveedor': idProveedor,
       'nombre_proveedor': nombreProveedor,
-      'nombre_contacto': nombreContacto,
-      'numero_contacto': numeroContacto,
-      'correo_contacto': correoContacto,
+      'contactos': contactos.map((c) => c.toJson()).toList(),
     };
   }
 }

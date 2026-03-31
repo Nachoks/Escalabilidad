@@ -171,7 +171,8 @@ class _GestionProveedoresScreenState extends State<GestionProveedoresScreen> {
                                     gridDelegate:
                                         SliverGridDelegateWithFixedCrossAxisCount(
                                           crossAxisCount: 3,
-                                          childAspectRatio: 3.2,
+                                          childAspectRatio:
+                                              3.5, // Ajustado para ser más alargado
                                           crossAxisSpacing: 24,
                                           mainAxisSpacing: 24,
                                         ),
@@ -246,7 +247,7 @@ class _GestionProveedoresScreenState extends State<GestionProveedoresScreen> {
             child: TextField(
               controller: _searchCtrl,
               decoration: const InputDecoration(
-                hintText: "Buscar por nombre, correo o teléfono...",
+                hintText: "Buscar por nombre de empresa o contacto...",
                 border: InputBorder.none,
                 isDense: true,
               ),
@@ -293,12 +294,16 @@ class _GestionProveedoresScreenState extends State<GestionProveedoresScreen> {
         child: Padding(
           padding: EdgeInsets.symmetric(
             horizontal: isDesktop ? 28 : 20,
-            vertical: isDesktop ? 28 : 20,
+            vertical: isDesktop
+                ? 20
+                : 16, // Padding vertical un poco más ajustado
           ),
           child: Row(
             children: [
               CircleAvatar(
-                radius: isDesktop ? 32 : 24,
+                radius: isDesktop
+                    ? 28
+                    : 24, // Avatar un pelín más pequeño en desktop
                 backgroundColor: AppColors.primary.withOpacity(0.1),
                 child: Text(
                   proveedor.nombreProveedor.isNotEmpty
@@ -307,7 +312,7 @@ class _GestionProveedoresScreenState extends State<GestionProveedoresScreen> {
                   style: TextStyle(
                     color: AppColors.primary,
                     fontWeight: FontWeight.bold,
-                    fontSize: isDesktop ? 26 : 20,
+                    fontSize: isDesktop ? 22 : 20,
                   ),
                 ),
               ),
@@ -321,32 +326,17 @@ class _GestionProveedoresScreenState extends State<GestionProveedoresScreen> {
                       proveedor.nombreProveedor,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: isDesktop ? 20 : 17,
+                        fontSize: isDesktop ? 18 : 17,
                         color: Colors.black87,
-                        height: 1.3,
                       ),
                       maxLines: isDesktop ? 2 : 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      (proveedor.numeroContacto?.isNotEmpty == true)
-                          ? "📞 ${proveedor.numeroContacto}"
-                          : (proveedor.correoContacto?.isNotEmpty == true)
-                          ? "✉️ ${proveedor.correoContacto}"
-                          : "Sin datos de contacto",
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: isDesktop ? 15 : 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    // 👇 Aquí quitamos los textos de contacto viejos, queda 100% limpio
                   ],
                 ),
               ),
-              // ÍCONO DE FLECHA PARA INDICAR QUE ES TOCABLE
+              // ÍCONO DE FLECHA PARA INDICAR QUE ES TOCABLE Y LLEVA AL DETALLE
               Padding(
                 padding: const EdgeInsets.only(left: 8.0),
                 child: Icon(

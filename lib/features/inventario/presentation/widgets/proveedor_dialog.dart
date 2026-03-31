@@ -15,38 +15,21 @@ class ProveedorDialog extends StatefulWidget {
 
 class _ProveedorDialogState extends State<ProveedorDialog> {
   final _formKey = GlobalKey<FormState>();
-
   late TextEditingController _nombreCtrl;
-  late TextEditingController _contactoCtrl; // <--- NUEVO CONTROLADOR
-  late TextEditingController _numeroCtrl;
-  late TextEditingController _correoCtrl;
-
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
+    // Inicializamos solo el controlador del nombre de la empresa
     _nombreCtrl = TextEditingController(
       text: widget.proveedor?.nombreProveedor ?? '',
-    );
-    _contactoCtrl = TextEditingController(
-      // <--- INICIALIZAR
-      text: widget.proveedor?.nombreContacto ?? '',
-    );
-    _numeroCtrl = TextEditingController(
-      text: widget.proveedor?.numeroContacto ?? '',
-    );
-    _correoCtrl = TextEditingController(
-      text: widget.proveedor?.correoContacto ?? '',
     );
   }
 
   @override
   void dispose() {
     _nombreCtrl.dispose();
-    _contactoCtrl.dispose(); // <--- LIMPIAR
-    _numeroCtrl.dispose();
-    _correoCtrl.dispose();
     super.dispose();
   }
 
@@ -55,25 +38,19 @@ class _ProveedorDialogState extends State<ProveedorDialog> {
     return null;
   }
 
-  String? _validarEmailOpcional(String? value) {
-    if (value == null || value.trim().isEmpty) return null; // Es opcional
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    if (!emailRegex.hasMatch(value)) return 'Correo inválido';
-    return null;
-  }
-
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSaving = true);
 
-    // Como tu idProveedor no es anulable, le pasamos 0 si es nuevo
+    // Creamos el modelo para enviar a Laravel
     final nuevoProv = ProveedorModel(
       idProveedor: widget.proveedor?.idProveedor ?? 0,
       nombreProveedor: _nombreCtrl.text.trim(),
-      nombreContacto: _contactoCtrl.text.trim(), // <--- ASIGNAR NUEVO DATO
-      numeroContacto: _numeroCtrl.text.trim(),
-      correoContacto: _correoCtrl.text.trim(),
+      // Si estamos editando el nombre de un proveedor, le volvemos a pasar
+      // sus contactos actuales para que Laravel no los borre.
+      // Si es nuevo, simplemente mandamos una lista vacía [].
+      contactos: widget.proveedor?.contactos ?? [],
     );
 
     final provider = context.read<ProveedorProvider>();
@@ -88,7 +65,7 @@ class _ProveedorDialogState extends State<ProveedorDialog> {
         SnackBar(
           content: Text(
             widget.proveedor == null
-                ? '✅ Proveedor creado'
+                ? '✅ Proveedor creado con éxito'
                 : '✅ Proveedor actualizado',
           ),
           backgroundColor: Colors.green,
@@ -126,7 +103,7 @@ class _ProveedorDialogState extends State<ProveedorDialog> {
               ),
               const SizedBox(width: 8),
               Text(
-                isEditing ? "Editar Proveedor" : "Nuevo Proveedor",
+                isEditing ? "Editar Empresa" : "Nuevo Proveedor",
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: AppColors.primary,
@@ -136,62 +113,36 @@ class _ProveedorDialogState extends State<ProveedorDialog> {
             ],
           ),
           content: SizedBox(
-            width: isDesktop ? 500 : double.maxFinite,
-            child: SingleChildScrollView(
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Datos Comerciales",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                        fontSize: 16,
+            width: isDesktop ? 400 : double.maxFinite,
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Ingresa el nombre comercial o razón social de la empresa proveedora.",
+                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _nombreCtrl,
+                    validator: _validarRequerido,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                      labelText: 'Razón Social / Nombre *',
+                      prefixIcon: const Icon(Icons.business, size: 20),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical:
+                            16, // Un poco más alto para que se vea elegante
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    _buildTextField(
-                      _nombreCtrl,
-                      'Razón Social / Nombre *',
-                      Icons.business,
-                      validator: _validarRequerido,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // 👇 NUEVO CAMPO EN LA INTERFAZ 👇
-                    _buildTextField(
-                      _contactoCtrl,
-                      'Nombre del Contacto',
-                      Icons.person_outline,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // 👆 FIN DEL NUEVO CAMPO 👆
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildTextField(
-                            _numeroCtrl,
-                            'Teléfono de Contacto',
-                            Icons.phone,
-                            keyboardType: TextInputType.phone,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _buildTextField(
-                      _correoCtrl,
-                      'Correo Electrónico',
-                      Icons.email_outlined,
-                      keyboardType: TextInputType.emailAddress,
-                      validator: _validarEmailOpcional,
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -243,30 +194,6 @@ class _ProveedorDialogState extends State<ProveedorDialog> {
           ],
         );
       },
-    );
-  }
-
-  Widget _buildTextField(
-    TextEditingController controller,
-    String label,
-    IconData icon, {
-    String? Function(String?)? validator,
-    TextInputType? keyboardType,
-  }) {
-    return TextFormField(
-      controller: controller,
-      validator: validator,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, size: 20),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 12,
-        ),
-        isDense: true,
-      ),
     );
   }
 }
