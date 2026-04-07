@@ -55,6 +55,24 @@ class HojasTiempoSemanasTableSeeder extends Seeder
                 'created_at' => '2026-03-24 20:35:51',
                 'updated_at' => '2026-03-25 13:54:42',
             ),
+            2 => 
+            array (
+                'id_hoja_semana' => 12,
+                'id_usuario' => 4,
+                'id_servicio' => 120,
+                'id_oc_cliente' => 141,
+                'numero_hct' => 2,
+                'nombre_comprobante' => '09-1-010-HTC-02',
+                'centro_costo' => '09-1-010',
+                'numero_semana' => 14,
+                'observacion' => NULL,
+                'fecha_inicio' => '2026-03-30',
+                'fecha_fin' => '2026-04-05',
+                'estado' => 'Aprobada',
+                'validador_id' => 1,
+                'created_at' => '2026-04-01 15:48:05',
+                'updated_at' => '2026-04-02 20:37:00',
+            ),
         ));
         
         

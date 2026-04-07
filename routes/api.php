@@ -191,6 +191,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('productos')->group(function () {
         Route::get('/verificar/{codigo}', [ProductoController::class, 'verificarCodigo']);
         Route::post('/nuevo', [ProductoController::class, 'store']);
+        Route::put('/{id}', [ProductoController::class, 'update']);
     });
 
     // --- PROVEEDORES (CRUD COMPLETO) ---

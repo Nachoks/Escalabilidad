@@ -2599,6 +2599,90 @@ class GastoArchivoTableSeeder extends Seeder
                 'created_at' => '2026-03-27 19:57:27',
                 'id_validador' => NULL,
             ),
+            215 => 
+            array (
+                'id_gasto_archivo' => 233,
+                'id_gasto' => 251,
+                'nombre_original' => 'cena pz_300326.pdf',
+                'nombre_fisico' => '251-8650.pdf',
+                'ruta_relativa' => '031/gastos/251-8650.pdf',
+                'extension' => 'pdf',
+                'peso_kb' => '171.45',
+                'created_at' => '2026-04-01 17:39:01',
+                'id_validador' => NULL,
+            ),
+            216 => 
+            array (
+                'id_gasto_archivo' => 234,
+                'id_gasto' => 252,
+                'nombre_original' => 'cena pz_310326.pdf',
+                'nombre_fisico' => '252-6600.pdf',
+                'ruta_relativa' => '031/gastos/252-6600.pdf',
+                'extension' => 'pdf',
+                'peso_kb' => '169.34',
+                'created_at' => '2026-04-01 17:40:01',
+                'id_validador' => NULL,
+            ),
+            217 => 
+            array (
+                'id_gasto_archivo' => 235,
+                'id_gasto' => 253,
+                'nombre_original' => 'scaled_c080599c-e0e6-41ea-9896-5c33fd9fec1c7458527806229572648.jpg',
+                'nombre_fisico' => '253-111765.jpg',
+                'ruta_relativa' => '032/gastos/253-111765.jpg',
+                'extension' => 'jpg',
+                'peso_kb' => '701.40',
+                'created_at' => '2026-04-01 18:28:59',
+                'id_validador' => NULL,
+            ),
+            218 => 
+            array (
+                'id_gasto_archivo' => 236,
+                'id_gasto' => 254,
+                'nombre_original' => 'scaled_66b18982-ccd9-4ea6-8317-11aa0cb636c66034409618537415722.jpg',
+                'nombre_fisico' => '254-5350.jpg',
+                'ruta_relativa' => '033/gastos/254-5350.jpg',
+                'extension' => 'jpg',
+                'peso_kb' => '468.84',
+                'created_at' => '2026-04-06 16:00:45',
+                'id_validador' => NULL,
+            ),
+            219 => 
+            array (
+                'id_gasto_archivo' => 237,
+                'id_gasto' => 255,
+                'nombre_original' => 'scaled_a4b4ec0f-44ef-4f04-968d-a56a075243905792069222530149047.jpg',
+                'nombre_fisico' => '255-18070.jpg',
+                'ruta_relativa' => '033/gastos/255-18070.jpg',
+                'extension' => 'jpg',
+                'peso_kb' => '444.47',
+                'created_at' => '2026-04-06 16:03:11',
+                'id_validador' => NULL,
+            ),
+            220 => 
+            array (
+                'id_gasto_archivo' => 238,
+                'id_gasto' => 256,
+                'nombre_original' => 'scaled_595e08ec-3ea8-4c5f-ac4c-7e687eda7b929151836181116470109.jpg',
+                'nombre_fisico' => '256-37345.jpg',
+                'ruta_relativa' => '033/gastos/256-37345.jpg',
+                'extension' => 'jpg',
+                'peso_kb' => '425.31',
+                'created_at' => '2026-04-06 20:38:11',
+                'id_validador' => NULL,
+            ),
+            221 => 
+            array (
+                'id_gasto_archivo' => 239,
+                'id_gasto' => 257,
+                'nombre_original' => 'scaled_21c42651-15af-4ca7-b75b-a349c92fb0816431357729610494111.jpg',
+                'nombre_fisico' => '257-1000.jpg',
+                'ruta_relativa' => '033/gastos/257-1000.jpg',
+                'extension' => 'jpg',
+                'peso_kb' => '555.87',
+                'created_at' => '2026-04-06 20:51:47',
+                'id_validador' => NULL,
+            ),
         ));
         
         

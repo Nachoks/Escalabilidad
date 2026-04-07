@@ -83,5 +83,45 @@ class ProductoController extends Controller
             ], 500);
         }
     }
+
+
+    // 4. ACTUALIZAR NOMBRE DE PRODUCTO
+    public function update(Request $request, $id)
+    {
+        $producto = Producto::find($id);
+
+
+        if (!$producto) {
+            return response()->json(['success' => false, 'message' => 'Producto no encontrado.'], 404);
+        }
+
+
+        $request->validate([
+            'nombre_producto' => 'required|string|max:150',
+            // Si quieres permitir editar la marca o el código después, los agregas aquí
+        ]);
+
+
+        try {
+            $producto->update([
+                'nombre_producto' => $request->nombre_producto
+            ]);
+
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Nombre del producto actualizado correctamente.',
+                'data'    => $producto
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al actualizar el producto: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+
 }
 

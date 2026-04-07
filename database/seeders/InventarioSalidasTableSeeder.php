@@ -55,6 +55,30 @@ class InventarioSalidasTableSeeder extends Seeder
                 'created_at' => '2026-03-26 17:43:39',
                 'updated_at' => '2026-03-26 17:43:39',
             ),
+            3 => 
+            array (
+                'id_salida' => 4,
+                'id_entrada' => 9,
+                'id_producto' => 5,
+                'id_cliente' => 6,
+                'id_responsable' => 14,
+                'oc_cliente' => '10386',
+                'serial' => 'SM24153343',
+                'created_at' => '2026-04-01 22:32:47',
+                'updated_at' => '2026-04-01 22:32:47',
+            ),
+            4 => 
+            array (
+                'id_salida' => 5,
+                'id_entrada' => 14,
+                'id_producto' => 9,
+                'id_cliente' => 6,
+                'id_responsable' => 14,
+                'oc_cliente' => '11014',
+                'serial' => 'SC23240291',
+                'created_at' => '2026-04-02 19:45:00',
+                'updated_at' => '2026-04-02 19:45:00',
+            ),
         ));
         
         

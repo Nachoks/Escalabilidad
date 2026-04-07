@@ -54,6 +54,13 @@ class TipoUsuarioTableSeeder extends Seeder
                 'created_at' => '2026-02-03 19:34:09',
                 'updated_at' => '2026-03-11 16:46:15',
             ),
+            5 => 
+            array (
+                'id_tipo_usuario' => 6,
+                'tipo_usuario' => 'Inventario',
+                'created_at' => '2026-03-31 18:41:00',
+                'updated_at' => '2026-03-31 18:41:00',
+            ),
         ));
         
         
