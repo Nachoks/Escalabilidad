@@ -45,4 +45,9 @@ class InventarioSalida extends Model
     {
         return $this->belongsTo(User::class, 'id_responsable', 'id_usuario');
     }
+
+    public function ordenCompra()
+    {
+        return $this->belongsTo(OcCliente::class, 'oc_cliente', 'cod_oc_cliente');
+    }
 }

@@ -217,7 +217,7 @@ class InventarioController extends Controller
     public function obtenerSalidas()
     {
         // 👇 SOLUCIÓN: Agregamos 'cliente' dentro de los corchetes del with() 👇
-        $salidas = InventarioSalida::with(['producto', 'responsable', 'cliente'])->orderBy('created_at', 'desc')->get();
+        $salidas = InventarioSalida::with(['producto', 'responsable', 'cliente','ordenCompra.servicio'])->orderBy('created_at', 'desc')->get();
         return response()->json(['success' => true, 'data' => $salidas], 200);
     }
 

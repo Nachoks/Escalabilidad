@@ -404,6 +404,7 @@ class HojaTiempoController extends Controller
             ->orderBy('hojas_tiempo_semanas.updated_at', 'asc')
             ->get();
 
+
         return response()->json(['success' => true, 'data' => $hojas]);
     }
 
@@ -421,6 +422,7 @@ class HojaTiempoController extends Controller
                     'hojas_tiempo_semanas.id_usuario',
                     'cliente.nombre_cliente',
                     'servicio.nombre_servicio',
+                    'servicio.centro_costo', // 👇 AQUÍ SE AGREGÓ EL CENTRO DE COSTO 👇
                     'personal.nombre_personal as usuario_nombre',
                     'personal.apellido_personal as usuario_apellido'
                 )
@@ -434,6 +436,7 @@ class HojaTiempoController extends Controller
                 ->where('hojas_tiempo_semanas.estado', '!=', 'Enviada') // ...PERO ignoramos si la semana completa ya fue enviada
                 ->orderBy('hojas_tiempo_diarias.fecha', 'asc')
                 ->get();
+
 
             return response()->json(['success' => true, 'data' => $dias]);
             
@@ -606,3 +609,5 @@ class HojaTiempoController extends Controller
         }
     }
 }
+
+

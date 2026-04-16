@@ -30,9 +30,14 @@ class ProveedorController extends Controller
      */
     public function store(Request $request)
     {
+        // 👇 ACTUALIZADO: Se agregaron las validaciones para el contenido del arreglo 'contactos'
         $request->validate([
-            'nombre_proveedor' => 'required|string|max:100',
-            'contactos'        => 'nullable|array', // CORREGIDO: plural
+            'nombre_proveedor'              => 'required|string|max:100',
+            'contactos'                     => 'nullable|array', 
+            'contactos.*.nombre_contacto'   => 'required|string|max:100',
+            'contactos.*.cargo'             => 'nullable|string|max:100', // <-- NUEVO CAMPO AGREGADO
+            'contactos.*.telefono_contacto' => 'nullable|string|max:20',
+            'contactos.*.correo_contacto'   => 'nullable|string|max:100',
         ]);
 
 
@@ -96,9 +101,14 @@ class ProveedorController extends Controller
         }
 
 
+        // 👇 ACTUALIZADO: Igual que en store, se agregaron las validaciones internas
         $request->validate([
-            'nombre_proveedor' => 'required|string|max:100',
-            'contactos'        => 'nullable|array', // CORREGIDO: plural
+            'nombre_proveedor'              => 'required|string|max:100',
+            'contactos'                     => 'nullable|array', 
+            'contactos.*.nombre_contacto'   => 'required|string|max:100',
+            'contactos.*.cargo'             => 'nullable|string|max:100', // <-- NUEVO CAMPO AGREGADO
+            'contactos.*.telefono_contacto' => 'nullable|string|max:20',
+            'contactos.*.correo_contacto'   => 'nullable|string|max:100',
         ]);
 
 
@@ -110,8 +120,8 @@ class ProveedorController extends Controller
 
             // CORREGIDO: Todo en plural ('contactos')
             if ($request->has('contactos') && is_array($request->contactos)) {
-                $proveedor->contactos()->delete();
-                $proveedor->contactos()->createMany($request->contactos);
+                $proveedor->contactos()->delete(); // Borra los antiguos
+                $proveedor->contactos()->createMany($request->contactos); // Crea los nuevos
             }
 
 
