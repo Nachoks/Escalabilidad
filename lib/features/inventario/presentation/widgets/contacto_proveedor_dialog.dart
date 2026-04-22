@@ -27,6 +27,7 @@ class _ContactoProveedorDialogState extends State<ContactoProveedorDialog> {
   final _formKey = GlobalKey<FormState>();
 
   late TextEditingController _nombreCtrl;
+  late TextEditingController _cargoCtrl; // 👇 NUEVO CONTROLADOR
   late TextEditingController _numeroCtrl;
   late TextEditingController _correoCtrl;
 
@@ -39,8 +40,14 @@ class _ContactoProveedorDialogState extends State<ContactoProveedorDialog> {
     _nombreCtrl = TextEditingController(
       text: widget.contactoAEditar?.nombreContacto ?? '',
     );
+    // 👇 INICIALIZAR EL CARGO
+    _cargoCtrl = TextEditingController(
+      text: widget.contactoAEditar?.cargo ?? '',
+    );
     _numeroCtrl = TextEditingController(
-      text: widget.contactoAEditar?.numeroContacto ?? '',
+      text:
+          widget.contactoAEditar?.numeroContacto ??
+          '', // o telefonoContacto, dependiendo de tu modelo exacto
     );
     _correoCtrl = TextEditingController(
       text: widget.contactoAEditar?.correoContacto ?? '',
@@ -50,6 +57,7 @@ class _ContactoProveedorDialogState extends State<ContactoProveedorDialog> {
   @override
   void dispose() {
     _nombreCtrl.dispose();
+    _cargoCtrl.dispose(); // 👇 LIMPIAR MEMORIA
     _numeroCtrl.dispose();
     _correoCtrl.dispose();
     super.dispose();
@@ -78,6 +86,10 @@ class _ContactoProveedorDialogState extends State<ContactoProveedorDialog> {
           .contactoAEditar
           ?.idContacto, // Mantenemos el ID si estamos editando
       nombreContacto: _nombreCtrl.text.trim(),
+      cargo: _cargoCtrl.text.trim().isEmpty
+          ? null
+          : _cargoCtrl.text.trim(), // 👇 GUARDAR EL CARGO
+      // NOTA: Asegúrate de que tu modelo use 'numeroContacto' o 'telefonoContacto' y coincida aquí
       numeroContacto: _numeroCtrl.text.trim().isEmpty
           ? null
           : _numeroCtrl.text.trim(),
@@ -191,6 +203,15 @@ class _ContactoProveedorDialogState extends State<ContactoProveedorDialog> {
                     validator: _validarRequerido,
                   ),
                   const SizedBox(height: 16),
+
+                  // 👇 CAMPO DE CARGO AGREGADO A LA VISTA 👇
+                  _buildTextField(
+                    _cargoCtrl,
+                    'Cargo / Puesto (Opcional)',
+                    Icons.work_outline,
+                  ),
+                  const SizedBox(height: 16),
+
                   _buildTextField(
                     _numeroCtrl,
                     'Teléfono / Celular',

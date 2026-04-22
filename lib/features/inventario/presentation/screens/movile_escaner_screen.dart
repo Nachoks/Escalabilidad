@@ -3,17 +3,18 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/inventario/presentation/providers/inventario_provider.dart';
+// 👇 IMPORTACIÓN DEL NUEVO PROVIDER DE REGLAS 👇
+import 'package:somnolence_app/features/inventario/presentation/providers/regla_escaneo_provider.dart';
 import 'package:somnolence_app/features/inventario/presentation/widgets/add_producto_dialog.dart';
 
 import 'package:somnolence_app/features/admin/presentation/providers/cliente_provider.dart';
 import 'package:somnolence_app/features/admin/presentation/providers/servicio_provider.dart';
 import 'package:somnolence_app/features/admin/data/models/cliente_model.dart';
 import 'package:somnolence_app/features/admin/data/models/servicio_model.dart';
-// 👇 AÑADIDO: Importamos el modelo de OC Cliente
 import 'package:somnolence_app/features/admin/data/models/oc_cliente_model.dart';
 
 class MovilEscanerScreen extends StatefulWidget {
-  final bool esEntrada; // true = Ingreso a bodega, false = Despacho a cliente
+  final bool esEntrada;
 
   const MovilEscanerScreen({Key? key, required this.esEntrada})
     : super(key: key);
@@ -29,7 +30,6 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
 
   ClienteModel? _clienteSeleccionado;
   ServicioModel? _servicioSeleccionado;
-  // 👇 MODIFICADO: Ahora es un objeto en lugar de un String
   OcClienteModel? _ocSeleccionada;
 
   String _modoEscaneoActual = '';
@@ -37,11 +37,14 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
   @override
   void initState() {
     super.initState();
-    if (!widget.esEntrada) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Cargamos clientes si es salida
+      if (!widget.esEntrada) {
         context.read<ClienteProvider>().cargarClientes();
-      });
-    }
+      }
+      // 👇 Carga silenciosa de las reglas dinámicas de escaneo 👇
+      context.read<ReglaEscaneoProvider>().cargarReglas();
+    });
   }
 
   @override
@@ -53,37 +56,124 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
   }
 
   // ==========================================
-  // LÓGICA DEL ANALIZADOR INTELIGENTE (REGEX)
+  // EL NUEVO MOTOR DINÁMICO DE ESCANEO
   // ==========================================
   void _procesarCodigoEscaneado(String rawValue) {
     if (_modoEscaneoActual == 'codigo_solo') {
-      _codigoController.text = rawValue;
+      _codigoController.text = rawValue.trim();
     } else if (_modoEscaneoActual == 'serial_solo') {
-      _serialController.text = rawValue;
+      _serialController.text = rawValue.trim();
     } else if (_modoEscaneoActual == 'inteligente') {
-      final List<Map<String, String>> reglas = [
-        {'cod': r'\(93\)([^\(]+)', 'ser': r'\(91\)([^\(]+)'},
-        {'cod': r'\(240\)([^\(]+)', 'ser': r'\(21\)([^\(]+)'},
-      ];
+      // 1. Limpieza fundamental de basura industrial (ASCII 29 y paréntesis)
+      String codigoLimpio = rawValue.replaceAll(String.fromCharCode(29), ' ');
+      codigoLimpio = codigoLimpio
+          .replaceAll('(', '')
+          .replaceAll(')', '')
+          .trim();
 
+      String? codigoHallado;
+      String? serialHallado;
       bool reconocido = false;
 
-      for (var regla in reglas) {
-        RegExp expCodigo = RegExp(regla['cod']!);
-        RegExp expSerial = RegExp(regla['ser']!);
+      // 2. Traemos las reglas de la base de datos
+      final reglas = context.read<ReglaEscaneoProvider>().reglas;
 
-        String? codMatch = expCodigo.firstMatch(rawValue)?.group(1);
-        String? serMatch = expSerial.firstMatch(rawValue)?.group(1);
+      if (reglas.isNotEmpty) {
+        // --- PROCESAMIENTO DINÁMICO ---
+        for (var regla in reglas) {
+          // Escapamos los prefijos para que símbolos como "]" no rompan el Regex
+          String cod = RegExp.escape(regla.prefijoCodigo);
+          String ser = RegExp.escape(regla.prefijoSerie);
+          String sep = regla.separadorIgnorar.isNotEmpty
+              ? RegExp.escape(regla.separadorIgnorar)
+              : '';
 
-        if (codMatch != null && serMatch != null) {
-          _codigoController.text = codMatch.trim();
-          _serialController.text = serMatch.trim();
-          reconocido = true;
-          break;
+          // Muro de contención dinámico (si existe separador, detiene la lectura ahí)
+          String muro = sep.isNotEmpty ? '(?:$sep|\$)' : r'$';
+
+          // Creamos todas las permutaciones posibles (porque la cámara a veces lee en desorden)
+          String pattern1 = sep.isNotEmpty
+              ? '$cod(.*?)$sep.*?$ser(.*)'
+              : '$cod(.*?)$ser(.*)'; // COD -> SEP -> SER
+          String pattern2 = '$cod(.*?)$ser(.*?)$muro'; // COD -> SER -> MURO
+          String pattern3 = '$ser(.*?)$cod(.*?)$muro'; // SER -> COD -> MURO
+          String pattern4 = sep.isNotEmpty
+              ? '$ser(.*?)$sep.*?$cod(.*)'
+              : '$ser(.*?)$cod(.*)'; // SER -> SEP -> COD
+
+          final match1 = RegExp(pattern1).firstMatch(codigoLimpio);
+          final match2 = RegExp(pattern2).firstMatch(codigoLimpio);
+          final match3 = RegExp(pattern3).firstMatch(codigoLimpio);
+          final match4 = RegExp(pattern4).firstMatch(codigoLimpio);
+
+          if (match1 != null) {
+            codigoHallado = match1.group(1)?.trim();
+            serialHallado = match1.group(2)?.trim();
+            reconocido = true;
+            break;
+          } else if (match2 != null) {
+            codigoHallado = match2.group(1)?.trim();
+            serialHallado = match2.group(2)?.trim();
+            reconocido = true;
+            break;
+          } else if (match3 != null) {
+            serialHallado = match3.group(1)?.trim();
+            codigoHallado = match3.group(2)?.trim();
+            reconocido = true;
+            break;
+          } else if (match4 != null) {
+            serialHallado = match4.group(1)?.trim();
+            codigoHallado = match4.group(2)?.trim();
+            reconocido = true;
+            break;
+          }
         }
       }
 
-      if (reconocido) {
+      // --- 3. RESPALDO DE SEGURIDAD (FALLBACK) ---
+      // Si la BD falló, está vacía, o las reglas del usuario no sirvieron, usamos las confiables:
+      if (!reconocido) {
+        final m1 = RegExp(r'240(.*?)92.*?21(.*)').firstMatch(codigoLimpio);
+        final m2 = RegExp(r'240(.*?)21(.*?)(?:92|$)').firstMatch(codigoLimpio);
+        final m3 = RegExp(r'\]C191(.*?)92.*?93(.*)').firstMatch(codigoLimpio);
+        final m4 = RegExp(r'93(.*?)91(.*?)(?:92|$)').firstMatch(codigoLimpio);
+        final m5 = RegExp(
+          r'\]C193(.*?)91(.*?)(?:92|$)',
+        ).firstMatch(codigoLimpio);
+        final m6 = RegExp(r'91(.*?)93(.*?)(?:92|$)').firstMatch(codigoLimpio);
+
+        if (m1 != null) {
+          codigoHallado = m1.group(1)?.trim();
+          serialHallado = m1.group(2)?.trim();
+          reconocido = true;
+        } else if (m2 != null) {
+          codigoHallado = m2.group(1)?.trim();
+          serialHallado = m2.group(2)?.trim();
+          reconocido = true;
+        } else if (m3 != null) {
+          serialHallado = m3.group(1)?.trim();
+          codigoHallado = m3.group(2)?.trim();
+          reconocido = true;
+        } else if (m4 != null) {
+          codigoHallado = m4.group(1)?.trim();
+          serialHallado = m4.group(2)?.trim();
+          reconocido = true;
+        } else if (m5 != null) {
+          codigoHallado = m5.group(1)?.trim();
+          serialHallado = m5.group(2)?.trim();
+          reconocido = true;
+        } else if (m6 != null) {
+          serialHallado = m6.group(1)?.trim();
+          codigoHallado = m6.group(2)?.trim();
+          reconocido = true;
+        }
+      }
+
+      // 4. RESULTADO FINAL
+      if (reconocido && codigoHallado != null && serialHallado != null) {
+        _codigoController.text = codigoHallado;
+        _serialController.text = serialHallado;
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('¡Formato reconocido exitosamente!'),
@@ -91,11 +181,11 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
           ),
         );
       } else {
-        _codigoController.text = rawValue;
+        _codigoController.text = rawValue.trim();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text(
-              'Formato desconocido. Use los botones pequeños si es un código de barras individual.',
+              'Formato no configurado. Ingrese los datos manualmente o configure una nueva regla.',
             ),
             backgroundColor: Colors.orange[800],
             duration: const Duration(seconds: 4),
@@ -244,7 +334,6 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
         );
         return;
       }
-      // 👇 AÑADIDO: Validamos que haya escogido una OC si es que existen
       if (_servicioSeleccionado!.ocs.isNotEmpty && _ocSeleccionada == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Debe seleccionar una Orden de Compra')),
@@ -255,8 +344,7 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
       bool exito = await provider.registrarSalida(
         serial: ser,
         idCliente: _clienteSeleccionado!.idCliente ?? 0,
-        ocCliente: _ocSeleccionada
-            ?.codOcCliente, // Pasamos el string de la OC si existe
+        ocCliente: _ocSeleccionada?.codOcCliente,
       );
 
       _manejarRespuesta(
@@ -401,7 +489,6 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
                 ],
               ),
             ] else ...[
-              // MODO SALIDA: DROPDOWN CLIENTES
               if (clienteProv!.isLoading)
                 const Center(child: CircularProgressIndicator())
               else
@@ -429,8 +516,7 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
                     setState(() {
                       _clienteSeleccionado = val;
                       _servicioSeleccionado = null;
-                      _ocSeleccionada =
-                          null; // 🛠️ CORRECCIÓN: Reseteamos la OC al cambiar Cliente
+                      _ocSeleccionada = null;
                     });
 
                     if (val != null && val.idCliente != null) {
@@ -442,7 +528,6 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
                 ),
               const SizedBox(height: 20),
 
-              // MODO SALIDA: DROPDOWN SERVICIOS (Filtrados por Cliente)
               if (_clienteSeleccionado != null) ...[
                 if (servicioProv!.isLoading)
                   const Center(child: CircularProgressIndicator())
@@ -470,17 +555,14 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
                     onChanged: (val) {
                       setState(() {
                         _servicioSeleccionado = val;
-                        _ocSeleccionada =
-                            null; // 🛠️ CORRECCIÓN: Reseteamos la OC al cambiar de Servicio
+                        _ocSeleccionada = null;
                       });
                     },
                   ),
                 const SizedBox(height: 20),
 
-                // 👇 MODO SALIDA: NUEVO DROPDOWN OC (Filtrados por Servicio) 👇
                 if (_servicioSeleccionado != null) ...[
                   if (_servicioSeleccionado!.ocs.isEmpty)
-                    // Si el servicio no tiene OCs, le mostramos un aviso al usuario
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -505,7 +587,6 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
                       ),
                     )
                   else
-                    // Si sí tiene OCs, lo obligamos a elegir con un Dropdown
                     DropdownButtonFormField<OcClienteModel>(
                       decoration: InputDecoration(
                         labelText: 'Seleccionar Orden de Compra',
@@ -528,7 +609,7 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
                       }).toList(),
                       onChanged: (val) {
                         setState(() {
-                          _ocSeleccionada = val; // Guardamos la OC seleccionada
+                          _ocSeleccionada = val;
                         });
                       },
                     ),
@@ -538,7 +619,6 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
             ],
             const SizedBox(height: 20),
 
-            // CAMPO NÚMERO DE SERIE (Siempre visible para ambos)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -576,7 +656,6 @@ class _MovilEscanerScreenState extends State<MovilEscanerScreen> {
             ),
             const SizedBox(height: 40),
 
-            // BOTON GUARDAR
             provider.isLoading
                 ? const Center(
                     child: CircularProgressIndicator(color: AppColors.primary),

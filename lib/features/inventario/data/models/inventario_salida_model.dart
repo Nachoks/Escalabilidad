@@ -10,6 +10,7 @@ class InventarioSalidaModel {
   final int idResponsable;
   final String? ocCliente;
   final String serial;
+  final String centroCosto;
 
   // 👇 NUEVOS CAMPOS AÑADIDOS 👇
   final User? responsable;
@@ -29,6 +30,7 @@ class InventarioSalidaModel {
     this.cliente,
     this.producto,
     this.createdAt,
+    this.centroCosto = 'S/I',
   });
 
   factory InventarioSalidaModel.fromJson(Map<String, dynamic> json) {
@@ -50,6 +52,11 @@ class InventarioSalidaModel {
       producto: json['producto'] != null
           ? ProductoModel.fromJson(json['producto'])
           : null,
+      centroCosto:
+          json['orden_compra'] != null &&
+              json['orden_compra']['servicio'] != null
+          ? json['orden_compra']['servicio']['centro_costo'] ?? 'S/I'
+          : 'S/I',
       createdAt: json['created_at']?.toString(),
     );
   }

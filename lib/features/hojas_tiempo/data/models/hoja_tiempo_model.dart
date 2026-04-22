@@ -117,6 +117,7 @@ class HojaTiempoDiaria {
   final int? numeroSemana;
   final String? nombreCliente;
   final String? nombreServicio;
+  final String? centroCosto; // 👇 NUEVO: CENTRO DE COSTO
   final String? nombrePersonal;
   final int? idUsuario;
 
@@ -140,6 +141,7 @@ class HojaTiempoDiaria {
     this.numeroSemana,
     this.nombreCliente,
     this.nombreServicio,
+    this.centroCosto, // 👇 NUEVO: CENTRO DE COSTO
     this.nombrePersonal,
     this.idUsuario,
     this.validadorNombre, // <--- Añadido al constructor
@@ -179,6 +181,8 @@ class HojaTiempoDiaria {
       numeroSemana: json['numero_semana'],
       nombreCliente: json['nombre_cliente'],
       nombreServicio: json['nombre_servicio'],
+      centroCosto:
+          json['centro_costo'], // 👇 NUEVO: CENTRO DE COSTO EXTRAÍDO DEL JSON
       nombrePersonal: nombreComp.isNotEmpty ? nombreComp : null,
       idUsuario: json['id_usuario'],
       validadorNombre: vNombreDia, // <--- Asignado aquí

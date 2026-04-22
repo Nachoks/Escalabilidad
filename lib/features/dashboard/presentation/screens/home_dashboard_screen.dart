@@ -8,6 +8,7 @@ import 'package:somnolence_app/features/auth/presentation/screens/login_screen.d
 import 'package:somnolence_app/core/widgets/logo_appbar.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/features/dashboard/presentation/screens/perfil_screen.dart';
+import 'package:somnolence_app/features/inventario/presentation/screens/configuracion_scaner_screen.dart';
 import 'package:somnolence_app/features/inventario/presentation/screens/movile_escaner_screen.dart';
 import 'package:somnolence_app/features/inventario/presentation/screens/web_tabla_screen.dart';
 import 'package:somnolence_app/features/inventario/presentation/screens/gestion_proveedores_screen.dart';
@@ -423,7 +424,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
       'page': const PerfilScreen(),
     });
 
-    // 👇 MODIFICADO: INVENTARIO Y CATÁLOGO (Accesible para Admin o Inventario)
+    // INVENTARIO Y CATÁLOGO (Accesible para Admin o Inventario)
     if (esAdmin || esInventario) {
       if (isDesktopView) {
         menuItems.add({
@@ -451,6 +452,16 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen>
         'color': Colors.blueGrey.shade700,
         'page': const GestionProveedoresScreen(),
       });
+
+      if (esAdmin) {
+        menuItems.add({
+          'title': 'Reglas de Escáner',
+          'subtitle': 'Ajustes del lector',
+          'icon': Icons.settings_overscan,
+          'color': Colors.deepOrange,
+          'page': const ConfiguracionEscanerScreen(),
+        });
+      }
     }
 
     // HOJAS DE TIEMPO

@@ -75,8 +75,7 @@ class _AdminHojasPendientesScreenState
                 ],
               ),
               content: SizedBox(
-                width: double
-                    .maxFinite, // Permite que el ListView tome el ancho disponible
+                width: double.maxFinite,
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -91,6 +90,15 @@ class _AdminHojasPendientesScreenState
                       ),
                       const SizedBox(height: 4),
                       Text("Cliente: ${dia.nombreCliente ?? 'S/I'}"),
+                      // 👇 NUEVOS DATOS MOSTRADOS EN EL POP-UP 👇
+                      Text("Servicio: ${dia.nombreServicio ?? 'S/I'}"),
+                      Text(
+                        "Centro de Costo: ${dia.centroCosto ?? 'S/I'}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: Colors.blueGrey,
+                        ),
+                      ),
                       Text("Horas de Viaje: ${dia.viajeHoras} hrs"),
                       Text("Lugar: ${dia.lugar} • Tipo: ${dia.tipoDia}"),
                       const SizedBox(height: 16),
@@ -122,14 +130,12 @@ class _AdminHojasPendientesScreenState
                           ),
                           child: ListView.separated(
                             shrinkWrap: true,
-                            physics:
-                                const NeverScrollableScrollPhysics(), // El SingleChildScrollView padre maneja el scroll
+                            physics: const NeverScrollableScrollPhysics(),
                             itemCount: dia.actividades!.length,
                             separatorBuilder: (_, __) =>
                                 const Divider(height: 1),
                             itemBuilder: (context, index) {
                               final act = dia.actividades![index];
-                              // Sumamos horas totales de la actividad para mostrarlas
                               final totalHoras =
                                   act.horasHabiles +
                                   act.horasNoHabiles +
@@ -491,7 +497,7 @@ class _AdminHojasPendientesScreenState
     );
   }
 
-  // --- TARJETA PARA SEMANAS (LA QUE YA TENÍAS, ADAPTADA AL NUEVO MODELO) ---
+  // --- TARJETA PARA SEMANAS ---
   Widget _buildHojaSemanaCard(
     HojaTiempoSemana hoja, {
     required bool isDesktop,
@@ -668,6 +674,7 @@ class _AdminHojasPendientesScreenState
   Widget _buildHojaDiaCard(HojaTiempoDiaria dia, {required bool isDesktop}) {
     final personal = dia.nombrePersonal ?? "Usuario S/I";
     final cliente = dia.nombreCliente ?? "Cliente S/I";
+    final servicio = dia.nombreServicio ?? "Servicio S/I"; // 👇 NUEVO
     final fechaDia = _formatFecha(dia.fecha.toString().split(' ')[0]);
 
     return Card(
@@ -752,8 +759,9 @@ class _AdminHojasPendientesScreenState
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      // 👇 ACTUALIZADO PARA MOSTRAR CLIENTE Y SERVICIO 👇
                       Text(
-                        cliente,
+                        "$cliente - $servicio",
                         style: TextStyle(
                           color: Colors.grey[800],
                           fontWeight: FontWeight.w500,

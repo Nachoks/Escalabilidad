@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_slidable/flutter_slidable.dart'; // 👇 NUEVA LIBRERÍA
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import '../../data/models/proveedor_model.dart';
 import '../../data/models/contacto_proveedor_model.dart';
 import '../providers/proveedor_provider.dart';
 import '../widgets/proveedor_dialog.dart';
-import '../widgets/contacto_proveedor_dialog.dart'; // 👇 IMPORTAR POP-UP DE CONTACTOS
+import '../widgets/contacto_proveedor_dialog.dart';
 
 class ProveedorDetailsScreen extends StatefulWidget {
   final ProveedorModel proveedor;
@@ -427,9 +427,20 @@ class _ProveedorDetailsScreenState extends State<ProveedorDetailsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (contacto.numeroContacto != null)
+                    // 👇 AQUÍ SE MUESTRA EL CARGO (ESCRITORIO) 👇
+                    if (contacto.cargo != null && contacto.cargo!.isNotEmpty)
+                      Text(
+                        "💼 ${contacto.cargo!}",
+                        style: const TextStyle(
+                          color: Colors.blueGrey,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    if (contacto.numeroContacto != null &&
+                        contacto.numeroContacto!.isNotEmpty)
                       Text("📞 ${contacto.numeroContacto!}"),
-                    if (contacto.correoContacto != null)
+                    if (contacto.correoContacto != null &&
+                        contacto.correoContacto!.isNotEmpty)
                       Text("✉️ ${contacto.correoContacto!}"),
                   ],
                 ),
@@ -506,12 +517,24 @@ class _ProveedorDetailsScreenState extends State<ProveedorDetailsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 4),
-                  if (contacto.numeroContacto != null)
+                  // 👇 AQUÍ SE MUESTRA EL CARGO (MÓVIL) 👇
+                  if (contacto.cargo != null && contacto.cargo!.isNotEmpty)
+                    Text(
+                      "💼 ${contacto.cargo!}",
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.blueGrey,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  if (contacto.numeroContacto != null &&
+                      contacto.numeroContacto!.isNotEmpty)
                     Text(
                       "📞 ${contacto.numeroContacto!}",
                       style: const TextStyle(fontSize: 13),
                     ),
-                  if (contacto.correoContacto != null)
+                  if (contacto.correoContacto != null &&
+                      contacto.correoContacto!.isNotEmpty)
                     Text(
                       "✉️ ${contacto.correoContacto!}",
                       style: const TextStyle(fontSize: 13),

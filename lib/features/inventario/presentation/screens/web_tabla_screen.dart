@@ -19,6 +19,16 @@ class WebTablasScreen extends StatefulWidget {
 class _WebTablasScreenState extends State<WebTablasScreen> {
   // --- VARIABLES FILTROS STOCK GLOBAL ---
   String _busquedaMarca = '';
+
+  // 1. Filtro superior (Disponibilidad)
+  String _filtroDisponibilidad = 'Todos';
+  final List<String> _opcionesDisponibilidad = [
+    'Todos',
+    'Con Stock',
+    'Sin Stock',
+  ];
+
+  // 2. Filtro en Columna (Estado de Stock)
   String _filtroEstado = 'Todos';
   final List<String> _opcionesEstado = [
     'Todos',
@@ -26,6 +36,16 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
     'Stock Mínimo',
     'Solicitar Equipos',
   ];
+
+  // --- VARIABLES DE ORDENAMIENTO PERSONALIZADO (POPUP) ---
+  String _stockSortCol = '';
+  String _stockSortOrder = 'defecto'; // 'asc', 'desc', 'defecto'
+
+  String _entradasSortCol = '';
+  String _entradasSortOrder = 'defecto';
+
+  String _salidasSortCol = '';
+  String _salidasSortOrder = 'defecto';
 
   // --- VARIABLES FILTROS HISTORIAL ENTRADAS ---
   String _busquedaOcEntrada = '';
@@ -275,18 +295,26 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
   }
 
   // ==========================================
-  // EXTRACCIÓN DE LISTAS FILTRADAS (UI + EXCEL)
+  // EXTRACCIÓN DE LISTAS FILTRADAS Y ORDENADAS
   // ==========================================
   List<dynamic> _obtenerStockFiltrado(InventarioProvider provider) {
-    return provider.listaStock.where((item) {
+    List<dynamic> lista = provider.listaStock.where((item) {
       final prod = item.producto;
       final marca = (prod?.marca ?? '').toLowerCase();
 
+      // Filtro de Búsqueda
       if (_busquedaMarca.isNotEmpty &&
           !marca.contains(_busquedaMarca.toLowerCase())) {
         return false;
       }
 
+      // Filtro 1: Disponibilidad (Top Bar)
+      if (_filtroDisponibilidad == 'Con Stock' && item.stockActual < 1)
+        return false;
+      if (_filtroDisponibilidad == 'Sin Stock' && item.stockActual > 0)
+        return false;
+
+      // Filtro 2: Estado de Stock (Columna)
       String estadoItem = item.stockActual > item.stockMinimo
           ? 'Hay suficientes'
           : (item.stockActual == item.stockMinimo
@@ -294,12 +322,41 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
                 : 'Solicitar Equipos');
 
       if (_filtroEstado != 'Todos' && estadoItem != _filtroEstado) return false;
+
       return true;
     }).toList();
+
+    // Ordenamiento Dinámico
+    if (_stockSortCol.isNotEmpty && _stockSortOrder != 'defecto') {
+      lista.sort((a, b) {
+        int comp = 0;
+        if (_stockSortCol == 'codigo') {
+          comp = (a.producto?.codigoProducto ?? '').compareTo(
+            b.producto?.codigoProducto ?? '',
+          );
+        } else if (_stockSortCol == 'nombre') {
+          comp = (a.producto?.nombreProducto ?? '').compareTo(
+            b.producto?.nombreProducto ?? '',
+          );
+        } else if (_stockSortCol == 'marca') {
+          comp = (a.producto?.marca ?? '').compareTo(b.producto?.marca ?? '');
+        } else if (_stockSortCol == 'entradas') {
+          comp = a.totalEntradas.compareTo(b.totalEntradas);
+        } else if (_stockSortCol == 'salidas') {
+          comp = a.totalSalidas.compareTo(b.totalSalidas);
+        } else if (_stockSortCol == 'minimo') {
+          comp = a.stockMinimo.compareTo(b.stockMinimo);
+        } else if (_stockSortCol == 'actual') {
+          comp = a.stockActual.compareTo(b.stockActual);
+        }
+        return _stockSortOrder == 'asc' ? comp : -comp;
+      });
+    }
+    return lista;
   }
 
   List<dynamic> _obtenerEntradasFiltradas(InventarioProvider provider) {
-    return provider.listaEntradas.where((ent) {
+    List<dynamic> lista = provider.listaEntradas.where((ent) {
       final oc = (ent.ocProveedor ?? '').toLowerCase();
       if (_busquedaOcEntrada.isNotEmpty &&
           !oc.contains(_busquedaOcEntrada.toLowerCase())) {
@@ -317,11 +374,8 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
                 fechaEntrada.day != ahora.day)
               return false;
           } else if (_filtroFechaEntrada == 'Esta Semana') {
-            if (fechaEntrada.isBefore(
-              ahora.subtract(const Duration(days: 7)),
-            )) {
+            if (fechaEntrada.isBefore(ahora.subtract(const Duration(days: 7))))
               return false;
-            }
           } else if (_filtroFechaEntrada == 'Este Mes') {
             if (fechaEntrada.year != ahora.year ||
                 fechaEntrada.month != ahora.month)
@@ -344,9 +398,8 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
               59,
               59,
             );
-            if (fechaEntrada.isBefore(inicio) || fechaEntrada.isAfter(fin)) {
+            if (fechaEntrada.isBefore(inicio) || fechaEntrada.isAfter(fin))
               return false;
-            }
           }
         } catch (e) {
           return false;
@@ -354,10 +407,38 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
       }
       return true;
     }).toList();
+
+    // Ordenamiento Dinámico
+    if (_entradasSortCol.isNotEmpty && _entradasSortOrder != 'defecto') {
+      lista.sort((a, b) {
+        int comp = 0;
+        if (_entradasSortCol == 'oc') {
+          comp = (a.ocProveedor ?? '').compareTo(b.ocProveedor ?? '');
+        } else if (_entradasSortCol == 'fecha') {
+          comp = (a.createdAt ?? '').compareTo(b.createdAt ?? '');
+        } else if (_entradasSortCol == 'serial') {
+          comp = a.serial.compareTo(b.serial);
+        } else if (_entradasSortCol == 'codigo') {
+          comp = (a.producto?.codigoProducto ?? '').compareTo(
+            b.producto?.codigoProducto ?? '',
+          );
+        } else if (_entradasSortCol == 'nombre') {
+          comp = (a.producto?.nombreProducto ?? '').compareTo(
+            b.producto?.nombreProducto ?? '',
+          );
+        } else if (_entradasSortCol == 'responsable') {
+          comp = (a.responsable?.nombreCompleto ?? '').compareTo(
+            b.responsable?.nombreCompleto ?? '',
+          );
+        }
+        return _entradasSortOrder == 'asc' ? comp : -comp;
+      });
+    }
+    return lista;
   }
 
   List<dynamic> _obtenerSalidasFiltradas(InventarioProvider provider) {
-    return provider.listaSalidas.where((sal) {
+    List<dynamic> lista = provider.listaSalidas.where((sal) {
       final clienteNombre =
           (sal.cliente?.nombreCliente ?? 'Cliente #${sal.idCliente}')
               .toLowerCase();
@@ -377,9 +458,8 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
                 fechaSalida.day != ahora.day)
               return false;
           } else if (_filtroFechaSalida == 'Esta Semana') {
-            if (fechaSalida.isBefore(ahora.subtract(const Duration(days: 7)))) {
+            if (fechaSalida.isBefore(ahora.subtract(const Duration(days: 7))))
               return false;
-            }
           } else if (_filtroFechaSalida == 'Este Mes') {
             if (fechaSalida.year != ahora.year ||
                 fechaSalida.month != ahora.month)
@@ -402,9 +482,8 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
               59,
               59,
             );
-            if (fechaSalida.isBefore(inicio) || fechaSalida.isAfter(fin)) {
+            if (fechaSalida.isBefore(inicio) || fechaSalida.isAfter(fin))
               return false;
-            }
           }
         } catch (e) {
           return false;
@@ -412,6 +491,43 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
       }
       return true;
     }).toList();
+
+    // Ordenamiento Dinámico
+    if (_salidasSortCol.isNotEmpty && _salidasSortOrder != 'defecto') {
+      lista.sort((a, b) {
+        int comp = 0;
+        if (_salidasSortCol == 'oc') {
+          comp = (a.ocCliente ?? '').compareTo(b.ocCliente ?? '');
+        } else if (_salidasSortCol == 'cliente') {
+          comp = (a.cliente?.nombreCliente ?? '').compareTo(
+            b.cliente?.nombreCliente ?? '',
+          );
+        } else if (_salidasSortCol == 'centro_costo') {
+          // 👇 ORDENAMIENTO POR CENTRO DE COSTO (CORREGIDO A sal.centroCosto) 👇
+          final ccA = a.centroCosto ?? '';
+          final ccB = b.centroCosto ?? '';
+          comp = ccA.compareTo(ccB);
+        } else if (_salidasSortCol == 'fecha') {
+          comp = (a.createdAt ?? '').compareTo(b.createdAt ?? '');
+        } else if (_salidasSortCol == 'serial') {
+          comp = a.serial.compareTo(b.serial);
+        } else if (_salidasSortCol == 'codigo') {
+          comp = (a.producto?.codigoProducto ?? '').compareTo(
+            b.producto?.codigoProducto ?? '',
+          );
+        } else if (_salidasSortCol == 'nombre') {
+          comp = (a.producto?.nombreProducto ?? '').compareTo(
+            b.producto?.nombreProducto ?? '',
+          );
+        } else if (_salidasSortCol == 'responsable') {
+          comp = (a.responsable?.nombreCompleto ?? '').compareTo(
+            b.responsable?.nombreCompleto ?? '',
+          );
+        }
+        return _salidasSortOrder == 'asc' ? comp : -comp;
+      });
+    }
+    return lista;
   }
 
   // ==========================================
@@ -426,11 +542,11 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
+        title: const Row(
           children: [
-            const Icon(Icons.table_view, color: Colors.green),
-            const SizedBox(width: 10),
-            const Text('Exportar a Excel'),
+            Icon(Icons.table_view, color: Colors.green),
+            SizedBox(width: 10),
+            Text('Exportar a Excel'),
           ],
         ),
         content: Text(
@@ -522,6 +638,7 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
         sheet.appendRow([
           TextCellValue('OC Cliente'),
           TextCellValue('Cliente Destino'),
+          TextCellValue('Centro de Costo'),
           TextCellValue('Fecha (hora)'),
           TextCellValue('Serial'),
           TextCellValue('Código Producto'),
@@ -530,11 +647,15 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
         ]);
 
         for (var sal in _obtenerSalidasFiltradas(provider)) {
+          // 👇 EXTRACCIÓN DEL CENTRO DE COSTO (CORREGIDO A sal.centroCosto) 👇
+          final centroCosto = sal.centroCosto ?? 'S/I';
+
           sheet.appendRow([
             TextCellValue(sal.ocCliente ?? 'S/I'),
             TextCellValue(
               sal.cliente?.nombreCliente ?? 'Cliente #${sal.idCliente}',
             ),
+            TextCellValue(centroCosto),
             TextCellValue(_formatearFechaHora(sal.createdAt)),
             TextCellValue(sal.serial),
             TextCellValue(sal.producto?.codigoProducto ?? 'N/A'),
@@ -650,12 +771,6 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
   Widget _buildTablaStock(InventarioProvider provider) {
     final listaFiltrada = _obtenerStockFiltrado(provider);
 
-    if (provider.listaStock.isEmpty &&
-        _busquedaMarca.isEmpty &&
-        _filtroEstado == 'Todos') {
-      return _buildEmptyState('No hay productos en stock.');
-    }
-
     return Column(
       children: [
         Container(
@@ -666,7 +781,7 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
                 flex: 2,
                 child: TextField(
                   decoration: InputDecoration(
-                    labelText: 'Buscar por Marca',
+                    labelText: 'Buscar por Marca del Equipo...',
                     prefixIcon: const Icon(
                       Icons.search,
                       color: AppColors.primary,
@@ -688,11 +803,11 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
               Expanded(
                 flex: 1,
                 child: DropdownButtonFormField<String>(
-                  value: _filtroEstado,
+                  value: _filtroDisponibilidad,
                   decoration: InputDecoration(
-                    labelText: 'Filtrar por Estado',
+                    labelText: 'Disponibilidad de Stock',
                     prefixIcon: const Icon(
-                      Icons.filter_list,
+                      Icons.check_circle_outline,
                       color: AppColors.primary,
                     ),
                     border: OutlineInputBorder(
@@ -705,11 +820,12 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
                       vertical: 12,
                     ),
                   ),
-                  items: _opcionesEstado
+                  items: _opcionesDisponibilidad
                       .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                       .toList(),
                   onChanged: (val) {
-                    if (val != null) setState(() => _filtroEstado = val);
+                    if (val != null)
+                      setState(() => _filtroDisponibilidad = val);
                   },
                 ),
               ),
@@ -727,53 +843,134 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
                       AppColors.primary.withOpacity(0.15),
                     ),
                     dataRowMaxHeight: 65,
-                    columns: const [
+                    columns: [
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'Código',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          false,
+                          'codigo',
+                          _stockSortCol,
+                          _stockSortOrder,
+                          (c, o) => setState(() {
+                            _stockSortCol = c;
+                            _stockSortOrder = o;
+                          }),
                         ),
                       ),
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'Nombre del Equipo',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          false,
+                          'nombre',
+                          _stockSortCol,
+                          _stockSortOrder,
+                          (c, o) => setState(() {
+                            _stockSortCol = c;
+                            _stockSortOrder = o;
+                          }),
                         ),
                       ),
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'Marca',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          false,
+                          'marca',
+                          _stockSortCol,
+                          _stockSortOrder,
+                          (c, o) => setState(() {
+                            _stockSortCol = c;
+                            _stockSortOrder = o;
+                          }),
                         ),
                       ),
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'Total Entradas',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          true,
+                          'entradas',
+                          _stockSortCol,
+                          _stockSortOrder,
+                          (c, o) => setState(() {
+                            _stockSortCol = c;
+                            _stockSortOrder = o;
+                          }),
                         ),
                       ),
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'Total Salidas',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          true,
+                          'salidas',
+                          _stockSortCol,
+                          _stockSortOrder,
+                          (c, o) => setState(() {
+                            _stockSortCol = c;
+                            _stockSortOrder = o;
+                          }),
                         ),
                       ),
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'Stock Mínimo',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          true,
+                          'minimo',
+                          _stockSortCol,
+                          _stockSortOrder,
+                          (c, o) => setState(() {
+                            _stockSortCol = c;
+                            _stockSortOrder = o;
+                          }),
                         ),
                       ),
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'Stock Actual',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          true,
+                          'actual',
+                          _stockSortCol,
+                          _stockSortOrder,
+                          (c, o) => setState(() {
+                            _stockSortCol = c;
+                            _stockSortOrder = o;
+                          }),
                         ),
                       ),
                       DataColumn(
-                        label: Text(
-                          'Estado de Stock',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                        label: Row(
+                          children: [
+                            const Text(
+                              'Estado de Stock',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(width: 4),
+                            PopupMenuButton<String>(
+                              icon: Icon(
+                                Icons.filter_alt,
+                                size: 18,
+                                color: _filtroEstado == 'Todos'
+                                    ? Colors.grey
+                                    : AppColors.primary,
+                              ),
+                              tooltip: 'Filtrar por Estado',
+                              onSelected: (val) =>
+                                  setState(() => _filtroEstado = val),
+                              itemBuilder: (context) => _opcionesEstado
+                                  .map(
+                                    (e) => PopupMenuItem(
+                                      value: e,
+                                      child: Text(
+                                        e,
+                                        style: TextStyle(
+                                          fontWeight: _filtroEstado == e
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -808,7 +1005,6 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
                               ),
                             ),
                           ),
-                          // 👇 COLUMNA EDITABLE DEL NOMBRE DEL EQUIPO 👇
                           DataCell(
                             Row(
                               mainAxisSize: MainAxisSize.min,
@@ -960,12 +1156,6 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
   Widget _buildTablaEntradas(InventarioProvider provider) {
     final listaFiltrada = _obtenerEntradasFiltradas(provider);
 
-    if (provider.listaEntradas.isEmpty &&
-        _busquedaOcEntrada.isEmpty &&
-        _filtroFechaEntrada == 'Todas') {
-      return _buildEmptyState('No hay registro de entradas.');
-    }
-
     return Column(
       children: [
         Container(
@@ -1071,41 +1261,84 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
                     headingRowColor: WidgetStateProperty.all(
                       AppColors.primary.withOpacity(0.1),
                     ),
-                    columns: const [
+                    columns: [
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'OC',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          false,
+                          'oc',
+                          _entradasSortCol,
+                          _entradasSortOrder,
+                          (c, o) => setState(() {
+                            _entradasSortCol = c;
+                            _entradasSortOrder = o;
+                          }),
                         ),
                       ),
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'Fecha (hora)',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          false,
+                          'fecha',
+                          _entradasSortCol,
+                          _entradasSortOrder,
+                          (c, o) => setState(() {
+                            _entradasSortCol = c;
+                            _entradasSortOrder = o;
+                          }),
+                          isDate: true,
                         ),
                       ),
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'Serial',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          false,
+                          'serial',
+                          _entradasSortCol,
+                          _entradasSortOrder,
+                          (c, o) => setState(() {
+                            _entradasSortCol = c;
+                            _entradasSortOrder = o;
+                          }),
                         ),
                       ),
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'Código',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          false,
+                          'codigo',
+                          _entradasSortCol,
+                          _entradasSortOrder,
+                          (c, o) => setState(() {
+                            _entradasSortCol = c;
+                            _entradasSortOrder = o;
+                          }),
                         ),
                       ),
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'Nombre del Equipo',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          false,
+                          'nombre',
+                          _entradasSortCol,
+                          _entradasSortOrder,
+                          (c, o) => setState(() {
+                            _entradasSortCol = c;
+                            _entradasSortOrder = o;
+                          }),
                         ),
                       ),
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'Responsable',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          false,
+                          'responsable',
+                          _entradasSortCol,
+                          _entradasSortOrder,
+                          (c, o) => setState(() {
+                            _entradasSortCol = c;
+                            _entradasSortOrder = o;
+                          }),
                         ),
                       ),
                     ],
@@ -1151,12 +1384,6 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
   // ==========================================
   Widget _buildTablaSalidas(InventarioProvider provider) {
     final listaFiltrada = _obtenerSalidasFiltradas(provider);
-
-    if (provider.listaSalidas.isEmpty &&
-        _busquedaClienteSalida.isEmpty &&
-        _filtroFechaSalida == 'Todas') {
-      return _buildEmptyState('No hay registro de salidas.');
-    }
 
     return Column(
       children: [
@@ -1261,47 +1488,113 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
                     headingRowColor: WidgetStateProperty.all(
                       AppColors.primary.withOpacity(0.1),
                     ),
-                    columns: const [
+                    columns: [
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'OC',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          false,
+                          'oc',
+                          _salidasSortCol,
+                          _salidasSortOrder,
+                          (c, o) => setState(() {
+                            _salidasSortCol = c;
+                            _salidasSortOrder = o;
+                          }),
                         ),
                       ),
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'Cliente',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          false,
+                          'cliente',
+                          _salidasSortCol,
+                          _salidasSortOrder,
+                          (c, o) => setState(() {
+                            _salidasSortCol = c;
+                            _salidasSortOrder = o;
+                          }),
                         ),
                       ),
+
+                      // 👇 NUEVA COLUMNA DE CENTRO DE COSTO EN EL MEDIO 👇
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
+                          'Centro de Costo',
+                          false,
+                          'centro_costo',
+                          _salidasSortCol,
+                          _salidasSortOrder,
+                          (c, o) => setState(() {
+                            _salidasSortCol = c;
+                            _salidasSortOrder = o;
+                          }),
+                        ),
+                      ),
+
+                      DataColumn(
+                        label: _buildHeaderWithSort(
                           'Fecha (hora)',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          false,
+                          'fecha',
+                          _salidasSortCol,
+                          _salidasSortOrder,
+                          (c, o) => setState(() {
+                            _salidasSortCol = c;
+                            _salidasSortOrder = o;
+                          }),
+                          isDate: true,
                         ),
                       ),
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'Serial',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          false,
+                          'serial',
+                          _salidasSortCol,
+                          _salidasSortOrder,
+                          (c, o) => setState(() {
+                            _salidasSortCol = c;
+                            _salidasSortOrder = o;
+                          }),
                         ),
                       ),
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'Código',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          false,
+                          'codigo',
+                          _salidasSortCol,
+                          _salidasSortOrder,
+                          (c, o) => setState(() {
+                            _salidasSortCol = c;
+                            _salidasSortOrder = o;
+                          }),
                         ),
                       ),
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'Nombre del Equipo',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          false,
+                          'nombre',
+                          _salidasSortCol,
+                          _salidasSortOrder,
+                          (c, o) => setState(() {
+                            _salidasSortCol = c;
+                            _salidasSortOrder = o;
+                          }),
                         ),
                       ),
                       DataColumn(
-                        label: Text(
+                        label: _buildHeaderWithSort(
                           'Responsable',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          false,
+                          'responsable',
+                          _salidasSortCol,
+                          _salidasSortOrder,
+                          (c, o) => setState(() {
+                            _salidasSortCol = c;
+                            _salidasSortOrder = o;
+                          }),
                         ),
                       ),
                     ],
@@ -1310,6 +1603,10 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
                       final String cliente =
                           sal.cliente?.nombreCliente ??
                           'Cliente #${sal.idCliente}';
+
+                      // 👇 ASIGNACIÓN DEL DATO DEL CENTRO DE COSTO (CORREGIDA) 👇
+                      final String centroCosto = sal.centroCosto ?? 'S/I';
+
                       final String fecha = _formatearFechaHora(sal.createdAt);
                       final String serial = sal.serial;
                       final String codigo =
@@ -1324,6 +1621,15 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
                         cells: [
                           DataCell(Text(oc)),
                           DataCell(Text(cliente)),
+                          DataCell(
+                            Text(
+                              centroCosto,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: Colors.blueGrey,
+                              ),
+                            ),
+                          ), // 👈 Celda de CC
                           DataCell(Text(fecha)),
                           DataCell(
                             Text(
@@ -1349,6 +1655,85 @@ class _WebTablasScreenState extends State<WebTablasScreen> {
   // ==========================================
   // WIDGETS REUTILIZABLES DE DISEÑO
   // ==========================================
+
+  Widget _buildHeaderWithSort(
+    String title,
+    bool isNumeric,
+    String colKey,
+    String currentSortCol,
+    String currentSortOrder,
+    Function(String, String) onSortChanged, {
+    bool isDate = false,
+  }) {
+    List<String> options = ['Por defecto'];
+    if (isDate) {
+      options.addAll(['Más recientes primero', 'Más antiguos primero']);
+    } else if (isNumeric) {
+      options.addAll(['Menor a Mayor', 'Mayor a Menor']);
+    } else {
+      options.addAll(['A - Z', 'Z - A']);
+    }
+
+    bool isActive = currentSortCol == colKey && currentSortOrder != 'defecto';
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(width: 4),
+        PopupMenuButton<String>(
+          icon: Icon(
+            isActive
+                ? (currentSortOrder == 'asc'
+                      ? Icons.arrow_upward
+                      : Icons.arrow_downward)
+                : Icons.sort,
+            size: 18,
+            color: isActive ? AppColors.primary : Colors.grey,
+          ),
+          tooltip: 'Ordenar',
+          onSelected: (val) {
+            if (val == 'Por defecto') {
+              onSortChanged('', 'defecto');
+            } else if (val == 'Menor a Mayor' ||
+                val == 'A - Z' ||
+                val == 'Más antiguos primero') {
+              onSortChanged(colKey, 'asc');
+            } else {
+              onSortChanged(colKey, 'desc');
+            }
+          },
+          itemBuilder: (context) => options.map((e) {
+            bool isBold = false;
+            if (currentSortCol == colKey) {
+              if (e == 'Por defecto' && currentSortOrder == 'defecto')
+                isBold = true;
+              if ((e == 'Menor a Mayor' ||
+                      e == 'A - Z' ||
+                      e == 'Más antiguos primero') &&
+                  currentSortOrder == 'asc')
+                isBold = true;
+              if ((e == 'Mayor a Menor' ||
+                      e == 'Z - A' ||
+                      e == 'Más recientes primero') &&
+                  currentSortOrder == 'desc')
+                isBold = true;
+            }
+            return PopupMenuItem(
+              value: e,
+              child: Text(
+                e,
+                style: TextStyle(
+                  fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
   Widget _buildContainerTabla({required Widget child}) {
     return LayoutBuilder(
       builder: (context, constraints) {

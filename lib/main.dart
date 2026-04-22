@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb; //DETECTAR LA WEB
-import 'package:flutter_localizations/flutter_localizations.dart'; // IMPORTACIÓN DE IDIOMAS
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:somnolence_app/core/services/notification_service.dart';
 import 'package:somnolence_app/core/api/api_service.dart';
 import 'package:somnolence_app/features/admin/presentation/providers/admin_users_provider.dart';
@@ -13,6 +13,7 @@ import 'package:somnolence_app/features/auth/presentation/screens/login_screen.d
 import 'package:somnolence_app/features/auth/data/models/user_model.dart';
 import 'package:somnolence_app/features/dashboard/presentation/screens/home_dashboard_screen.dart';
 import 'package:somnolence_app/features/hojas_tiempo/presentation/providers/hoja_tiempo_provider.dart';
+import 'package:somnolence_app/features/inventario/presentation/providers/regla_escaneo_provider.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/gasto_provider.dart';
 import 'package:somnolence_app/features/rendiciones/presentation/providers/rendiciones_provider.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
@@ -22,7 +23,6 @@ import 'package:somnolence_app/features/inventario/presentation/providers/provee
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 👇 AQUÍ ESTÁ LA MAGIA QUE SALVA A LA WEB 👇
   if (!kIsWeb) {
     HttpOverrides.global = MyHttpOverrides();
   }
@@ -44,6 +44,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => HojaTiempoProvider()),
         ChangeNotifierProvider(create: (_) => InventarioProvider()),
         ChangeNotifierProvider(create: (_) => ProveedorProvider()),
+        ChangeNotifierProvider(create: (_) => ReglaEscaneoProvider()),
       ],
       child: const MyApp(),
     ),
