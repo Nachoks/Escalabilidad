@@ -341,10 +341,10 @@ class RendicionTableSeeder extends Seeder
             29 => 
             array (
                 'id_rendicion' => 31,
-                'fecha' => NULL,
+                'fecha' => '2026-04-07',
                 'proposito' => 'Cena PZ',
                 'monto_entregado' => 0,
-                'estado' => 'Borrador',
+                'estado' => 'Pagada',
                 'centro_costo' => '00-1-001',
                 'id_servicio' => 148,
                 'id_usuario' => 11,
@@ -363,13 +363,101 @@ class RendicionTableSeeder extends Seeder
             31 => 
             array (
                 'id_rendicion' => 33,
-                'fecha' => NULL,
+                'fecha' => '2026-04-07',
                 'proposito' => 'Viaje Levantamiento N°2',
                 'monto_entregado' => 0,
-                'estado' => 'Borrador',
+                'estado' => 'Pagada',
                 'centro_costo' => '02-1-069',
                 'id_servicio' => 152,
                 'id_usuario' => 11,
+            ),
+            32 => 
+            array (
+                'id_rendicion' => 34,
+                'fecha' => '2026-04-08',
+                'proposito' => 'Retiro vasos IAA',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '00-1-001',
+                'id_servicio' => 148,
+                'id_usuario' => 9,
+            ),
+            33 => 
+            array (
+                'id_rendicion' => 35,
+                'fecha' => '2026-04-09',
+                'proposito' => 'MCEN Terreno',
+                'monto_entregado' => 150000,
+                'estado' => 'Pagada',
+                'centro_costo' => '01-1-016',
+                'id_servicio' => 17,
+                'id_usuario' => 8,
+            ),
+            34 => 
+            array (
+                'id_rendicion' => 36,
+                'fecha' => '2026-04-17',
+                'proposito' => 'Operador Alza-Hombre',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '02-1-070',
+                'id_servicio' => 153,
+                'id_usuario' => 11,
+            ),
+            35 => 
+            array (
+                'id_rendicion' => 37,
+                'fecha' => '2026-04-13',
+                'proposito' => 'Tester de Red',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '02-1-070',
+                'id_servicio' => 153,
+                'id_usuario' => 11,
+            ),
+            36 => 
+            array (
+                'id_rendicion' => 39,
+                'fecha' => '2026-04-20',
+                'proposito' => 'Servicio en terreno',
+                'monto_entregado' => 0,
+                'estado' => 'Aprobada',
+                'centro_costo' => '02-1-070',
+                'id_servicio' => 153,
+                'id_usuario' => 11,
+            ),
+            37 => 
+            array (
+                'id_rendicion' => 40,
+                'fecha' => '2026-04-16',
+                'proposito' => 'Hospedaje Santiago Workshop ABB',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '00-1-001',
+                'id_servicio' => 148,
+                'id_usuario' => 11,
+            ),
+            38 => 
+            array (
+                'id_rendicion' => 41,
+                'fecha' => '2026-04-17',
+                'proposito' => 'Limpieza de servidores',
+                'monto_entregado' => 0,
+                'estado' => 'Pagada',
+                'centro_costo' => '02-1-070',
+                'id_servicio' => 153,
+                'id_usuario' => 5,
+            ),
+            39 => 
+            array (
+                'id_rendicion' => 42,
+                'fecha' => '2026-04-17',
+                'proposito' => 'Comida',
+                'monto_entregado' => 0,
+                'estado' => 'Observada',
+                'centro_costo' => '00-1-001',
+                'id_servicio' => 148,
+                'id_usuario' => 9,
             ),
         ));
         

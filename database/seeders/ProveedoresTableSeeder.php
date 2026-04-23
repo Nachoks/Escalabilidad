@@ -47,6 +47,13 @@ class ProveedoresTableSeeder extends Seeder
                 'created_at' => '2026-03-31 05:55:30',
                 'updated_at' => '2026-03-31 05:55:30',
             ),
+            4 => 
+            array (
+                'id_proveedor' => 5,
+                'nombre_proveedor' => 'Proveedor Migración',
+                'created_at' => '2026-04-16 04:06:32',
+                'updated_at' => '2026-04-16 04:06:32',
+            ),
         ));
         
         

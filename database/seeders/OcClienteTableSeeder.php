@@ -1027,6 +1027,24 @@ class OcClienteTableSeeder extends Seeder
                 'cod_oc_cliente' => '4902582607',
                 'id_servicio' => 151,
             ),
+            168 => 
+            array (
+                'id_oc_cliente' => 172,
+                'cod_oc_cliente' => 'TEMP-MANT-2026-01',
+                'id_servicio' => 153,
+            ),
+            169 => 
+            array (
+                'id_oc_cliente' => 173,
+                'cod_oc_cliente' => 'TEMP-HART-2026-02',
+                'id_servicio' => 153,
+            ),
+            170 => 
+            array (
+                'id_oc_cliente' => 174,
+                'cod_oc_cliente' => 'TEMP-RED-2026-03',
+                'id_servicio' => 153,
+            ),
         ));
         
         

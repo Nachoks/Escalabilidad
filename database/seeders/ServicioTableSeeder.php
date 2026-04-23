@@ -1982,6 +1982,45 @@ class ServicioTableSeeder extends Seeder
                 'facturacion' => 'No facturado',
                 'correlativo' => 69,
             ),
+            151 => 
+            array (
+                'id_servicio' => 153,
+                'nombre_servicio' => 'Reemplazo red DCS - DTM-HART - Mant. Serv',
+                'id_cliente' => 3,
+                'id_area' => 1,
+                'centro_costo' => '02-1-070',
+                'fecha_inicio' => NULL,
+                'fecha_termino' => NULL,
+                'estado_servicio' => 'Activo',
+                'facturacion' => 'No facturado',
+                'correlativo' => 70,
+            ),
+            152 => 
+            array (
+                'id_servicio' => 154,
+                'nombre_servicio' => 'Licencias',
+                'id_cliente' => 20,
+                'id_area' => 1,
+                'centro_costo' => '19-1-006',
+                'fecha_inicio' => NULL,
+                'fecha_termino' => NULL,
+                'estado_servicio' => 'Activo',
+                'facturacion' => 'No facturado',
+                'correlativo' => 6,
+            ),
+            153 => 
+            array (
+                'id_servicio' => 155,
+                'nombre_servicio' => 'Estación de operación',
+                'id_cliente' => 20,
+                'id_area' => 1,
+                'centro_costo' => '19-1-007',
+                'fecha_inicio' => NULL,
+                'fecha_termino' => NULL,
+                'estado_servicio' => 'Activo',
+                'facturacion' => 'No facturado',
+                'correlativo' => 7,
+            ),
         ));
         
         
