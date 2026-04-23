@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:html' as html;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb; // Importante para la web
@@ -8,7 +9,6 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:url_launcher/link.dart'; // <--- El arma secreta web para descargas
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/core/constants/app_constants.dart';
 import 'package:somnolence_app/features/rendiciones/data/models/rendicion_model.dart';
@@ -79,74 +79,128 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
     }
   }
 
-  // --- WIDGET PARA MOSTRAR BOTÓN DE PDF EN WEB (CON DESCARGA DIRECTA) ---
+  // --- WIDGET PARA MOSTRAR BOTÓN DE PDF EN WEB (VER + DESCARGAR) ---
   Widget _buildPdfWebFallback(String url) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.picture_as_pdf, size: 80, color: Colors.red),
-          const SizedBox(height: 16),
-          const Text(
-            "Documento PDF",
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+    final Uri? parsedUri = Uri.tryParse(url);
+    final bool isValidUrl = parsedUri != null;
+
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.picture_as_pdf, size: 80, color: Colors.red),
+            const SizedBox(height: 16),
+            const Text(
+              "Documento PDF",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            "Haz clic abajo para descargar el documento de forma segura.",
-            style: TextStyle(color: Colors.grey),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-
-          // 👇 USAMOS EL WIDGET LINK PARA EVITAR BLOQUEOS EN LA WEB 👇
-          Builder(
-            builder: (context) {
-              final String urlSegura = Uri.encodeFull(url);
-              final Uri? uri = Uri.tryParse(urlSegura);
-
-              if (uri == null) {
-                return const Text(
-                  "Enlace inválido",
-                  style: TextStyle(color: Colors.red),
-                );
-              }
-
-              return Link(
-                uri: uri,
-                target: LinkTarget
-                    .blank, // Asegura que la descarga inicie sin romper la app
-                builder: (BuildContext context, FollowLink? followLink) {
-                  return ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    onPressed: followLink,
-                    icon: const Icon(Icons.download),
-                    label: const Text(
-                      "Descargar PDF",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        ],
+            const SizedBox(height: 8),
+            const Text(
+              "Selecciona una opción para continuar:",
+              style: TextStyle(color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            // Botón para ver en línea
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: isValidUrl ? () => _abrirPdfEnLinea(url) : null,
+                icon: const Icon(Icons.open_in_browser),
+                label: const Text(
+                  "Ver en Línea",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Botón para descargar
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () => _descargarPdfWeb(url),
+                icon: const Icon(Icons.download),
+                label: const Text(
+                  "Descargar PDF",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  // --- ABRIR PDF EN LÍNEA EN NUEVA VENTANA ---
+  void _abrirPdfEnLinea(String urlPdf) {
+    try {
+      // Abre en nueva ventana/pestaña del navegador
+      html.window.open(urlPdf, 'pdf_viewer');
+    } catch (e) {
+      print("Error abriendo PDF: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error al abrir: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // --- DESCARGAR PDF EN WEB (JAVASCRIPT NATIVO) ---
+  void _descargarPdfWeb(String urlPdf) {
+    try {
+      // Crear un elemento <a> temporal con download attribute
+      final link = html.AnchorElement(href: urlPdf)
+        ..setAttribute('download', '') // Fuerza descarga en lugar de apertura
+        ..style.display = 'none';
+
+      // Agregar al documento y hacer clic
+      html.document.body?.append(link);
+      link.click();
+
+      // Remover después de un pequeño delay
+      Future.delayed(const Duration(milliseconds: 100), () {
+        try {
+          link.remove();
+        } catch (e) {
+          print("Error removiendo link: $e");
+        }
+      });
+    } catch (e) {
+      print("Error descargando PDF: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error al descargar: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   // --- VER EVIDENCIA ---

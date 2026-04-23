@@ -182,24 +182,31 @@ class RendicionPdfBuilder {
       ),
     );
 
-    // --- SECCIÓN 2: EVIDENCIA FOTOGRÁFICA ---
+    // --- SECCIÓN 2: EVIDENCIA FOTOGRÁFICA Y DOCUMENTOS ---
     for (final gasto in gastos) {
       if (gasto.fotos.isEmpty) continue;
 
       for (final archivo in gasto.fotos) {
         try {
+          final String extension = archivo.extension?.toLowerCase() ?? '';
+          final bool esImagen = [
+            'jpg',
+            'jpeg',
+            'png',
+            'gif',
+            'webp',
+          ].contains(extension);
+          final bool esPdf = extension == 'pdf';
+
           // Normalizamos ruta para evitar dobles slash
           String rutaLimpia = archivo.rutaRelativa.replaceAll('\\', '/');
           if (rutaLimpia.startsWith('/')) rutaLimpia = rutaLimpia.substring(1);
 
           final String imageUrl = '${ApiService.baseUrl}/evidencia/$rutaLimpia';
 
-          final response = await http.get(Uri.parse(imageUrl));
-
-          if (response.statusCode == 200) {
-            final Uint8List imageBytes = response.bodyBytes;
-            final imageProvider = pw.MemoryImage(imageBytes);
-
+          if (esPdf) {
+            // === PDF: Crear página con información del documento ===
+            // Los PDFs no se pueden incrustar como imagen, pero creamos una página de referencia
             pdf.addPage(
               pw.Page(
                 pageFormat: PdfPageFormat.a4,
@@ -214,11 +221,11 @@ class RendicionPdfBuilder {
                           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                           children: [
                             pw.Text(
-                              "ANEXO - EVIDENCIA",
+                              "ANEXO - DOCUMENTO ADJUNTO",
                               style: pw.TextStyle(
                                 fontSize: 14,
                                 fontWeight: pw.FontWeight.bold,
-                                color: PdfColors.grey700,
+                                color: PdfColors.red700,
                               ),
                             ),
                             pw.Text(
@@ -231,37 +238,128 @@ class RendicionPdfBuilder {
                           ],
                         ),
                       ),
-                      pw.SizedBox(height: 20),
+                      pw.SizedBox(height: 30),
 
-                      // Información del Gasto asociado a la imagen
+                      // Caja con información del documento PDF
                       pw.Container(
-                        padding: const pw.EdgeInsets.all(8),
-                        color: PdfColors.grey100,
+                        padding: const pw.EdgeInsets.all(20),
+                        decoration: pw.BoxDecoration(
+                          border: pw.Border.all(
+                            color: PdfColors.red300,
+                            width: 2,
+                          ),
+                          borderRadius: const pw.BorderRadius.all(
+                            pw.Radius.circular(8),
+                          ),
+                          color: PdfColors.red50,
+                        ),
                         child: pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Text(
-                              "Gasto: ${gasto.detalle}",
-                              style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold,
+                            // Icono de PDF (usando texto como representación)
+                            pw.Container(
+                              width: 80,
+                              height: 80,
+                              decoration: pw.BoxDecoration(
+                                color: PdfColors.red100,
+                                borderRadius: const pw.BorderRadius.all(
+                                  pw.Radius.circular(8),
+                                ),
+                              ),
+                              child: pw.Center(
+                                child: pw.Text(
+                                  "PDF",
+                                  style: pw.TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: pw.FontWeight.bold,
+                                    color: PdfColors.red700,
+                                  ),
+                                ),
                               ),
                             ),
-                            pw.Text("Monto: ${fmtMoney(gasto.monto)}"),
+                            pw.SizedBox(height: 16),
                             pw.Text(
-                              "Documento: ${gasto.tipoDocumento} ${gasto.numDocumento ?? ''}",
+                              "Documento Adjunto",
+                              style: pw.TextStyle(
+                                fontSize: 18,
+                                fontWeight: pw.FontWeight.bold,
+                                color: PdfColors.red800,
+                              ),
+                            ),
+                            pw.SizedBox(height: 8),
+                            pw.Text(
+                              archivo.nombreOriginal ?? 'Documento PDF',
+                              style: const pw.TextStyle(
+                                fontSize: 12,
+                                color: PdfColors.grey700,
+                              ),
+                            ),
+                            pw.SizedBox(height: 20),
+                            pw.Divider(color: PdfColors.red200),
+                            pw.SizedBox(height: 20),
+
+                            // Información del gasto
+                            pw.Container(
+                              width: double.infinity,
+                              padding: const pw.EdgeInsets.all(12),
+                              decoration: pw.BoxDecoration(
+                                color: PdfColors.grey100,
+                                borderRadius: const pw.BorderRadius.all(
+                                  pw.Radius.circular(4),
+                                ),
+                              ),
+                              child: pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                children: [
+                                  _buildDataRowPdf("Gasto:", gasto.detalle),
+                                  _buildDataRowPdf(
+                                    "Monto:",
+                                    fmtMoney(gasto.monto),
+                                  ),
+                                  _buildDataRowPdf(
+                                    "Tipo Documento:",
+                                    gasto.tipoDocumento ?? 'N/A',
+                                  ),
+                                  _buildDataRowPdf(
+                                    "N° Documento:",
+                                    gasto.numDocumento ?? 'Sin número',
+                                  ),
+                                  _buildDataRowPdf(
+                                    "Archivo:",
+                                    rutaLimpia.split('/').last,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            pw.SizedBox(height: 20),
+                            pw.Container(
+                              padding: const pw.EdgeInsets.all(12),
+                              decoration: pw.BoxDecoration(
+                                color: PdfColors.blue50,
+                                borderRadius: const pw.BorderRadius.all(
+                                  pw.Radius.circular(4),
+                                ),
+                              ),
+                              child: pw.Row(
+                                children: [
+                                  pw.Icon(
+                                    const pw.IconData(0xe88a), // info icon
+                                    size: 16,
+                                    color: PdfColors.blue700,
+                                  ),
+                                  pw.SizedBox(width: 8),
+                                  pw.Expanded(
+                                    child: pw.Text(
+                                      "Para ver este documento, consulte la evidencia digital en la aplicación.",
+                                      style: const pw.TextStyle(
+                                        fontSize: 10,
+                                        color: PdfColors.blue700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
-                        ),
-                      ),
-                      pw.SizedBox(height: 20),
-
-                      // Imagen
-                      pw.Expanded(
-                        child: pw.Center(
-                          child: pw.Image(
-                            imageProvider,
-                            fit: pw.BoxFit.contain,
-                          ),
                         ),
                       ),
                     ],
@@ -269,9 +367,89 @@ class RendicionPdfBuilder {
                 },
               ),
             );
+          } else if (esImagen) {
+            // === IMAGEN: Incrustar normalmente ===
+            final response = await http.get(Uri.parse(imageUrl));
+
+            if (response.statusCode == 200) {
+              final Uint8List imageBytes = response.bodyBytes;
+              final imageProvider = pw.MemoryImage(imageBytes);
+
+              pdf.addPage(
+                pw.Page(
+                  pageFormat: PdfPageFormat.a4,
+                  margin: const pw.EdgeInsets.all(40),
+                  build: (pw.Context context) {
+                    return pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                      children: [
+                        pw.Header(
+                          level: 1,
+                          child: pw.Row(
+                            mainAxisAlignment:
+                                pw.MainAxisAlignment.spaceBetween,
+                            children: [
+                              pw.Text(
+                                "ANEXO - EVIDENCIA",
+                                style: pw.TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: PdfColors.grey700,
+                                ),
+                              ),
+                              pw.Text(
+                                "ID Gasto: ${gasto.idGasto}",
+                                style: const pw.TextStyle(
+                                  fontSize: 10,
+                                  color: PdfColors.grey500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        pw.SizedBox(height: 20),
+
+                        // Información del Gasto asociado a la imagen
+                        pw.Container(
+                          padding: const pw.EdgeInsets.all(8),
+                          color: PdfColors.grey100,
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text(
+                                "Gasto: ${gasto.detalle}",
+                                style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold,
+                                ),
+                              ),
+                              pw.Text("Monto: ${fmtMoney(gasto.monto)}"),
+                              pw.Text(
+                                "Documento: ${gasto.tipoDocumento} ${gasto.numDocumento ?? ''}",
+                              ),
+                            ],
+                          ),
+                        ),
+                        pw.SizedBox(height: 20),
+
+                        // Imagen
+                        pw.Expanded(
+                          child: pw.Center(
+                            child: pw.Image(
+                              imageProvider,
+                              fit: pw.BoxFit.contain,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              );
+            }
           }
+          // Otros tipos de archivo se ignoran
         } catch (e) {
-          print("Error agregando imagen al PDF: $e");
+          print("Error agregando evidencia al PDF: $e");
         }
       }
     }
@@ -316,6 +494,31 @@ class RendicionPdfBuilder {
             style: pw.TextStyle(
               fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
               fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- Widget Auxiliar para Filas de PDF en Reporte ---
+  static pw.Widget _buildDataRowPdf(String label, String value) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 2),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.SizedBox(
+            width: 100,
+            child: pw.Text(
+              label,
+              style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700),
+            ),
+          ),
+          pw.Expanded(
+            child: pw.Text(
+              value,
+              style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
             ),
           ),
         ],
