@@ -446,8 +446,6 @@ class HojaTiempoController extends Controller
     }
 
 
-
-
     public function historialAdmin()
     {
         try {
@@ -608,6 +606,32 @@ class HojaTiempoController extends Controller
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
+
+    // Función para actualizar la OC de la hoja
+    public function updateOC(Request $request, $id)
+    {   
+        $hoja = HojaTiempoSemana::findOrFail($id);
+    
+        // Solo permitimos editar si está en borrador o rechazada (opcional)
+        $hoja->update([
+            'id_oc_cliente' => $request->id_oc_cliente
+    ]);
+
+        return response()->json(['message' => 'OC actualizada con éxito', 'hoja' => $hoja]);
+    }
+    // Función para eliminar hoja en borrador
+    public function destroy($id)
+    {
+        $hoja = HojaTiempoSemana::findOrFail($id);
+
+        if ($hoja->estado !== 'Borrador') {
+           return response()->json(['message' => 'Solo se pueden eliminar hojas en estado Borrador'], 403);
+        }
+
+        $hoja->delete(); // Esto borrará la semana y, si tienes cascada, sus días y actividades.
+        return response()->json(['message' => 'Hoja de tiempo eliminada correctamente']);
+    }
+
 }
 
 
