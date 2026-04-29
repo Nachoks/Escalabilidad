@@ -1,14 +1,14 @@
 import 'dart:typed_data';
-import 'dart:html' as html;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb; // Importante para la web
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_cached_pdfview/flutter_cached_pdfview.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:somnolence_app/core/constants/app_colors.dart';
 import 'package:somnolence_app/core/constants/app_constants.dart';
 import 'package:somnolence_app/features/rendiciones/data/models/rendicion_model.dart';
@@ -155,41 +155,41 @@ class _RendicionDetailScreenState extends State<RendicionDetailScreen> {
   }
 
   // --- ABRIR PDF EN LÍNEA EN NUEVA VENTANA ---
-  void _abrirPdfEnLinea(String urlPdf) {
+  Future<void> _abrirPdfEnLinea(String urlPdf) async {
     try {
-      // Abre en nueva ventana/pestaña del navegador
-      html.window.open(urlPdf, 'pdf_viewer');
+      final uri = Uri.parse(urlPdf);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("No se pudo abrir el PDF"),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     } catch (e) {
       print("Error abriendo PDF: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Error al abrir: $e"),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error al abrir: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
-  // --- DESCARGAR PDF EN WEB (JAVASCRIPT NATIVO) ---
-  void _descargarPdfWeb(String urlPdf) {
+  // --- DESCARGAR PDF EN WEB ---
+  Future<void> _descargarPdfWeb(String urlPdf) async {
     try {
-      // Crear un elemento <a> temporal con download attribute
-      final link = html.AnchorElement(href: urlPdf)
-        ..setAttribute('download', '') // Fuerza descarga en lugar de apertura
-        ..style.display = 'none';
-
-      // Agregar al documento y hacer clic
-      html.document.body?.append(link);
-      link.click();
-
-      // Remover después de un pequeño delay
-      Future.delayed(const Duration(milliseconds: 100), () {
-        try {
-          link.remove();
-        } catch (e) {
-          print("Error removiendo link: $e");
-        }
-      });
+      final uri = Uri.parse(urlPdf);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
     } catch (e) {
       print("Error descargando PDF: $e");
       if (mounted) {
